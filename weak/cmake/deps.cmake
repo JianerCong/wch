@@ -2,15 +2,24 @@
 # 🦜 : USE_STATIC_LIBS is important, because by default, the loader cannot load
 # dynamic library from non-default locations.
 set(Boost_USE_STATIC_LIBS ON)
-set(Boost_DIR "/home/me/.local/boost_1_82_0/stage/lib/cmake/Boost-1.82.0/")
-find_package(Boost 1.75...1.82
-  CONFIG REQUIRED COMPONENTS json unit_test_framework log program_options
-)
 
 
-# It seems a bug that we need to include this Finduring
-include(/home/me/repo/installed-rocksdb/lib/x86_64-linux-gnu/cmake/rocksdb/modules/Finduring.cmake)
-set(RocksDB_DIR "/home/me/repo/installed-rocksdb/lib/x86_64-linux-gnu/cmake/rocksdb")
+# try to find Boost on system
+find_package(Boost 1.75...1.82 COMPONENTS json unit_test_framework log program_options)
+
+if (Boost_FOUND)
+  message("🐸 在本地找到了Boost")
+else()
+  set(Boost_DIR "${PROJECT_SOURCE_DIR}/../.pre/boost_1_82_0/stage/lib/cmake/Boost-1.82.0/")
+  find_package(Boost 1.75...1.82
+    CONFIG REQUIRED COMPONENTS json unit_test_framework log program_options
+  )
+endif()
+
+
+set(RocksDB_DIR "${PROJECT_SOURCE_DIR}/../.pre/installed-rocksdb/lib/x86_64-linux-gnu/cmake/rocksdb")
+# 🦜 : It seems a bug that we need to include this Finduring manually
+include(${RocksDB_DIR}/modules/Finduring.cmake)
 find_package(RocksDB CONFIG REQUIRED)
 
 
