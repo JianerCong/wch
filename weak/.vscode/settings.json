@@ -1,0 +1,9 @@
+{
+    "files.associations": {
+        "optional": "cpp",
+        "chrono": "cpp",
+        "bit": "cpp",
+        "tuple": "cpp"
+    },
+    "cmake.configureOnOpen": false
+}

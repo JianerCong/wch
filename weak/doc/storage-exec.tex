@@ -1,0 +1,785 @@
+
+
+\section{摘要}
+
+这篇文档介绍存储和执行模块。我们将从抽象到形象，底层到上层，依次介绍接口和类。
+
+\section{区块链世界存储}
+\label{sec:general-world-storage}
+广义上来讲，区块链的存储就是两个部分：
+\begin{enumerate}
+\item 一个 \cola{账本} 和
+\item 一个 \colb{状态}
+\end{enumerate}
+\cola{账本}里面（最主要地）记录了\textbf{已经执行了
+  的\colc{交易}}，而\colb{状态}里面记录了\textbf{当前状态}，这些状态因\colc{交易}的
+执行而改变,如\cref{fig:worldStorage} 。
+
+
+\begin{figure}[h]
+  \begin{center}
+    \begin{tikzpicture}
+      % \draw[style=help lines] (0cm,0cm) grid +(15cm,-10cm);
+      \node (WorldStorage) [text width=6cm] at (2cm,-2cm)
+      {\begin{ifaceBox}[]
+          % \big
+          \large
+          \textbf{区块链数据World Storage}
+        \end{ifaceBox}};
+      
+      \matrix (M-WorldStorage) [myMatrix,
+      shift={(2,-2)},
+      text width=12cm]
+      at (WorldStorage.center){
+        \raisebox{-.3\height}{\includesvg[width=0.5cm]{img/database.svg}}
+        % ------- the height of the to-be raised box
+        \cola{账本}: 重点包括一个个已经执行了的区块 （“整个链”），以及其他信息。因
+        此有些时候我们也说 “\cola{链} + \colb{状态}” 而不是 “\cola{账本} + \colb{状态}”
+        \\
+        \raisebox{-.3\height}{\includesvg[width=0.5cm]{img/database.svg}} \colb{状
+         态}： 当前\colb{世界状态 World State}，每次区块数增加时被改变。
+        \\
+      }; \foreach \i in {1,2}{ \Southtowest{WorldStorage}{M-WorldStorage-\i-1} }
+    \end{tikzpicture}
+  \end{center}
+  \caption{广义的区块链世界数据}
+  \label{fig:worldStorage}
+\end{figure}
+
+而这个\colb{世界状态}其实就是一个KV表,见\cref{fig:worldState}其中
+\begin{itemize}
+\item Key 为 \colc{地址 Address}， 20-bytes 字符串
+\item Value 为 \cola{账户 Account}，象征着每一个每一个部署的合约或用户。
+\end{itemize}
+\begin{figure}[h]
+  \begin{center}
+    \begin{ifaceBox}[width=\linewidth/2,title=\texttt{WorldState}]
+      \begin{center}
+        \begin{tikzpicture}
+          \matrix (M1) [matrix of nodes,column sep=2cm, row sep=0.3cm, nodes={ellipse,
+            text height=1.3em,
+            text depth=1.1em,
+            text centered
+          }]{
+            |[draw,text=\mycolc]| \texttt{address-1} & |[draw,text=\mycola]| \texttt{account-1} \\
+            |[draw,text=\mycolc]| \texttt{address-2} & |[draw,text=\mycola]| \texttt{account-2} \\
+            |[draw,text=\mycolc]| \texttt{address-3} & |[draw,text=\mycola]| \texttt{account-3} \\
+            \texttt{...} & \texttt{...} \\
+          };
+          \foreach \i in {1,2,3}{
+            \easttowest{[xshift=.5cm]M1-\i-1}{[xshift=-.5cm]M1-\i-2}
+          }
+        \end{tikzpicture}
+      \end{center}
+    \end{ifaceBox}
+  \end{center}
+  \caption{世界状态World State内部是address到account的KV表}
+  \label{fig:worldState}
+\end{figure}
+
+\section{底层数据结构}
+
+\subsection{账户 Account}
+
+而这里我们就要介绍非常重要的\cola{账户Account}数据结构。
+\begin{tcolorbox}
+  \emoji{parrot} : 要按重要性把区块链世界里的数据结构来排名的
+  话，我觉得\cola{账户Account}起码能排前三。
+\end{tcolorbox}
+Account，除了一些其他辅助类信息（如\texttt{nonce},\texttt{hash},...）,重点包含以
+下两个数据：
+\begin{itemize}
+\item \texttt{storage} 存储: 一个\texttt{bytes32} 到 \texttt{bytes32}的 KV 表。合
+  约会往这里读写数据。
+\item \texttt{code} 代码: 该账户上的字节码，应该是一个可以被塞进虚拟机里执行的。
+\end{itemize}
+账户分为两种：
+\begin{enumerate}
+\item \cola{合约账户} : 代表着一个被部署了的合约,其中\texttt{code}为调用该合约的
+  字节码。该字解码要配合一个ABI字符串来使用（以后说）。
+\item  \colb{非合约账户}： 一般代表一个用户，没有必要有\texttt{code}。
+\end{enumerate}
+
+\begin{tcolorbox}
+  \emoji{parrot} : 其实传统的Account里都还会有一个\texttt{value}代表着账户余额，
+  但我们不需要,也就不提了。
+\end{tcolorbox}
+
+那么我们来看代码, 见\cref{code:acn}\footnote{上面
+  的\texttt{IJsonizable}和\texttt{ISerializable}是两个描述行为（behavior）的虚接
+  口。对于了解我们的数据结构而言并不重要，暂时可以先不理解我们以后再说(见\cref{sec:iface})。不过如果
+  好奇的话，大概意思就是说：“这个类可以变成JSON”，“这个类可以被序列化/反序列化”。}
+
+\begin{numberedc}{账户}{\label{code:acn}}
+class Acn: virtual public IJsonizable
+         , virtual public ISerializable{
+public:
+  Acn() = default;
+  Acn(const uint64_t n,bytes c): nonce(n), code(c){
+    // get hash from code
+    codehash = ethash::keccak256(reinterpret_cast<const uint8_t*>(c.data()),
+                                 c.size());
+  };
+  uint64_t nonce = 0; /// The account nonce.
+  bytes code;
+  hash256 codehash;
+  unordered_map<bytes32,bytes32> storage;
+  //... 略
+}
+\end{numberedc}
+
+\begin{tcolorbox}
+  \emoji{turtle} : 以上所有的类都来自于\texttt{evmc}和\texttt{ethash}:
+  \begin{simplec}
+    using evmc::bytes;
+    using evmc::bytes_view;
+    using evmc::address;
+    using evmc::bytes32;
+    using ethash::hash256;
+  \end{simplec}
+  使用模块现有的类是为了最小化代码量（也最小化bug可能性）。
+\end{tcolorbox}
+可以看到我们现在最简化的Account里只有4个成员:
+\texttt{nonce,code,codehash,storage}。只需要这些成员就可以和EVMC进行交互了。
+
+如果把每一个Account想象成一个小U盘的话，里面的\cola{\texttt{code}}就是里面
+的\cola{程序}，而里面的\colc{\texttt{storage}}就是里面的\colc{文件}。而\colb{虚拟
+  机}，则像是一台（没有存储的）\colb{电脑}。而调用某个合约其实就像是在虚拟机接上
+这个小U盘,然后跑一跑里面的程序。具体怎么跑则由用户来决定（这个被写在ABI里)见\cref{fig:vm-abi-acn-relationship}。
+
+\begin{figure}[h]
+  \begin{center}
+    \begin{tikzpicture}
+      % \draw[style=help lines] (-5cm,5cm) grid +(15cm,-10cm);
+      \newdimen\myX
+      \myX=4cm
+      
+      \path node[name=VM] {
+        \raisebox{-.3\height}{\includesvg[width=2cm]{img/drive.svg}} 虚拟机VM
+      } -- +(-\myX,-\myX)
+      node[name=ABI]{
+        \raisebox{-.3\height}{\includesvg[width=2cm]{img/keyboard.svg}} ABI
+      } -- +(\myX,-\myX) node[name=Acn]{
+        \raisebox{-.3\height}{\includesvg[width=1cm]{img/usb.svg}} 合约账户Account
+      };
+
+      \draw[-latex,thick] (ABI.east) ..controls + (4cm,0) ..
+      node[pos=0.1,sloped,above] {指定}
+      node[pos=0.2,sloped,above] {合约}
+      node[pos=0.35,sloped,above] {调用}
+      (VM);
+
+      \draw[-latex,thick] ([xshift=0.5cm]VM.east) --
+      node[pos=0.5,sloped,above] {改变内部存储}
+      (Acn.north);
+    \end{tikzpicture}
+  \end{center}
+  \par% or empty line, needed to get caption below the image, not to the rigth
+  \adjustbox{minipage=12cm,center}{
+    \caption{虚拟机，用户ABI以及合约账户之间关系的一个比喻：虚拟机不储存状态就像一
+      个CPU一样，状态和内存都存在账户里，而用户提供的ABI会调用账户里的\cola{程序}来
+      改变帐户里的\colc{文件}。}
+  }
+  \label{fig:vm-abi-acn-relationship}
+\end{figure}
+
+\subsection{交易 Transaction}
+\label{sec:tx}
+接下来我们介绍同样重要的 \cola{交易} 数据结构。外部世界通过交易来对区块链世界的状态进行改变,如\cref{fig:tx-world}。
+
+\begin{figure}[h]
+  \centering
+  \begin{tikzpicture}
+    % \draw[style=help lines] (-2cm,5cm) grid +(15cm,-10cm);
+    \node[name=globe]{
+      \raisebox{-.3\height}{\includesvg[width=2cm]{img/globe2.svg}}
+    };
+    \node at ([yshift=2cm]globe){外部世界};
+
+    \matrix (M1) [matrix of nodes,column sep=2cm,row sep=2cm] at (10cm,0cm){
+      \raisebox{-.3\height}{\includesvg[width=1cm]{img/hdd-stack-fill.svg}}
+      &\raisebox{-.3\height}{\includesvg[width=1cm]{img/hdd-stack-fill.svg}}
+      \\
+        \raisebox{-.3\height}{\includesvg[width=1cm]{img/hdd-stack-fill.svg}}
+      &\raisebox{-.3\height}{\includesvg[width=1cm]{img/hdd-stack-fill.svg}}
+      \\
+    };
+
+    \node at ([yshift=3cm]M1){区块链集群};
+
+    \tikzstyle{myArrow} = [thick,latex-latex,shorten >=10pt, shorten <=10pt,draw=\mycola]
+    %                                        --- shortens the start of line
+    \draw[myArrow] (M1-1-1) -- (M1-1-2);
+    \draw[myArrow] (M1-1-1) -- (M1-2-1);
+    \draw[myArrow] (M1-2-1) -- (M1-2-2);
+    \draw[myArrow] (M1-1-2) -- (M1-2-2);
+
+    % The Tx ->
+    \draw[-latex,thick,shorten >=10pt, shorten <=10pt,color=gray] (globe) -- (M1) node[midway,above,yshift=2pt]{
+      发起\cola{交易}改变区块链\colb{状态}。
+    }
+    node[midway,above,yshift=0.7cm]{
+      \raisebox{-.3\height}{\includesvg[width=0.9cm]{img/envelope.svg}}
+    }
+    ;
+    
+  \end{tikzpicture}
+  \caption{外部世界通过交易对区块链世界状态进行改变}
+  \label{fig:tx-world}
+\end{figure}
+
+每条交易包括：
+\begin{itemize}
+\item 发起方： \texttt{from}
+\item 接收方： \texttt{to}
+\item 交易数据： \texttt{data}
+\item 交易序列号（UUID） :\texttt{nonce}
+\item 交易进入区块链集群的时间戳： \texttt{timestamp}
+\item 交易哈希: \texttt{hash}
+\end{itemize}
+
+具体实现见\cref{code:tx}。
+
+\begin{numberedc}{交易}{\label{code:tx}}
+ class Tx: virtual public IJsonizable
+        , virtual public ISerializable{
+public:
+  Tx() = default; // Upon you make a constructor yourself, the build-in
+  // constructor is gone,use this to bring it back
+
+  Tx(const address f,const address t,const bytes d,const uint64_t n):
+    from(f),to(t),data(d),nonce(n){
+    timestamp = std::time(nullptr);
+    // convert nonce to array
+    // ...计算交易hash
+  };
+
+  address from;
+  /// if to is empty, create contract, else call
+  address  to;
+  /// if CREATE: contract bin code, else abi input
+  bytes data;
+  /// unique_id
+  uint64_t nonce;
+  /// ms since Epoch
+  std::time_t timestamp;
+  // usually = std::time(nullptr);
+  /// Tx hash
+  hash256 hash;
+  // 其他方法略...
+}
+\end{numberedc}
+
+\section{上层数据结构}
+\label{sec:upper-data-sec}
+
+这个章节我们介绍上层数据结构，这些结构（类）会操作并处理下层的数据结构如\cola{账
+  户Account}以及\colb{交易Transaction}.
+
+\subsection{交易执行器接口 \texttt{ITxExecutable}}
+\label{sec:ITxExecutable}
+
+如果执行模块只暴露一个接口，那么将会是什么呢？ 没错，那必然就是\cola{执行交
+  易\texttt{executeTx()}}。那么既然是执行交易，就一定会访问下面的\cola{世界存
+  储}。更准确的说是一个\Cola{只可以读的状态存储（readonly state storage）}。那么再结合之前
+\cref{sec:general-world-storage}里提到过的:
+\begin{center}
+  \cola{世界状态是\textbf{地址address}到\textbf{账户account}的KV表}
+\end{center}
+我们可以得出世界状态的接口,见\cref{code:IAcnGettable}
+\begin{numberedc}{只读的世界状态接口\texttt{IAcnGettable} (这个接口是专门给交易执行的)}{\label{code:IAcnGettable}}
+  class IAcnGettable{
+  public:
+    virtual optional<Acn> getAcn(evmc::address addr) const noexcept=0;
+  };\end{numberedc}
+举个例子，这个接口可以这么使用：
+\begin{simplec}
+Tx t = ...;                     // 交易
+IAcnGettable* w = ...;          // 执行器
+evmc::address a = evmc::address(static_cast<uint64_t>(123));
+optional<Acn> r = w->getAcn(a);          // 获取address为123的Account
+if (r):                                  // 读到了
+  Acn acn = r.value();                   // 获得Account
+\end{simplec}
+那么这样一来我们就可以定义\cola{可执行交易}的接口了，见\cref{code:ITxExecutable}。：
+\begin{numberedc}{可执行交易的接口\texttt{ITxExecutable}}{\label{code:ITxExecutable}}
+class ITxExecutable {
+public:
+  /**
+   * @brief Probably the most important function that the execution module expose.
+   *
+   * If the execution is successful, a series of state-changes (called
+   * "journal") and the execution-result is returned.
+   *
+   * @param w The read-only stateDb (world state).
+   * @param t The transaction to be executed.
+   * @return the pair (journal,result). {} if the execution fails.
+   */
+  virtual optional<tuple<vector<StateChange>,bytes>> executeTx(IAcnGettable * const w,
+                                                               const Tx & t) const noexcept = 0;
+};
+\end{numberedc}
+正如\cref{code:ITxExecutable}里的注释所说，如果交易执行成功的话将会返回一个对儿：
+\begin{center}
+  \cola{<日志 Journal>} , \colb{<交易执行结果 Result>}
+\end{center}
+类型为
+\begin{center}
+  \cola{\texttt{vector<StateChange>}} , \colb{\texttt{bytes}}
+\end{center}
+其中，\texttt{StateChange} 代表一个对KV表改变的操作，见\cref{code:StateChange}：
+\begin{numberedc}{状态改变\texttt{StateChange}}{\label{code:StateChange}}
+  /**
+   * @brief A state change, should be generated by executor.
+   */
+  struct StateChange{bool del=false; string k; string v;};
+\end{numberedc}
+一组\cola{状态改变}会组成一个\cola{日志Journal},代表着一条交易执行后对\cola{世界状态}的改变。
+比如说如果你手里有一个\texttt{ITxExecutable}则可以这么用:
+
+\begin{simplec}
+IAcnGettable * w = ...;         // 世界状态
+Tx t = ...;                     // 交易
+ITxExecutable * e = ...;        // 执行器
+
+auto r = e->executeTx(w,t);
+if (r){
+  auto [journal , result] = r.value(); // 获取结果
+}
+\end{simplec}
+
+因此这两个接口的关系是这样的(\cref{fig:exe-storage-relationship})：
+\begin{figure}[h]
+  \centering
+  \begin{tikzpicture}
+    % \draw[style=help lines] (-2cm,5cm) grid +(15cm,-10cm);
+    \node (ITxExecutable) [text width=8cm] at (8cm,3cm)
+    {\begin{ifaceBox}[title=\texttt{ITxExecutable}]
+        \begin{simplec}
+  optional<tuple<vector<StateChange>,bytes>>
+             executeTx(IAcnGettable *w,Tx t);
+        \end{simplec}
+        \end{ifaceBox}};
+
+      \node (IAcnGettable) [text width=7cm] 
+      {\begin{ifaceBox}[title=\texttt{IAcnGettable}]
+          \begin{simplec}
+          optional<Acn> getAcn(evmc::address addr)
+\end{simplec}
+          \end{ifaceBox}};
+        \Southtoeast{[xshift=-3cm]ITxExecutable}{IAcnGettable}
+  \end{tikzpicture}
+  \caption{执行模块接口和存储模块接口的依赖关系}
+  \label{fig:exe-storage-relationship}
+\end{figure}
+\FloatBarrier                   % \usepackage{placeins}
+\subsection{EVM交易执行器 \texttt{EvmExecutor}, 一个\texttt{ITxExecutable}的实现}
+\label{sec:EvmExecutor}
+\texttt{EvmExecutor} 是一个 \texttt{ITxExecutable} 的实现，用来执行EVM交易。这个
+类里面包了一个EVM，不存储任何状态（stateless），因此一般这么使用：
+
+\begin{simplec}
+IAcnGettable *w = ...;
+unique_ptr<ITxExecutable> e{new EvmExecutor()};
+Tx t = ...;                     // 交易
+auto o = e->executeTx(w,t);     // 执行EVM交易
+if (o)
+  auto [journal,res] = o.value(); // 获取值
+\end{simplec}
+因此我们就有了如下关系(\cref{fig:exe-storage-relationship2})
+\begin{figure}[h]
+  \centering
+  \begin{tikzpicture}
+    % \draw[style=help lines] (-2cm,5cm) grid +(15cm,-10cm);
+    \node (ITxExecutable) [text width=8cm] at (8cm,3cm)
+    {\begin{ifaceBox}[title=\texttt{ITxExecutable}]
+        \begin{simplec}
+  optional<tuple<vector<StateChange>,bytes>>
+             executeTx(IAcnGettable *w,Tx t);
+        \end{simplec}
+      \end{ifaceBox}};
+    \node (IAcnGettable) [text width=7cm] 
+    {\begin{ifaceBox}[title=\texttt{IAcnGettable}]
+        \begin{simplec}
+          optional<Acn> getAcn(evmc::address addr)
+\end{simplec}
+\end{ifaceBox}};
+
+\node (EvmExecutor) [text width=8cm] at (8cm,-3cm)
+{\begin{varBox}[title=\texttt{EvmExecutor}]
+     一个EVM交易执行器的实现
+    \end{varBox}};
+
+\Southtoeast{[xshift=-3cm]ITxExecutable}{IAcnGettable}
+\draw[very thick, -latex] (EvmExecutor) -- (ITxExecutable);
+\end{tikzpicture}
+\caption{执行模块接口和存储模块接口,EVM执行器的依赖关系}
+\label{fig:exe-storage-relationship2}
+\end{figure}
+
+
+\subsection{可读写世界状态存储的接口 \texttt{IWorldChainStateSettable}}
+\label{sec:IWorldChainStateSettable}
+
+在每笔\cola{交易}被执行过后，我们可以获得改变世界状态
+的\cola{日志Journal}和\colb{结果Result},这些终究需要被写进\colc{世界存储World
+  Storage}之中。而这就需要存储暴露一个\textbf{可以读写}的接口。
+
+回忆我们在\cref{sec:general-world-storage}里面就有说过，区块链数据是\cola{账本}
++ \colb{状态}，而背后对应的则是两个DB：
+\begin{enumerate}
+\item \cola{\texttt{chainDB}} :  对应 \cola{账本}，这个DB只能添加，不能删除。
+\item \colb{\texttt{stateDB}} :  对应 \colb{状态}，这个可以被日志journal所改变。
+\end{enumerate}
+
+因此我们要求的接口自然就变成了：
+
+\begin{enumerate}
+\item \texttt{get/set} \texttt{chainDB}: 往\cola{\texttt{chainDB}}里“存”和“读”的
+  基本的KV操作。
+\item \texttt{applyJournal}: 往\colb{\texttt{stateDB}}里用一系列日志Journal。（把
+  日志里对应的KV该删的删，该加的加）。
+\end{enumerate}
+
+于是这里我们可以来介绍我们的\cola{可读写世界状态存储的接
+  口 \texttt{IWorldChainStateSettable}} 了。(\cref{code:IWorldChainStateSettable})
+
+\begin{numberedc}{可读写世界状态存储的接口\texttt{IWorldChainStateSettable}}
+{\label{code:IWorldChainStateSettable}}
+  class IWorldChainStateSettable {
+  public:
+    virtual bool setInChainDB(const string k, const string v) =0; // 往chainDB里存
+    virtual optional<string> getFromChainDB(const string k) const =0;// 从chainDB里读
+    virtual bool applyJournalStateDB(const vector<StateChange> & j)=0;// 对stateDB apply日志
+  };
+\end{numberedc}
+
+比如说，如果想要对\texttt{stateDB}进行改变的话一般是这样的：
+\begin{simplec}
+IWorldChainStateSettable * p = ...;
+
+vector<StateChange> j = {
+  {false, "k1", "v1"},          // 添加(k1,v1)
+  {false, "k2", "v2"},          // 添加(k2,v2)
+  {true, "k3", ""},             // 删(k3)
+};
+
+p->applyJournalStateDB(j);      // apply
+\end{simplec}
+
+而我们也看到了，\texttt{chainDB}就是个\texttt{string-string}的KV，因此可以想存什么就存什么，比如：
+\begin{simplec}
+IWorldChainStateSettable* p = ...;
+
+bool ok = p->setInChainDB("/blockNumber","123"); // 存入
+auto r = p->getFromChainDB("/blockNumber");
+if(r)                           // 读到了
+  string v = r.value(); // 读出
+\end{simplec}
+
+\subsection{世界存储 \texttt{WorldStorage} 实例}
+\label{sec:world-storage}
+
+终于，我们这里介绍真正的世界存储：\texttt{WorldStorage},一个:
+\begin{itemize}
+\item 符合以前要求 的\texttt{IAcnGettable}（\cref{sec:ITxExecutable}）以及
+\item \texttt{IWorldChainStateSettable} (\cref{sec:IWorldChainStateSettable}) 接口要求
+\end{itemize}
+的实例: 一个真正的（暂时）\cola{区块链存储World Storage}: \texttt{WorldStorage}
+（\cref{code:WorldStorage}）
+
+\begin{numberedc}{世界存储}{\label{code:WorldStorage}}
+class WorldStorage: public virtual IWorldChainStateSettable,
+                      public virtual IAcnGettable
+  {
+  public:
+    rocksdb::DB* chainDB;
+    rocksdb::DB* stateDB;
+  // ...
+}
+\end{numberedc}
+
+可以看到这个类底下的实现是两个RocksDB, 而构建函数是会接受一个文件夹路经，之后在这
+个路径里会生成两个文件夹\texttt{chainDB}还有\texttt{stateDB}，并分别储存这两
+个RocksDB的数据。
+\begin{simplec}
+  WorldStorage w{};               // 在当前目录存储
+
+  // #include<filesystem>
+  namespace filesystem =  std::filesystem;
+  WorldStorage w{filesystem::temp_directory_path()}; // 在tmp目录存储
+
+  IAcnGettable* p1 = dynamic_cast<IAcnGettable*>(&w); // 给执行接口用
+  IWorldChainStateSettable* p2 = dynamic_cast<IWorldChainStateSettable*>(&w); // 可读写接口
+\end{simplec}
+因此最后我们执行存储模块的关系图就变成了如\cref{fig:exe-storage-relationship3}：
+
+\begin{landscape}
+ \begin{figure}[h]
+  \centering
+  \begin{tikzpicture}
+    % \draw[style=help lines] (-2cm,5cm) grid +(15cm,-10cm);
+    \node (ITxExecutable) [text width=8cm] at (8cm,3cm)
+    {\begin{ifaceBox}[title=\texttt{ITxExecutable}]
+        \begin{simplec}
+          optional<tuple<vector<StateChange>,bytes>>
+          executeTx(IAcnGettable *w,Tx t);
+        \end{simplec}
+      \end{ifaceBox}};
+    \node (IAcnGettable) [text width=7cm] 
+    {\begin{ifaceBox}[title=\texttt{IAcnGettable}]
+        \begin{simplec}
+          optional<Acn> getAcn(evmc::address addr)
+        \end{simplec}
+      \end{ifaceBox}};
+
+    
+    \node (IWorldChainStateSettable) [text width=8.5cm]  at (-3cm,8cm)
+    {\begin{ifaceBox}[title=\texttt{IWorldChainStateSettable}]
+        \begin{simplec}
+          bool setInChainDB(string k,string v)
+          optional<string> getFromChainDB(string k)
+          bool applyJournalStateDB(vector<StateChange> j)
+        \end{simplec}
+      \end{ifaceBox}};
+
+    \node (EvmExecutor) [text width=8cm] at (8cm,-3cm)
+    {\begin{varBox}[title=\texttt{EvmExecutor}]
+        一个EVM交易执行器的实现
+      \end{varBox}};
+
+    \node (WorldStorage) [text width=8cm] at (-8cm,4cm)
+    {\begin{varBox}[title=\texttt{WorldStorage}]
+        基于RocksDB的存储
+      \end{varBox}};
+
+    \Southtoeast{[xshift=-3cm]ITxExecutable}{IAcnGettable}
+    % \easttosouth[o-]{IAcnGettable}{[xshift=-3cm]ITxExecutable}
+
+    \Southtowest[-latex]{[xshift=3cm]WorldStorage}{IAcnGettable}
+    \Northtowest[-latex]{WorldStorage}{IWorldChainStateSettable}
+    \draw[very thick, -latex] (EvmExecutor) -- (ITxExecutable);
+  \end{tikzpicture}
+  \caption{执行模块和存储模块对内和对外的接口。上层模块一般调
+    用\texttt{IWorldChainStateSettable}以及\texttt{ITxExecutable}}
+  \label{fig:exe-storage-relationship3}
+\end{figure}
+\end{landscape}
+
+
+\section{区块层数据结构}
+\label{sec:Block-Exec}
+
+\cref{sec:upper-data-sec}里描述并最后提供的接口是一个很独立，且设计就是要可以被很
+容易地接入其他系统里的。这里我们就介绍一个基于上面所说的一个区块执行系统。
+
+\subsection{区块 Block}
+\label{sec:Blk}
+
+
+所谓区块链肯定是要有\cola{区块Block}，每个区块包含如下信息:
+\begin{itemize}
+\item 区块号 \texttt{number}
+\item 区块哈希 \texttt{hash}
+\item 上一个区块的哈希 \texttt{parentHash}
+\item 区块里包含的交易 Transactions \texttt{txs}
+\end{itemize}
+因此我们有如下定义(\cref{code:Blk})：
+\begin{numberedc}{区块Block 数据结构}{\label{code:Blk}}
+class Blk: virtual public IJsonizable
+         , virtual public ISerializable {
+public:
+  Blk() = default;
+  Blk(const uint64_t n,const hash256 p,vector<Tx> t):
+    number(n),
+    txs(t),
+    parentHash(p){/*构建区块，计算哈希*/};
+  uint64_t number;
+  hash256 hash;
+  hash256 parentHash; /// empty for genesis block
+  vector<Tx> txs;
+  /*其他方法略了*/
+}
+\end{numberedc}
+
+\subsection{已执行区块 Executed Block}
+\label{sec:ExecBlk}
+
+每个区块在被执行过后会新获得这些信息：
+\begin{itemize}
+\item 每条区块内交易所导致的\colb{状态改变State Changes}。
+\item 每条区块内交易所对应的\cola{交易回执Transaction Receipts}。
+\end{itemize}
+
+这些都和\cref{sec:ITxExecutable}里所描述的执行结果对应。
+具体的数据定义为：
+\begin{numberedc}{已执行区块  Executed Block}{\label{code:ExecBlk}}
+class ExecBlk: virtual public IJsonizable
+             , virtual public ISerializable
+             , public Blk{
+public:
+  vector<vector<StateChange>> stateChanges;
+  vector<TxReceipt> txReceipts;
+  ExecBlk() = default;
+  ExecBlk(Blk b,
+          vector<vector<StateChange>> j,
+          vector<TxReceipt> r): Blk(b)
+                              ,stateChanges(j)
+                              ,txReceipts(r){
+    // ...
+  }
+};
+\end{numberedc}
+
+所以区块和已执行的区块大概关系见\cref{fig:execBlk}。
+\begin{figure}[h]
+  \centering
+  \begin{tikzpicture}
+    % \draw[style=help lines] (-2cm,5cm) grid +(15cm,-10cm);
+
+    \tikzstyle{sField} = [fill=\mycola!70,draw,ellipse,text=white]
+    \tikzstyle{sTx} = [draw,rectangle,text width=2cm,text centered,rounded corners]
+
+    \begin{scope}
+      \matrix [minimum size=2em,row sep=0.5cm,column sep=1cm,fill=\mycola!20,
+      inner sep=1cm,name=execBlk,rounded corners]{
+        \node[sTx,name=t1] {交易1}; & \node[sField,name=r1] {结果1};\\
+        & \node[sField,name=j1] {日志1};\\
+        \node[sTx,name=t2] {交易2}; & \node[sField,name=r2] {结果2};\\
+        & \node[sField,name=j2] {日志2};\\
+        \node[sTx,name=t3] {交易3}; & \node[sField,name=r3] {结果3};\\
+        & \node[sField,name=j3] {日志3};\\
+      };
+
+      \foreach \i in {1,2,3}{
+        \easttowest[-o,thick,gray]{t\i}{j\i}
+        \easttowest[-o,thick,gray]{t\i}{r\i}
+      }
+      \node[above right,yshift=2pt] at (execBlk.north west) {\textbf{已执行区块} \texttt{ExecBlk}};
+      \node[above right,yshift=2pt] at (execBlk.south west) {\texttt{<number>,<hash>,<parentHash>}};
+    \end{scope}
+
+    \begin{scope}[xshift=8cm]
+      \matrix [minimum size=2em,row sep=1cm,column sep=1.5cm,fill=\mycola!15,
+      inner sep=1cm,name=Blk,rounded corners]{
+        \node[sTx,name=t1] {交易1}; & \\ 
+        \node[sTx,name=t2] {交易2}; & \\
+        \node[sTx,name=t3] {交易3}; & \\
+      };
+
+      \node[above right,yshift=2pt] at (Blk.north west) {\textbf{区块} \texttt{Blk}};
+      \node[above right,yshift=2pt] at (Blk.south west) {\texttt{<number>,<hash>,<parentHash>}};
+    \end{scope}
+    
+  \end{tikzpicture}
+  \caption{区块和已执行区块}
+\label{fig:execBlk}
+\end{figure}
+
+\section{区块执行接口}
+\label{sec:IBlkExecutable}
+
+就像和交易执行接口一样（\cref{sec:ITxExecutable}）这里我们同样有区块执行接口
+\begin{numberedc}{IBlkExecutable}{\label{code:IBlkExecutable}}
+  class IBlkExecutable {
+  public:
+    virtual ExecBlk executeBlk(const Blk & b) const noexcept = 0;
+    virtual bool commitBlk(const ExecBlk & b) noexcept = 0;
+  };
+\end{numberedc}
+其中\texttt{executeBlk()}会执行一个区块，第二个（语义上）会把执行过的区块写入存储。
+而真正符合这个接口的实例则是\texttt{BlkExecutor}(\cref{code:BlkExecutor})：
+
+\begin{numberedc}{BlkExecutor}{\label{code:BlkExecutor}}
+class BlkExecutor: public virtual IBlkExecutable{
+public:
+  IWorldChainStateSettable* const world;
+  ITxExecutable* const txExecutor;
+  IAcnGettable* const readOnlyWorld;
+  BlkExecutor(IWorldChainStateSettable* const w,
+              ITxExecutable* const e,
+              IAcnGettable* const r
+              ): world(w),
+                 txExecutor(e),
+                 readOnlyWorld(r){
+    // ...
+  };
+  // 具体实现...
+}
+\end{numberedc}
+
+可以看到这个\texttt{BlkExecutor}会接受之前在\cref{sec:upper-data-sec}之中定义的三个接口。(见\ref{fig:exe-storage-relationship4})
+
+\begin{landscape}
+ \begin{figure}[h]
+  \centering
+  \begin{tikzpicture}
+    % \draw[style=help lines] (-2cm,5cm) grid +(15cm,-10cm);
+    \node (ITxExecutable) [text width=8cm] at (8cm,3cm)
+    {\begin{ifaceBox}[title=\texttt{ITxExecutable}]
+        \begin{simplec}
+          optional<tuple<vector<StateChange>,bytes>>
+          executeTx(IAcnGettable *w,Tx t);
+        \end{simplec}
+      \end{ifaceBox}};
+    \node (IAcnGettable) [text width=7cm] 
+    {\begin{ifaceBox}[title=\texttt{IAcnGettable}]
+        \begin{simplec}
+          optional<Acn> getAcn(evmc::address addr)
+        \end{simplec}
+      \end{ifaceBox}};
+
+    
+    \node (IWorldChainStateSettable) [text width=8.5cm]  at (-3cm,8cm)
+    {\begin{ifaceBox}[title=\texttt{IWorldChainStateSettable}]
+        \begin{simplec}
+          bool setInChainDB(string k,string v)
+          optional<string> getFromChainDB(string k)
+          bool applyJournalStateDB(vector<StateChange> j)
+        \end{simplec}
+      \end{ifaceBox}};
+
+    \node (EvmExecutor) [text width=8cm] at (8cm,-3cm)
+    {\begin{varBox}[title=\texttt{EvmExecutor}]
+        一个EVM交易执行器的实现
+      \end{varBox}};
+
+    \node (WorldStorage) [text width=8cm] at (-8cm,4cm)
+    {\begin{varBox}[title=\texttt{WorldStorage}]
+        基于RocksDB的存储
+      \end{varBox}};
+
+    \node (BlkExecutor) [text width=8cm] at (8cm,6cm)
+    {\begin{varBox}[title=\texttt{BlkExecutor}]
+        区块执行器
+      \end{varBox}};
+
+    \node (IBlkExecutable) [text width=8.5cm]  at (8cm,9cm)
+    {\begin{ifaceBox}[title=\texttt{IBlkExecutable}]
+        \begin{simplec}
+    ExecBlk executeBlk(Blk & b)
+    bool commitBlk(ExecBlk & b)\end{simplec}
+      \end{ifaceBox}};
+
+    \easttowest[o-]{IWorldChainStateSettable}{BlkExecutor}
+    \southtonorth[latex-]{IBlkExecutable}{BlkExecutor}
+    \westTonorth[-o]{BlkExecutor}{IAcnGettable}
+    % \Northtowest[o-]{IAcnGettable}{BlkExecutor}
+    \westTowest[-o]{BlkExecutor}{ITxExecutable}
+
+    \Southtoeast{[xshift=-3cm]ITxExecutable}{IAcnGettable}
+    % \easttosouth[o-]{IAcnGettable}{[xshift=-3cm]ITxExecutable}
+    \Southtowest[-latex]{[xshift=3cm]WorldStorage}{IAcnGettable}
+
+    \Northtowest[-latex]{WorldStorage}{IWorldChainStateSettable}
+    \draw[very thick, -latex] (EvmExecutor) -- (ITxExecutable);
+  \end{tikzpicture}
+  \caption{区块执行器\texttt{IBlkExecutable}所使用和调用的接口}
+  \label{fig:exe-storage-relationship4}
+\end{figure}
+\end{landscape}
+% Local Variables:
+% TeX-engine: luatex
+% TeX-command-extra-options: "-shell-escape"
+% TeX-master: "m.tex"
+% End:

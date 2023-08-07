@@ -1,0 +1,35 @@
+\documentclass[border=0.2cm,dvipsnames]{standalone}
+% the dvipsnames option is gonna be passed to xcolor.
+
+\title{hi}
+\author{Jianer Cong}
+\input{h}
+
+
+\begin{document}
+\begin{tikzpicture}
+  
+  \newdimen\myW
+  \myW=70cm
+  \draw[style=help lines,step=1cm] (-1cm,1cm) grid (\the\myW,-\the\myW);
+  % --------------------------------------------------
+  \begin{scope}
+    \node (IJsonizable) [text width=5cm] 
+    {\begin{ifaceBox}[title=\texttt{IJsonizable}]
+        接口定义要求
+        \begin{simplec}
+          Json::Value toJson()
+        \end{simplec}
+      \end{ifaceBox}};
+
+    \node (ISerializable) [text width=5cm] at ([xshift=6cm]IJsonizable.east)
+    {\begin{ifaceBox}[title=\texttt{ISerializable}]
+        接口定义要求
+        \begin{simplec}
+          string toString();
+          bool fromString(string_view);
+        \end{simplec}
+      \end{ifaceBox}};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

@@ -1,0 +1,174 @@
+% \documentclass[dvipsnames]{article}
+\documentclass[dvipsnames]{ctexart}
+
+\title{FollowMe 共识}
+\usepackage{geometry}\geometry{
+  a4paper,
+  total={170mm,257mm},
+  left=20mm,
+  top=20mm,
+}
+
+
+\usepackage{svg}
+
+\usepackage[skip=5pt plus1pt, indent=0pt]{parskip}
+% Color
+\newcommand{\mycola}{MidnightBlue}
+\newcommand{\mycolb}{Mahogany}
+\newcommand{\mycolc}{OliveGreen}
+
+\newcommand{\cola}[1]{\textcolor{\mycola}{#1}}
+\newcommand{\colb}[1]{\textcolor{\mycolb}{#1}}
+\newcommand{\colc}[1]{\textcolor{\mycolc}{#1}}
+\newcommand{\Cola}[1]{\textcolor{\mycola}{\textbf{#1}}}
+
+% \let\emph\relax % there's no \RedeclareTextFontCommand
+% \DeclareTextFontCommand{\emph}{\bfseries}
+\renewcommand{\emph}[1]{\texbf{#1}}
+
+\usepackage{fontspec}
+
+\setmonofont{Cascadia}[
+Path=/usr/share/fonts/truetype/Cascadia_Code/,
+Scale=0.85,
+Extension = .ttf,
+UprightFont=*Code,              %find CascadiaCode.ttf
+BoldFont=*CodePL,               %find CascadiaCodePL.ttf ...
+ItalicFont=*CodeItalic,
+BoldItalicFont=*CodePLItalic
+]
+% --------------------------------------------------
+% Windows
+% \setmonofont{Cascadia}[
+% Path=C:/Windows/Fonts/,
+% Extension = .ttf,
+% UprightFont=*Mono,              %find CascadiaMono.ttf
+% BoldFont=*Code,               %find CascadiaCodePL.ttf ...
+% ItalicFont=*Code,
+% BoldItalicFont=*Code
+% ]
+
+
+\usepackage{minted}
+\usepackage{tcolorbox}
+\tcbuselibrary{skins}
+\tcbuselibrary{minted}
+\usepackage{tikz}
+\usetikzlibrary{shapes} % ellipse node shape
+\usetikzlibrary{shapes.multipart} % for line breaks in node text
+\usetikzlibrary{arrows.meta}    %-o arrow head
+\usetikzlibrary{arrows}
+\usetikzlibrary{matrix}
+
+
+\usepackage{amsmath}
+% ??? still xelatex?
+% \usepackage{xeCJK}
+\usepackage{emoji}
+% \setemojifont{NotoColorEmoji.ttf}[Path=C:/Users/congj/repo/myFonts/]
+% \setemojifont{TwitterColorEmoji-SVGinOT.ttf}[Path=C:/Users/congj/repo/myFonts/]
+
+
+\newtcolorbox[auto counter]{myBox}[2][]{
+  fonttitle=\bfseries,title={共识~\thetcbcounter: #2},#1
+}
+\newtcolorbox[]{noteBox}[1][]{
+  tile,left=1mm,nobeforeafter,fontupper=\small,#1
+}
+
+\tikzstyle{myNode}=[inner sep=2pt,circle,text=white]
+\date{\today}
+\author{作者}
+
+\newtcblisting{simplec}{
+  listing engine=minted,
+  minted language=c++,
+  minted style=vs,
+  minted options={fontsize=\small,autogobble,
+    % framesep=1cm
+  },
+  tile,
+  listing only,
+  % bottom=0cm,
+  % nobeforeafter, 
+  boxsep=0mm,
+  left=1mm,
+  opacityback=0.5,
+  colback=gray!20
+}
+\tcbuselibrary{breakable}
+\newtcblisting{simplepy}{
+  listing engine=minted,
+  minted language=python,
+  minted style=vs,
+  minted options={fontsize=\small,autogobble,
+    % framesep=1cm
+  },
+  tile,
+  listing only,
+  % bottom=0cm,
+  % nobeforeafter,
+  boxsep=0mm,
+  left=1mm,
+  opacityback=0.5,
+  colback=gray!20,
+  breakable
+}
+\newtcolorbox{blackbox}{tile,colback=black,colupper=white,nobeforeafter,halign=flush center}
+
+\tikzstyle{myMatrix}=[matrix of nodes,below right,
+nodes={above,text centered},                  %apply to all nodes
+row sep=1cm,column sep=2cm]
+\tikzstyle{every node}=[inner sep=0pt]
+
+\newcommand\uptoleft[3][-o]{\draw[very thick,#1](#2.south) |- (#3.west);}
+\newcommand\uptodown[3][-o]{\draw[very thick,#1](#2.south) to [out=270,in=90] (#3.north);}
+\newcommand\downtoup[3][-latex]{\draw[very thick,#1](#2.north) to [out=90,in=270] (#3.south);}
+
+\newcommand\lefttoright[3][-latex]{\draw[very thick,#1](#2.east) to[out=0,in=180] (#3.west);}
+\newcommand\lefttodown[3][-latex]{\draw[very thick,#1](#2.east) to[out=0,in=90] (#3.north);}
+
+
+\newtcolorbox{leftDialogBox}{
+  tile, nobeforeafter, boxsep=0pt,
+  % show bounding box,
+  colback=\mycola!10,
+  overlay={
+    \begin{scope}
+      % \fill[gray!10] (frame.east) circle (2pt);
+      \fill[\mycola!10] (frame.east) --
+      +(0,2mm) --
+      +(3mm,0) --
+      +(0,-2mm)
+      ;
+    \end{scope}
+  }}
+
+
+\newtcolorbox{rightDialogBox}{
+  tile, nobeforeafter, boxsep=0pt,
+  % show bounding box,
+  colback=\mycola!10,
+  overlay={
+    \begin{scope}
+      % \fill[gray!10] (frame.east) circle (2pt);
+      \fill[\mycola!10] (frame.west) --
+      +(0,2mm) --
+      +(-3mm,0) --
+      +(0,-2mm);
+    \end{scope}
+  }}
+
+\newcommand{\mycolaa}{\mycola!20}
+
+
+\begin{document}
+\maketitle
+\include{p1}
+\end{document}
+
+% Local Variables:
+% TeX-engine: luatex
+% TeX-command-extra-options: "-shell-escape"
+% End:

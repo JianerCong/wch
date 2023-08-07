@@ -1,0 +1,211 @@
+\usepackage{tikz}
+\usetikzlibrary{shapes} % ellipse node shape
+\usetikzlibrary{shapes.multipart} % for line breaks in node text
+\usetikzlibrary{arrows.meta}    %-o arrow head
+\usetikzlibrary{arrows}
+\usetikzlibrary{matrix}
+
+\usepackage{amsmath}
+
+\usepackage{minted}
+\usepackage{tcolorbox}
+\tcbuselibrary{skins}
+\tcbuselibrary{minted}
+
+\usepackage{fontspec}
+\setmonofont{Cascadia}[
+Path=/usr/share/fonts/truetype/Cascadia_Code/,
+Scale=0.85,
+Extension = .ttf,
+UprightFont=*Code,              %find CascadiaCode.ttf
+BoldFont=*CodePL,               %find CascadiaCodePL.ttf ...
+ItalicFont=*CodeItalic,
+BoldItalicFont=*CodePLItalic
+]
+
+% --------------------------------------------------
+% Windows
+% \setmonofont{Cascadia}[
+% Path=C:/Windows/Fonts/,
+% Extension = .ttf,
+% UprightFont=*Mono,              %find CascadiaMono.ttf
+% BoldFont=*Code,               %find CascadiaCodePL.ttf ...
+% ItalicFont=*Code,
+% BoldItalicFont=*Code
+% ]
+
+
+% Without this, there's a gap between the upper bbox and the node box
+
+\newtcblisting{simplec}{
+  listing engine=minted,
+  minted language=c++,
+  minted style=vs,
+  minted options={fontsize=\small,autogobble,
+  % framesep=1cm
+  },
+  tile,
+  listing only,
+  % bottom=0cm,
+  % nobeforeafter, 
+  boxsep=0mm,
+  left=1mm,
+  opacityback=0.5,
+  colback=gray!20
+}
+
+\newcounter{myCListing}
+\newtcblisting{numberedc}[3][]{
+  listing engine=minted,
+  minted language=c++,
+  minted style=vs,
+  minted options={fontsize=\small,autogobble,
+  % framesep=1cm
+  },
+  tile,
+  listing only,
+  % bottom=0cm,
+  % nobeforeafter, 
+  boxsep=1.5mm,
+  left=1mm,
+  opacityback=0.5,
+  colback=gray!20,
+  phantom={
+  \refstepcounter{myCListing}
+  #3
+  },
+  title={代码~\themyCListing: #2},
+  #1
+}
+
+
+\newtcblisting{simplepy}{
+  listing engine=minted,
+  minted language=python,
+  minted style=vs,
+  minted options={fontsize=\small,autogobble},
+  tile,
+  listing only,
+  % nobeforeafter, 
+  boxsep=0.5mm,
+  left=1mm,
+  opacityback=0.5,
+  colback=gray!20,
+}
+
+
+\tcbset{enhanced, fontupper=\small,
+  % show bounding box
+}
+
+% Color
+\newcommand{\mycola}{MidnightBlue}
+\newcommand{\mycolb}{Mahogany}
+\newcommand{\mycolc}{OliveGreen}
+
+\newcommand{\cola}[1]{\textcolor{\mycola}{#1}}
+\newcommand{\colb}[1]{\textcolor{\mycolb}{#1}}
+\newcommand{\colc}[1]{\textcolor{\mycolc}{#1}}
+\newcommand{\Cola}[1]{\textcolor{\mycola}{\emph{#1}}}
+
+
+\newcommand{\myTwo}[2]{\texttt{#1}为\texttt{#2}}
+
+\tcbset{right=1mm,halign=flush left}
+\newtcolorbox{ifaceBox}[1][]{colframe=\mycola, nobeforeafter, 
+  fontupper=\footnotesize, left=2mm, #1}
+
+\newtcolorbox{varBox}[1][]{nobeforeafter, 
+  fontupper=\footnotesize, left=2mm, #1}
+
+\newtcolorbox{weakBox}[1][]{colframe=gray!80, nobeforeafter,
+  fontupper=\footnotesize, left=2mm, #1}
+
+\newtcolorbox{funcBox}[1][]{colframe=\mycolb, nobeforeafter, 
+  fontupper=\footnotesize, left=2mm, #1}
+
+\newtcolorbox{noteBox}[1][]{colframe=\mycolc, nobeforeafter, 
+  fontupper=\footnotesize, left=2mm, #1}
+
+\newtcbox{\libbox}[1][\mycala]{on line,
+  arc=0pt,outer arc=0pt,colback=#1!10!white,colframe=#1!50!black,
+  boxsep=0pt,left=1pt,right=1pt,top=2pt,bottom=2pt,
+  boxrule=0pt,bottomrule=1pt,toprule=1pt}
+
+% copied from tcolorbox mannual
+\newtcbox{\mylib}[1][\mycola]{on line,
+  arc=0pt,outer arc=0pt,colback=#1!10!white,colframe=#1!50!black,
+  boxsep=0pt,left=1pt,right=1pt,top=2pt,bottom=2pt,
+  boxrule=0pt,bottomrule=1pt,toprule=1pt,
+  left skip=0.1cm,
+  right skip=0.1cm,
+  fontupper=\ttfamily
+}
+
+
+% Redefine em
+%latex.sty just do: \DeclareTextFontCommand{\emph}{\em}
+
+\let\emph\relax % there's no \RedeclareTextFontCommand
+\DeclareTextFontCommand{\emph}{\bfseries\em}
+
+% Redefine section
+\usepackage[small]{titlesec}
+
+
+% curve version
+% \newcommand\uptoleft[2][]{\draw[very thick,->](#1.south) to [out=270,in=180] (#2.west);}
+
+% right-angle version
+\newcommand\Southtowest[3][-o]{\draw[very thick,#1](#2.south) |- (#3.west);}
+\newcommand\Southtoeast[3][-o]{\draw[very thick,#1](#2.south) |- (#3.east);}
+\newcommand\Northtowest[3][-o]{\draw[very thick,#1](#2.north) |- (#3.west);}
+\newcommand\Northtoeast[3][-o]{\draw[very thick,#1](#2.north) |- (#3.east);}
+
+\newcommand\southtonorth[3][-o]{\draw[very thick,#1](#2.south) to [out=270,in=90] (#3.north);}
+\newcommand\northtosouth[3][-latex]{\draw[very thick,#1](#2.north) to [out=90,in=270] (#3.south);}
+
+
+\newcommand\easttowest[3][-latex]{\draw[very thick,#1](#2.east) to[out=0,in=180] (#3.west);}
+\newcommand\easttonorth[3][-latex]{\draw[very thick,#1](#2.east) to[out=0,in=90] (#3.north);}
+\newcommand\easttosouth[3][-latex]{\draw[very thick,#1](#2.east) to[out=0,in=270] (#3.south);}
+
+% the left node link my ``up''
+
+\newcommand\westTowest[3][-latex]{\draw[very thick,#1](#2.west) to[out=180,in=180] (#3.west);}
+\newcommand\westTonorth[3][-latex]{\draw[very thick,#1](#2.west) to[out=180,in=90] (#3.north);}
+\newcommand{\mySection}[1]{\section*{\texttt{#1}}}
+
+\tikzstyle{every node}=[inner sep=0pt]
+\tikzstyle{iface}=[rectangle,fill=gray!30,inner sep=2mm]
+\tikzstyle{myMatrix}=[matrix of nodes,below right,
+nodes={right},                  %apply to all nodes
+row sep=1cm,column sep=2cm]
+
+% TREE NODE
+\tikzstyle{myTreeNode}=[draw=\mycola,anchor=west,inner sep=2mm,rectangle,rounded corners,fill=gray!20]
+\tikzstyle{edge from parent}=[draw=\mycola,thick,-latex]
+\tikzstyle{every child node}=[myTreeNode]
+
+\usepackage{simpsons}
+\usepackage{cleveref}
+\crefname{figure}{图}{图}
+%                    ^^^ plural
+\Crefname{figure}{图}{图}
+%         ^^^^^^ type = counter name
+
+\crefname{table}{表}{表}
+\Crefname{table}{表}{表}
+
+\crefname{section}{}{}
+\Crefname{section}{}{}
+\creflabelformat{section}{第#2#1#3章节}
+
+
+% #2 : start of hyperlink
+% #3 : end of hyperlink
+% #1 : The counter
+
+% U need to define both crefname and Crefname , else it will cause fatal error.
+\crefname{myCListing}{代码}{代码}
+\Crefname{myCListing}{代码}{代码}

@@ -1,0 +1,203 @@
+% \documentclass[dvipsnames]{article}
+\documentclass[dvipsnames]{ctexart}
+\title{存储执行模块开发文档1.0}
+\usepackage{geometry}\geometry{
+  a4paper,
+  total={170mm,257mm},
+  left=20mm,
+  top=20mm,
+}
+
+
+\usepackage{adjustbox}          %to narrower the caption
+\newlength\mylength
+\usepackage{hyperref}
+\usepackage{svg}
+\usepackage[skip=5pt plus1pt, indent=0pt]{parskip}
+\usepackage{emoji}
+% \setemojifont{NotoColorEmoji.ttf}[Path=C:/Users/congj/repo/myFonts/]
+% \setemojifont{TwitterColorEmoji-SVGinOT.ttf}[Path=C:/Users/congj/repo/myFonts/]
+
+\usepackage{booktabs}
+\input{h-lua}
+\date{\today}
+\author{新华夏技术中心}
+\tcbuselibrary{breakable}
+\newtcolorbox{blackbox}{tile,colback=black,colupper=white,nobeforeafter,halign=flush center}
+
+\newcommand{\mycolaa}{\mycola!20}
+
+\usepackage{placeins}
+
+% \usepackage{lscape}             %for landscape env
+\usepackage{pdflscape} %uncomment this  and comment above line to see the difference
+% --------------------------------------------------
+
+\usepackage{tabularx}
+\begin{document}
+\maketitle
+\tableofcontents{}
+\newpage{}
+\input{storage-exec}
+
+\section{基准测试 Benchmark}
+\label{sec:benchmark}
+
+\subsection{测试结果}
+
+执行和存储模块的基准测试结果见\cref{fig:benchmark}。每个模块分别进行了5次基准测试。
+在给定的执行环境下 （\cref{sec:benchmark-detail}），所有模块的执行TPS均符合标准。
+\begin{figure}[h]
+  \centering
+  \caption{执行存储模块基准测试}
+  \input{tex/p1.tex}
+  \label{fig:benchmark}
+\end{figure}
+
+
+具体的数值见\cref{tab:benchmark}。
+\begin{table}[h]
+  \centering
+  \newcolumntype{b}{X}
+  \newcolumntype{s}{>{\hsize=.5\hsize}X}
+  \newcommand{\heading}[1]{\multicolumn{1}{c}{#1}}
+  \begin{tabularx}{0.9\textwidth} { 
+      bsss
+    }
+
+    \hline
+    \input{tex/result-table.tex}
+  \end{tabularx}
+  \caption{基准测试数值结果 （单位： 万）}
+  \label{tab:benchmark}
+\end{table}
+\FloatBarrier
+在\cref{tab:benchmark}之中，样本平均值和样本方差计算为：
+
+\begin{align*}
+  \mu  = \frac{\sum_i(X_i)}{N}, \quad
+  \sigma^2 = \frac{\sum_i(X_i - \mu)^2}{N-1}, \quad
+  \text{$N$为样本数，$X_i$为样本。}
+\end{align*}
+
+\subsection{测试细节}
+\label{sec:benchmark-detail}
+在TPS的测试过程中有很多可以配置的参数和环境，这些都会很大程度的影响所测算出来的结
+果。
+\FloatBarrier
+首先是环境，测试机的重要系统信息见\cref{tab:sysinfo}。
+\begin{table}
+  \centering
+  \newcolumntype{m}{>{\hsize=.7\hsize}X}
+  \begin{tabularx}{0.8\linewidth}{mX}
+    \toprule
+    硬件模型 hardware model& \texttt{ASUSTeK COMPUTER INC. VivoBook\_ASUSLaptop X513EP\_V5050EP}\\ \hline
+    内存 Memory & \texttt{16.0 GiB}\\ \hline
+    处理器 Processor & \texttt{11th Gen Intel® Core™ i5-1135G7 @ 2.40GHz × 8}\\ \hline
+    操作系统 OS& \texttt{Ubuntu 22.04.2 LTS 64-bit}\\ \hline
+    图形处理 Graphics& \texttt{Mesa Intel® Xe Graphics (TGL GT2)}\\
+    \bottomrule
+  \end{tabularx}
+  \caption{测试系统主要信息}
+  \label{tab:sysinfo}
+\end{table}
+\FloatBarrier
+
+除环境以外还有的就是一些模块内部参数的配置，这里我们只列出来两个比较广义的（每个模块都有的）重要参数：
+\begin{itemize}
+\item \textbf{并发线程数}： 并发执行某个操作的线程数量。
+\item \textbf{批量交易数}： 某些操作接受批量交易处理(batch processing), 如批量交
+  易存入/读出。这个代表每个批量内含的交易数。
+\end{itemize}
+这些参数的值和结果不是一个线性关系。比如说，如果开一万个线程同时执行交易，经实
+测，TPS大概为两万左右。因此，这些参数的最优值（在每个系统上不一样）都需要摸索一
+番(trail-and-error) 然后找到一个中间的,达标的值，具体得到\cref{tab:benchmark}结果的参数见\cref{tab:paraminfo}。
+\begin{table}[h]
+  \centering
+  \begin{tabularx}{0.8\linewidth}{XXX}
+    \toprule
+    & 并发线程数 & 批量交易数 \\
+    \midrule
+    执行模块        &4&50\\
+    存储模块 （读取）&8&1000\\
+    执行模块  (存入)&8&1000\\
+    \bottomrule
+  \end{tabularx}
+  \caption{重要参数配置}
+  \label{tab:paraminfo}
+\end{table}
+% \FloatBarrier
+% \clearpage{}
+\newpage{}
+
+\section{附录： 接口Interface（纯虚类 Abstract Base Class）}
+\label{sec:iface}
+接口（Interface）和类（Class）类似，但是只指定行为（behavior）不存有状态数据。因此：
+\begin{itemize}
+\item 接口只定义函数(function)，不定义域（field）
+\item 一个类可以继承\cola{多个}接口，但是只能继承\cola{一个}类\footnote{当然
+    了，C++语法确实允许你继承多个类（Multiple Inheritance），但聪明的你或许并不应
+    该这么做。}
+\end{itemize}
+使用接口可以增加代码的模块性，这样可以更方便调试，管理，设计以及更新代码。
+
+\subsection{ISerializable}
+\label{sec:ISerializable}
+这个类表示任何可以被序列化和反序列化的类：
+\begin{simplec}
+  class ISerializable{
+    virtual bool fromString(string_view s) noexcept =0;
+    virtual string toString() const noexcept =0;
+  };
+\end{simplec}
+序列化的具体方法作为类的使用方应该是不需要知道的，可以
+是JSON，XML，RLP，Protobuf..等等。
+
+
+而我们看到，我们的很多类如账户（\texttt{Acn}）和交易(\texttt{Tx})都符
+合\texttt{ISerializable},因此可以这么使用：
+\begin{simplec}
+Acn a = ...;
+string s = a.toString();        // Serialize
+Acn a1;
+BOOST_CHECK(a1.fromString(s));  // Parse
+\end{simplec}
+\subsection{IJsonizable}
+\label{sec:IJsonizable}
+
+这个类表示任何可以被序列化和反序列化成JSON的类：
+\begin{simplec}
+  class IJsonizable{
+  public:
+    virtual json::value toJson() const noexcept=0;
+    virtual bool fromJson(const json::value &)noexcept=0;
+
+    bool fromJsonString(string_view s) noexcept{...};
+    string toJsonString() const noexcept{...};
+  };
+\end{simplec}
+如果一个类实现了自己的\texttt{toJson()}和\texttt{fromJson()}方法的话，那这个接口
+就会免费赠送\texttt{fromJsonString()}和\texttt{toJsonString()}两个方法。
+
+暂时使用的Json库为\texttt{boost/json}（要求\texttt{Boost 1.75>=}）。
+
+和\texttt{ISerializable}一样，我们的很多类如账户（\texttt{Acn}）和交易(\texttt{Tx})都符合\texttt{IJsonizable},因此可以这么使用：
+\begin{simplec}
+Acn a = ...;
+json::value v = a.toJson();     // serialize
+Acn a1,a2;
+BOOST_CHECK(a1.fromJson(v));    // parse
+
+string s = a.toJsonString();
+BOOST_CHECK(a2.fromJson(s));\end{simplec}
+
+\end{document}
+
+
+% Local Variables:
+% TeX-engine: luatex
+% TeX-command-extra-options: "-shell-escape"
+% TeX-master: "m.tex"
+% TeX-parse-self: t
+% TeX-auto-save: t
+% End:
