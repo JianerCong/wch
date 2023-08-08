@@ -154,6 +154,11 @@
 #include "cnsss/sealer.hpp"
 #include "cnsss/cnsssBlkChainAsstn.hpp"
 
+
+#include <boost/log/trivial.hpp> // For BOOST_LOG_TRIVIAL, trace, debug,..,fatal
+#include <boost/log/core.hpp>
+#include <boost/log/expressions.hpp>
+
 // #define WEAK_WITH_SEALER
 #undef WEAK_WITH_SEALER
 #define WEAK_IN_RAM
@@ -505,11 +510,35 @@ namespace weak{
                   dynamic_cast<IForRpc*>(&pool)
                 };
 
+                namespace trivial = boost::log::trivial;
+                if (o.verbose == "no"){
+                  BOOST_LOG_TRIVIAL(info) << format( S_CYAN "🌐️ chain started in silence mode [any key to quit]" S_NOR);
+                  // The global singleton core
+                  boost::log::core::get()->set_filter
+                    (
+                     // A Boost.Phoenix lambda
+                     trivial::severity >= trivial::error
+                     // LHS: placeholder var; RHS: value of type severity_level
+                     );
+                }
+
                 /*
                   🦜 : Now we just need to wait
                 */
                 BOOST_LOG_TRIVIAL(info) << format( S_CYAN "🌐️ chain started[any key to quit]" S_NOR);
                 std::cin.get();
+
+                // 🦜 : unset the verbosity to see things turned down.
+                if (o.verbose == "no"){
+                  // The global singleton core
+                  boost::log::core::get()->set_filter
+                    (
+                     // A Boost.Phoenix lambda
+                     trivial::severity >= trivial::trace
+                     // LHS: placeholder var; RHS: value of type severity_level
+                     );
+                }
+
               } // rpc closed
             } // sealer closed
           } // cnsss cleared

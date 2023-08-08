@@ -14,10 +14,19 @@ else()
 ENDIF()
 
 find_package(Boost CONFIG REQUIRED
-  unit_test_framework log locale log_setup)
+  unit_test_framework log locale log_setup json)
 # add the executable
 
-add_executable(myexe m.cpp)
+add_executable(myexe test_weakHttpClient.cpp)
+add_executable(tps test_greenClient.cpp)
+
+target_link_libraries(tps PUBLIC
+  Boost::unit_test_framework
+  Boost::log
+  Boost::log_setup
+  Boost::json
+)
+
 target_link_libraries(myexe PUBLIC
   Boost::unit_test_framework
   Boost::log

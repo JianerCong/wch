@@ -2,6 +2,10 @@
 
 
 w=./build-weak/wch
+# start quitely 🦜 : But it will only be quite during execution.
+$w --port 7777 --light-exe --verbose no
+$w --port 7778 --light-exe --consensus  Solo --Solo.node-to-connect localhost:7777
+
 $w --port 7777 --mock-exe               # start as Solo-primary at 7777
 $w --port 7778 --mock-exe --consensus  Solo --Solo.node-to-connect localhost:7777
 
@@ -27,7 +31,8 @@ txs='[
 ]'
 e=http://localhost
 curl --data $txs $e:7777/add_txs
-deployed_addr="0000000000000000000000000000000064d0723a"
+# deployed_addr="0000000000000000000000000000000064d0723a"
+deployed_addr="0000000000000000000000000000000064d1bf89"
 
 # [
 #     {
@@ -39,7 +44,10 @@ deployed_addr="0000000000000000000000000000000064d0723a"
 curl $e:7777/get_latest_Blk
 curl $e:7778/get_latest_Blk     # get from node 1
 # Get the corresponding receipt
-curl "$e:7777/get_receipt?hash=b06b89b665df6f7ff1be967faf9a0601f71c0a3cdb8250c48fe7fcc663b18d1b"
+
+# curl "$e:7777/get_receipt?hash=b06b89b665df6f7ff1be967faf9a0601f71c0a3cdb8250c48fe7fcc663b18d1b"
+curl "$e:7777/get_receipt?hash=a46e1806155b08cf95763b2e2dabeebff40859727d07d457d75a23069a66ca15"
+# b06b89b665df6f7ff1be967faf9a0601f71c0a3cdb8250c48fe7fcc663b18d1b"
 
 # set 123 --------------------------------------------------
 # --------------------------------------------------
@@ -48,7 +56,7 @@ txs="[
   \"from\" : \"01\",
   \"to\" : \"$deployed_addr\",
    \"data\" : \"60fe47b1000000000000000000000000000000000000000000000000000000000000007b\",
-   \"nonce\" : 124
+   \"nonce\" : 125
   }
 ]"
 curl --data $txs $e:7778/add_txs # call to node 1
@@ -63,13 +71,14 @@ txs="[
   \"from\" : \"01\",
   \"to\" : \"$deployed_addr\",
    \"data\" : \"6d4ce63c\",
-   \"nonce\" : 125
+   \"nonce\" : 126
   }
 ]"
 curl --data $txs $e:7777/add_txs
 # [{"hash":"f192381aa197b851870e98fc515414c51d2311fea7e5bc01c16dceb6a7fed3d9"}]
 curl $e:7777/get_latest_Blk     # latest Blk number=2
-curl "$e:7777/get_receipt?hash=f192381aa197b851870e98fc515414c51d2311fea7e5bc01c16dceb6a7fed3d9"
+curl "$e:7777/get_receipt?hash=c63fce1da4f0a30c0ae6c8ce332286f188d71dc13638beca74fb5939c5a79ec8"
+curl "$e:7777/get_receipt?hash=c63fce1da4f0a30c0ae6c8ce332286f188d71dc13638beca74fb5939c5a79ec8"
 
 # 🦜 : The result of get() is 0x7b = 123
 # {"ok":true,"result":"000000000000000000000000000000000000000000000000000000000000007b"}

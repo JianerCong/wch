@@ -49,6 +49,7 @@ namespace weak{
 
     string without_sealer{"yes"};
     string mock_exe{"no"};
+    string verbose{"yes"};
 
     string light_exe{"yes"};
 
@@ -65,6 +66,8 @@ namespace weak{
          "Enable sealer")
         ("mock-exe", program_options::value<string>(&(this->mock_exe))->implicit_value("yes"),
          "Disable concrete executor, used for testing communication layers.")
+        ("verbose", program_options::value<string>(&(this->verbose))->implicit_value("yes"),
+         "Print debug info during execution, this might affect speed.")
         ("light-exe", program_options::value<string>(&(this->light_exe))->implicit_value("yes"),
          "Enable the executor optimized for speed. ('yes' by default)")
         ("config,c", program_options::value<string>(&(this->config_file)),

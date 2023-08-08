@@ -169,8 +169,9 @@ namespace weak {
     void openChainDB(const filesystem::path chainDir){
       BOOST_LOG_TRIVIAL(info) << format("Opening " S_CYAN "chain DB" S_NOR);
       auto o = getInitOptions();
-      rocksdb::Status s = rocksdb::DB::Open(o, chainDir , &chainDB);
-      checkStatus(s,"Failed to open chainDB at" +  string(chainDir));
+      rocksdb::Status s = rocksdb::DB::Open(o, chainDir.native() , &chainDB);
+      checkStatus(s,"Failed to open chainDB at" +  chainDir.native());
+      // 🦜 : the conversion from filesystem::path to std::string is only available in POSIX.
     }
 
     /**
@@ -179,8 +180,8 @@ namespace weak {
     void openStateDB(const filesystem::path stateDir){
       BOOST_LOG_TRIVIAL(info) << format("Opening " S_CYAN "state DB" S_NOR);
       auto o = getInitOptions(false /*prefix mode*/);
-      rocksdb::Status s = rocksdb::DB::Open(o, stateDir , &stateDB);
-      checkStatus(s,"Failed to open stateDB at" +  string(stateDir));
+      rocksdb::Status s = rocksdb::DB::Open(o, stateDir.native() , &stateDB);
+      checkStatus(s,"Failed to open stateDB at" +  stateDir.native());
     }
 
     /**

@@ -67,4 +67,10 @@ namespace pure{
     virtual bool fromString(string_view s) noexcept =0;
     virtual string toString() const noexcept =0;
   };
+
+
+  class ISerializableInPb{
+    virtual bool fromPbString(string_view s) noexcept =0;
+    virtual string toPbString() const noexcept =0;
+  };
 }

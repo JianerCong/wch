@@ -134,8 +134,10 @@ namespace pure{
 
     optional<string> handle_execute_for_primary(string endpoint,
                                                 string data) override{
-      this->command_history.push_back(string(data));
+      
       this->exe->execute(data); // This may modify the `data`
+      this->command_history.push_back(string(data));
+
 
       vector<string> & l = this->known_subs; // reference
       for (auto it = l.begin(); it != l.end();){

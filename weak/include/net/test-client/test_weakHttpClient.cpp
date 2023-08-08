@@ -1,3 +1,8 @@
+/**
+ * @brief Test the weakHttpClient independently.
+ *
+ * 🦜 : This will need an external server at 8080
+ */
 #define BOOST_TEST_MAIN
 #include <boost/test/unit_test.hpp>
 

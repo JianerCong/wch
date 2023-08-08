@@ -39,21 +39,27 @@ target_include_directories(deps INTERFACE
 )
 
 # 🦜 : Enable the following
+option(WITH_TEST "build test" ON)
 
-add_subdirectory(test)
+if(WITH_TEST)
+  add_subdirectory(test)
+endif()
+
 add_executable(wch main.cpp)
 target_include_directories(wch PUBLIC ${PROJECT_SOURCE_DIR}/include)
 target_link_libraries(wch PUBLIC deps)
 
+# Copy these tests
 configure_file(helpers.py helpers.py)
 configure_file(test_with_mocked_exe.py test_with_mocked_exe.py)
 configure_file(test_with_normal_exe.py test_with_normal_exe.py)
 configure_file(test_with_light_exe.py test_with_light_exe.py)
 configure_file(test_psstn.py test_psstn.py)
+
+
 # add_custom_target(run ALL pytest -v
 #   -s                            #capture=no
 #   COMMENT "Runing pytest 🐸")
-
 
 ## run the app upon build
 # add_custom_target(run ALL main COMMENT "Runing App 🐸")

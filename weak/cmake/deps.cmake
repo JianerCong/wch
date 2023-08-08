@@ -16,7 +16,6 @@ else()
   )
 endif()
 
-
 set(RocksDB_DIR "${PROJECT_SOURCE_DIR}/../.pre/installed-rocksdb/lib/x86_64-linux-gnu/cmake/rocksdb")
 # 🦜 : It seems a bug that we need to include this Finduring manually
 include(${RocksDB_DIR}/modules/Finduring.cmake)

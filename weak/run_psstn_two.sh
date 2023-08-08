@@ -2,16 +2,19 @@ w=./build-weak/wch
 
 # prepare the vars --------------------------------------------------
 t=$PWD/my-tmp
-dirs=($t/d1 $t/d2)
+dirs=($t/d1 $t/d2 $t/d3)
 
 # prepare the dirs --------------------------------------------------
 mkdir $t -v
 mkdir $dirs[1] -v
 mkdir $dirs[2] -v
+mkdir $dirs[3] -v
 
 # start --------------------------------------------------
 $w --port 7777 --light-exe --data-dir=$dirs[1]               # start as Solo-primary at 7777
 $w --port 7778 --light-exe --consensus  Solo --Solo.node-to-connect localhost:7777 --data-dir=$dirs[2]
+$w --port 7779 --light-exe --consensus  Solo --Solo.node-to-connect localhost:7777 --data-dir=$dirs[3]
+
 sudo lsof -i -P -n | grep LISTEN
 
 # 🦜 send one To N1

@@ -27,6 +27,7 @@ endmacro()
 # set_test(test-forPostExec core-deps)
 # set_test(test-execManager core-deps)
 
+
 # set_test(test-forCnsss core-deps)
 # set_test(test-pure-forCnsss core-deps)
 # set_test(test-cnsssBlkChainAsstn core-deps)
@@ -95,3 +96,6 @@ foreach(X IN LISTS l)
   message(STATUS "🐸 Copying ${X} to ${d}/${x}")
   configure_file(${X} ${d}/${x})
 endforeach()
+
+add_executable(tps test_tps.cpp)
+target_link_libraries(tps PUBLIC core-deps)

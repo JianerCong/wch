@@ -42,9 +42,6 @@ cmake -S rocksdb-8.3.2/ -B build-rocksdb/ -DWITH_JEMALLOC=1 -DWITH_LIBURING=1 \
 cmake --build build-rocksdb
 cmake --install build-rocksdb --prefix installed-rocksdb
 
-# if [ $? != 0 ]; then
-#     echo "Error installing boost"
-#     kill -USR1 "$pid"  # suicide
-# else
-# fi
-
+# Finally we build the chain
+cmake -S weak -B build-weak
+cmake --build build-weak/
