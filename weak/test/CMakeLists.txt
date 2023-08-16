@@ -41,6 +41,7 @@ endmacro()
 # set_test(test-init deps)
 # set_test(test-inRamWrld deps)
 # set_test(test-pure-greenClient core-deps)
+set_test(test-pure-rbft core-deps)
 
 # Add the above tests
 foreach(t d IN ZIP_LISTS l l-deps)
@@ -97,5 +98,5 @@ foreach(X IN LISTS l)
   configure_file(${X} ${d}/${x})
 endforeach()
 
-add_executable(tps test_tps.cpp)
-target_link_libraries(tps PUBLIC core-deps)
+# add_executable(tps test_tps.cpp)
+# target_link_libraries(tps PUBLIC core-deps)

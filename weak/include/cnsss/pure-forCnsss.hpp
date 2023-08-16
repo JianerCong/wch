@@ -8,6 +8,7 @@
 #include <string>
 #include <optional>
 #include <functional>
+#include "../pure-common.hpp"
 
 
 namespace pure {
@@ -46,6 +47,7 @@ namespace pure {
   };
 
   class IForCnsssNetworkable{
+  public:
     virtual string listened_endpoint()noexcept=0;
     virtual void clear()noexcept=0;
   };

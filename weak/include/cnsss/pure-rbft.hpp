@@ -45,6 +45,9 @@ namespace pure{
   using std::bind;
   using std::shared_ptr;
 
+  namespace json = boost::json;
+  using json::value_to;
+
   /*
     🐢 :pbft needs something more than a normal static consensus in that, it
     needs digital signature. In particular, sometimes, it needs to store a
@@ -59,7 +62,7 @@ namespace pure{
     🦜 : Ok, so what do we need ?
 
     🐢 : A signer.
-   */
+  */
 
   class ISignable{
   public:
@@ -72,7 +75,7 @@ namespace pure{
 
   class IAsyncEndpointBasedNetworkable: public virtual IForCnsssNetworkable{
   public:
-    virtual void listen(string target,function<void(string_view)> f) noexcept=0;
+    virtual void listen(string target,function<void(string,string)> f) noexcept=0;
     virtual void send(string endpoint, string target,string data) noexcept=0;
   };
 
@@ -82,6 +85,50 @@ namespace pure{
     T o;
     mutable std::mutex lock;
   };
+
+
+  class NewViewCertificate:
+    virtual public IJsonizable,
+    virtual public ISerializable
+  {
+  public:
+    string msg;
+    int epoch;
+    vector<string> new_view_certificate;
+    vector<string> sig_of_nodes_to_be_added;
+
+    NewViewCertificate(string mmsg,int eepoch,vector<string> nnew_view_certificate,
+                       vector<string> ssig_of_nodes_to_be_added):
+      msg(mmsg),
+      epoch(eepoch),
+      new_view_certificate(nnew_view_certificate),
+      sig_of_nodes_to_be_added(ssig_of_nodes_to_be_added){}
+
+    string toString() const noexcept override {
+      return IJsonizable::toJsonString();
+    };
+
+    bool fromString(string_view s) noexcept override{
+      BOOST_LOG_TRIVIAL(debug) <<  "Forming NewViewCertificate from string.";
+      return IJsonizable::fromJsonString(s);
+    };
+
+    bool fromJson(const json::value &v) noexcept override {
+      BOOST_LOG_TRIVIAL(debug) << format("Forming NewViewCertificate from Json");
+
+      try {
+        this->msg = value_to<string>(v.at("msg"));
+        this->epoch = value_to<int>(v.at("epoch"));
+        this->new_view_certificate = value_to<vector<string>>(v.at("new_view_certificate"));
+        this->sig_of_nodes_to_be_added = value_to<vector<string>>(v.at("sig_of_nodes_to_be_added"));
+
+      }catch (std::exception &e){
+        BOOST_LOG_TRIVIAL(error) << format("❌️ error parsing json: %s") % e.what();
+        return false;
+      }
+      return true;
+    }
+  };                          // class New_view_certificate
 
   class RbftConsensus:
     public virtual ICnsssPrimaryBased,
@@ -108,19 +155,19 @@ namespace pure{
 
 
     IAsyncEndpointBasedNetworkable * const net;
-    IExecutable * const exe;
+    IForConsensusExecutable * const exe;
     ISignable * const sig;
 
     LockedObject<vector<string>> all_endpoints;
 
     RbftConsensus(IAsyncEndpointBasedNetworkable * const n,
-                  IExecutable * const e,
+                  IForConsensusExecutable * const e,
                   ISignable * const s,
-                  vector<string> all_endpoints):
+                  std::set<string> all_endpoints):
       exe(e), sig(s), net(n){
 
       // no need to lock here.
-      this->all_endpoints.o = all_endpoints;
+      this->all_endpoints.o = vector<string>(all_endpoints);
 
       if (not all_endpoints.contains(this->net->listened_endpoint()))
         this->start_listening_as_newcomer();
@@ -139,10 +186,16 @@ namespace pure{
     void clear_and_listen_common_things(){
       this->view_change_state.clear(); // set to false
       this->net->clear();
-      this->net->listen("/ILaidDown",
-                        bind(&RbftConsensus::handle_handle_laid_down,this,_1,_2)
-                        )
-}
+      this->net->listen("/ILaidDown", bind(&RbftConsensus::handle_laid_down,this,_1,_2));
+      this->net->listen("/IamThePrimary", bind(&RbftConsensus::handle_new_primary,this,_1,_2));
+      this->net->listen("/pleaseAddMeNoBoardcast",
+                        bind(&RbftConsensus::handle_add_new_node_no_boardcast,this,_1,_2));
+    }
+
+    void  handle_new_primary(string endpoint, string data){
+
+    }
+
   };
 
 } // namespace pure
