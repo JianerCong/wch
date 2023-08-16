@@ -92,4 +92,14 @@ namespace pure {
   public:
     virtual string execute(string & cmd)noexcept =0;
   };
+
+
+  // colors
+#define S_RED     "\x1b[31m"
+#define S_GREEN   "\x1b[32m"
+#define S_YELLOW  "\x1b[33m"
+#define S_BLUE    "\x1b[34m"
+#define S_MAGENTA "\x1b[35m"
+#define S_CYAN    "\x1b[36m"
+#define S_NOR "\x1b[0m"
 }
