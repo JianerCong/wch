@@ -45,17 +45,19 @@ namespace pure {
     };
   };
 
+  class IForCnsssNetworkable{
+    virtual string listened_endpoint()noexcept=0;
+    virtual void clear()noexcept=0;
+  };
 
-  class IEndpointBasedNetworkable{
+  class IEndpointBasedNetworkable: public virtual IForCnsssNetworkable{
   public:
     virtual void listen(const string target,
                         function<optional<string>(string,string)>
                         handler)noexcept=0;
-    virtual string listened_endpoint()noexcept=0;
     virtual optional<string> send(string endpoint,
                                   string target,
                                   string data)noexcept=0;
-    virtual void clear()noexcept=0;
   };
 
   /**
