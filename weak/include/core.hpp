@@ -45,11 +45,11 @@ namespace weak {
   using evmc::bytes_view;              // in hex.cpp
   using evmc::address;
   using std::make_unique;
-     using std::make_shared;
-  
+  using std::make_shared;
 
   using pure::IJsonizable;
   using pure::ISerializable;
+  using pure::pluralizeOn;
 
   // These two are actually very similar, all have member `uint8_t bytes[32]`
   // We use hash256 when we want to make it clear that it's a hash.
@@ -58,21 +58,6 @@ namespace weak {
 
   namespace json = boost::json;
   using json::value_to;
-
-  // This helper function deduces the type and assigns the value with the matching key
-  // 🦜 : Defining this allows us to use json::value_to<T>
-#define ADD_FROM_JSON_TAG_INVOKE(T)                           \
-  T tag_invoke(json::value_to_tag<T>, json::value const& v){  \
-    T t;                                                      \
-    if (t.fromJson(v)) return t;                              \
-    return {};                                                \
-  }
-
-
-
-  inline string pluralizeOn(uint64_t x, string e1="", string e2="s"){
-    return x == 1 ? e1 : e2;
-  }
 
 string resultToString(const evmc::Result& result){
   evmc::bytes o{result.output_data,result.output_size};

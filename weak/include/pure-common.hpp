@@ -73,4 +73,23 @@ namespace pure{
     virtual bool fromPbString(string_view s) noexcept =0;
     virtual string toPbString() const noexcept =0;
   };
-}
+
+  namespace json = boost::json;
+  using json::value_to;
+
+
+
+
+  inline string pluralizeOn(uint64_t x, string e1="", string e2="s"){
+    return x == 1 ? e1 : e2;
+  }
+} // namespace pure
+
+// This helper function deduces the type and assigns the value with the matching key
+// 🦜 : Defining this allows us to use json::value_to<T>
+#define ADD_FROM_JSON_TAG_INVOKE(T)                           \
+  T tag_invoke(json::value_to_tag<T>, json::value const& v){  \
+    T t;                                                      \
+    if (t.fromJson(v)) return t;                              \
+    return {};                                                \
+  }

@@ -27,6 +27,7 @@
 #include <boost/log/trivial.hpp>
 #include "pure-forCnsss.hpp"
 #include <set>
+#include <thread>
 
 
 #include <mutex>
@@ -96,6 +97,9 @@ namespace pure{
     int epoch;
     vector<string> new_view_certificate;
     vector<string> sig_of_nodes_to_be_added;
+    vector<string> cmds;
+
+    NewViewCertificate() = default;
 
     NewViewCertificate(string mmsg,int eepoch,vector<string> nnew_view_certificate,
                        vector<string> ssig_of_nodes_to_be_added):
@@ -106,21 +110,27 @@ namespace pure{
 
     string toString() const noexcept override {
       return IJsonizable::toJsonString();
-    };
+    }
 
     bool fromString(string_view s) noexcept override{
       BOOST_LOG_TRIVIAL(debug) <<  "Forming NewViewCertificate from string.";
       return IJsonizable::fromJsonString(s);
+    }
+
+    json::value toJson() const noexcept override {
+      return json::value_from(*this);
     };
 
     bool fromJson(const json::value &v) noexcept override {
       BOOST_LOG_TRIVIAL(debug) << format("Forming NewViewCertificate from Json");
 
       try {
+
         this->msg = value_to<string>(v.at("msg"));
         this->epoch = value_to<int>(v.at("epoch"));
         this->new_view_certificate = value_to<vector<string>>(v.at("new_view_certificate"));
         this->sig_of_nodes_to_be_added = value_to<vector<string>>(v.at("sig_of_nodes_to_be_added"));
+        this->cmds = value_to<vector<string>>(v.at("cmds"));
 
       }catch (std::exception &e){
         BOOST_LOG_TRIVIAL(error) << format("❌️ error parsing json: %s") % e.what();
@@ -129,6 +139,25 @@ namespace pure{
       return true;
     }
   };                          // class New_view_certificate
+
+  // json functions for NewViewCertificate
+  // 🦜 : Defining this method allows us to use json::serialize(value_from(t))
+  void tag_invoke(json::value_from_tag, json::value& jv, NewViewCertificate const& c ){
+    jv = {
+      {"msg", c.msg},
+      {"epoch", c.epoch},
+    };
+
+    jv.as_object()["new_view_certificate"] = json::value_from(c.new_view_certificate);
+    jv.as_object()["sig_of_nodes_to_be_added"] = json::value_from(c.sig_of_nodes_to_be_added);
+    jv.as_object()["cmds"] = json::value_from(c.cmds);
+  }
+
+  // This helper function deduces the type and assigns the value with the matching key
+  // 🦜 : Defining this allows us to use json::value_to<A>
+  ADD_FROM_JSON_TAG_INVOKE(NewViewCertificate);
+
+
 
   class RbftConsensus:
     public virtual ICnsssPrimaryBased,
@@ -167,7 +196,8 @@ namespace pure{
       exe(e), sig(s), net(n){
 
       // no need to lock here.
-      this->all_endpoints.o = vector<string>(all_endpoints);
+      this->all_endpoints.o = vector<string>(all_endpoints.begin(),
+                                             all_endpoints.end());
 
       if (not all_endpoints.contains(this->net->listened_endpoint()))
         this->start_listening_as_newcomer();
@@ -178,7 +208,7 @@ namespace pure{
           this->start_listening_as_sub();
 
         // start the timer
-        std::thread{std::bind(&RbftConsensus::start_faulty_timer, this)}.detach();
+        std::thread(std::bind(&RbftConsensus::start_faulty_timer, this)).detach();
         // here the ctor ends
       }
     }
@@ -192,10 +222,63 @@ namespace pure{
                         bind(&RbftConsensus::handle_add_new_node_no_boardcast,this,_1,_2));
     }
 
-    void  handle_new_primary(string endpoint, string data){
+    void  handle_new_primary(string endpoint, string data){}
+    bool check_cert(vector<string> l, int e, bool for_newcomer = true){
+      return true;
+}
 
-    }
+    void start_listening_as_primary(){}
+    void start_listening_as_sub(){}
+    string primary(){
+      return "";
+}
+    static string cmds_to_state(vector<string> cmds){
+        return "";
+}
+    string get_state(){
+      return "";
+}
+    string get_signed_state(){
+      return "";
+}
+    optional<string> handle_execute_for_sub(string endpoint, string data) override{
+      return "";
+}
+    void  add_to_to_be_confirmed_commands(string endpoint, string data){}
 
+    int N(){
+      return 0;
+}
+    int f(){
+      return 0;
+}
+
+    void start_faulty_timer(){}
+    void comfort(){}
+
+    void trigger_view_change(){}
+    void  handle_laid_down(string endpoint, string data){}
+    // remember_this_laiddown_and_be_primary_maybe
+    vector<string> get_newcommers(vector<string> sigs){
+      return {};
+}
+    void try_to_be_primary(int e, string state, vector<string> my_list){}
+    optional<string> handle_execute_for_primary(string endpoint, string data) override{
+        return "";
+}
+    bool is_primary(){
+      return false;
+}
+    void say(string_view s){}
+    void boardcast_to_others(string_view target, string_view data){}
+    void  handle_add_new_node_no_boardcast(string endpoint, string data){}
+
+    void start_listening_as_newcomer(){}
+    void  handle_new_primary_for_newcomer(string endpoint, string data){}
+    int epoch_considering_newcomers(int e, int num_newcomers){
+      return 0;
+}
+    void close(){}
   };
 
 } // namespace pure
