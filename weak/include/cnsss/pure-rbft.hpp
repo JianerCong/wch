@@ -37,6 +37,8 @@ namespace pure{
   using std::move;
   using std::vector;
 
+  using std::make_shared;
+  using std::shared_ptr;
 
   using std::unique_ptr;
 
@@ -264,6 +266,7 @@ namespace pure{
     std::atomic_flag closed = ATOMIC_FLAG_INIT;
     std::atomic_flag view_change_state = ATOMIC_FLAG_INIT;
     std::atomic_int epoch = 0;
+    std::atomic_int patience = 0;
 
     LockedObject<
       unordered_map<int,unordered_map<string,vector<string>>>
@@ -271,7 +274,9 @@ namespace pure{
 
     LockedObject<std::set<string>> sig_of_nodes_to_be_added;
 
-    LockedObject<unordered_map<string,std::set<string>>> to_be_confirmed_commands;
+    LockedObject<unordered_map<string,
+                               shared_ptr<std::set<string>>
+                               >> to_be_confirmed_commands;
     LockedObject<std::set<string>> recieved_commands;
     LockedObject<vector<string>> command_history;
     /*
@@ -529,7 +534,7 @@ namespace pure{
     string primary(){
       // 🦜 : We don't lock it here. Otherwise it will lock everything somebody say...
 
-      return this->all_endpoints[this->epoch.load() % this->all_endpoints.size()];
+      return this->all_endpoints.o[this->epoch.load() % this->all_endpoints.o.size()];
     }
 
     /**
@@ -548,8 +553,8 @@ namespace pure{
     }
 
     string get_state(){
-      std::unique_lock l(this->command_history->lock);
-      return RbftConsensus::cmds_to_state(this->command_history->o);
+      std::unique_lock l(this->command_history.lock);
+      return RbftConsensus::cmds_to_state(this->command_history.o);
     }
     string get_signed_state(){
       return this->sig->sign(this->get_state());
@@ -618,21 +623,141 @@ namespace pure{
      *      */
     void  add_to_to_be_confirmed_commands(string endpoint, string data){
       std::unique_lock l(this->to_be_confirmed_commands.lock);
+
+      if (not this->to_be_confirmed_commands.o.contains(data)){
+        this->say(format("Adding " S_MAGENTA "%s " S_NOR " from  " S_MAGENTA "%s" S_NOR)
+                  % data % endpoint);
+        this->to_be_confirmed_commands.o[data] = make_shared<std::set<string>>();
+      }
+
+      // 🦜 : reference the one (this is not something that we can do in OOthon)
+      shared_ptr<std::set<string>> s = this->to_be_confirmed_commands.o[data];
+      s->insert(endpoint);
+
+      /*
+
+        🦜 : How many we should collect?
+
+        🐢 : I think it should be N - 1 - f, 1 corresponds to the
+        primary. For example, when N = 2, there should be one confirm
+        (the one N1 put it after recieved the command). When N = 3,
+        there should be two, (needs an extra one from N2).
+
+       */
+
+      int x = this->N() - 1 - this->f();
+      if (s->size() >= x){
+        this->say(format("⚙️ command " S_CYAN "%s " S_NOR
+                         " confirmed by " S_CYAN "%d " S_NOR " node%s, executing it and clear")
+                  % data % s->size() % pluralizeOn(s->size())
+                  );
+
+        this->exe->execute(data);
+        {
+          std::unique_lock l(this->command_history->lock);
+          this->command_history.o.push_back(data);
+        }
+
+        // remove the entry at all
+        this->to_be_confirmed_commands.o.erase(data);
+      }else{
+        this->say(format("⚙️ command " S_CYAN "%s " S_NOR
+                         " confirmed by " S_CYAN "%d " S_NOR " node%s, not yet.")
+                  % data % s->size() % pluralizeOn(s->size())
+                  );
+      }
 }
 
-    void  handle_confirm_for_sub(string endpoint, string data){}
+    void  handle_confirm_for_sub(string endpoint, string data){
+      if (this->view_change_state.test()){
+        BOOST_LOG_TRIVIAL(error) << format("❌️ Dear %s, we are currently selecting new primary "
+                                           "for epoch %d. Please try again later.") % endpoint % this->epoch.load();
+        return;
+      }
+      this->add_to_to_be_confirmed_commands(endpoint, data);
+    }
 
     int N(){
-      return 0;
+      std::unique_lock l(this->all_endpoints);
+      return this->all_endpoints.o.size();
     }
+    /**
+     * @brief Get the number of random nodes the system can tolerate
+     */
     int f(){
-      return 0;
+      int ff;
+      std::unique_lock l(this->all_endpoints);
+      int N = this->all_endpoints.o.size();
+      int ff = (N - 1) / 3;     // trancated
+
+      // BOOST_CHECK_EQUAL(1/3,0);
+      // BOOST_CHECK_EQUAL(2/3,0);
+      // BOOST_CHECK_EQUAL(3/3,1);
+      // BOOST_CHECK_EQUAL(4/3,1);
+
+      // 🦜 : C by default, does truncated division.
+      return ff;
     }
 
-    void start_faulty_timer(){}
-    void comfort(){}
+    /**
+     * @brief Start the faulty timer.
 
-    void trigger_view_change(){}
+     * Life always has up-and-downs, but time moves toward Qian.
+
+     *         🦜: The faulty timer is just a clock that keeps calling
+     *         trigger_view_change(). It will not be reset by anybody except a
+     *         new-primary with a new-view-certificate.
+     */
+    void start_faulty_timer(){
+      while (not this->closed.test()){
+        this->comfort();
+
+        // 🦜 : Here we used atomic, so we don't need to lock it.
+        while (this->patience.load() > 0){
+          std::this_thread::sleep_for(std::chrono::seconds(3));
+          if (this->closed.test()){
+            this->say("\t 👋 Timer closed");
+            return;
+          }
+          this->patience--;
+          this->say(format(" patience >> " S_MAGENTA "%d " S_NOR ", 🐢: Pr : " S_CYAN "%s" S_NOR)
+                    % this->patience.load() % this->primary());
+        }
+
+        // here the patience is run off
+        this->trigger_view_change();
+        // 🦜 : We trigger the view-change and reset the patience.
+      }
+
+      this->say("\t 👋 Timer closed");
+    }
+
+    void comfort(){
+      this->patience.store(8);
+      this->say(format("❄ patience set to %d") % this->patience.load());
+    }
+
+    void trigger_view_change(){
+      /*
+        When a node triggers the view-change, it borad cast something like
+        'I laid down with this state: {...} for view {0}'
+
+        And others will listens to it.
+       */
+
+      this->epoch++;
+      this->say("ViewChange triggered");
+
+      this->view_change_state.test_and_set(); // set to true
+
+      string next_primary = this->primary();
+
+      LaidDownMsg msg{
+        "Dear " + next_primary + ", I laid down for U.",
+        this->epoch.load(),
+        this->get_state()};
+      
+}
     void  handle_laid_down(string endpoint, string data){}
     // remember_this_laiddown_and_be_primary_maybe
     vector<string> get_newcommers(vector<string> sigs){
