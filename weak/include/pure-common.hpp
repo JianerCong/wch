@@ -16,6 +16,8 @@
 
 #include <boost/format.hpp>
 #include <functional>
+#include <algorithm>
+#include <numeric>
 
 namespace pure{
   using std::function;
@@ -83,6 +85,31 @@ namespace pure{
   inline string pluralizeOn(uint64_t x, string e1="", string e2="s"){
     return x == 1 ? e1 : e2;
   }
+
+
+
+  namespace ranges = std::ranges;
+  /**
+   * @brief The contain for vector.
+   *
+   * 🦜 : Initially used for rbft cnss.
+   */
+  template<typename T>
+  bool contains(vector<T> v, T x){
+    return ranges::any_of(v,[x](T y){return x == y;});
+  }
+
+  template<typename T>
+  // atomic get
+  T atm_get(std::atomic<T> x){
+    return x.load(std::memory_order::relaxed);
+  }
+
+  template<typename T>
+  // atomic set
+  void atm_set(std::atomic<T> x, T y){
+    x.store(y,std::memory_order::relaxed);
+  }
 } // namespace pure
 
 // This helper function deduces the type and assigns the value with the matching key
@@ -93,3 +120,4 @@ namespace pure{
     if (t.fromJson(v)) return t;                              \
     return {};                                                \
   }
+

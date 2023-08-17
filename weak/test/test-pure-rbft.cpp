@@ -85,7 +85,7 @@ BOOST_AUTO_TEST_CASE(test_erase_spaces){
   s = boost::algorithm::erase_all_copy(s, " ");
   s = boost::algorithm::erase_all_copy(s, "\n");
   BOOST_CHECK_EQUAL(s,"abc");
-  }
+}
 
 BOOST_AUTO_TEST_CASE(test_to_json){
   NewViewCertificate c{"abc",1,{"v1","v2"},
@@ -103,5 +103,5 @@ BOOST_AUTO_TEST_CASE(test_to_json){
 
   // 🦜 : After removing the spaces, they should be the same.
   BOOST_CHECK_EQUAL(s,s0);
-  }
+}
 BOOST_AUTO_TEST_SUITE_END();    // test_new_view_certificate

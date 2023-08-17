@@ -88,6 +88,20 @@ namespace pure{
   };
 
 
+  class LaidDownMsg
+  //    virtual public IJsonizable,
+  // virtual public ISerializable
+  {
+  
+  }; // class LaidDownMsg
+
+  /**
+   * @brief The new_view_certificate msg
+   *
+   * 🦜: This is the msg that a new primary needs to boardcast to the group. It
+   * need to collect enough valid 'LaidDownMsg' in order to form the
+   * `new_view_certificate`.
+   */
   class NewViewCertificate:
     virtual public IJsonizable,
     virtual public ISerializable
@@ -101,6 +115,23 @@ namespace pure{
 
     NewViewCertificate() = default;
 
+    /**
+     * @brief Create a new_view_certificate
+     *
+     * @param mmsg : The msg to be boardcast. Just for debugging purpose. Can be
+     * arbitrary.
+     *
+     * @param eepoch : The new epoch. This is also unnecessary because the
+     * agreed epoch should be already the `new_view_certificate`.
+     *
+     * @param nnew_view_certificate : The signed LaidDownMsg that primary collected.
+     *
+     * @param ssig_of_nodes_to_be_added : The signature of the new nodes to be
+     * added in the turn.
+     *
+     * @param ccmds : The command history so far. These should only be sent to
+     * the new nodes.
+     */
     NewViewCertificate(string mmsg,int eepoch,vector<string> nnew_view_certificate={},
                        vector<string> ssig_of_nodes_to_be_added={},
                        vector<string> ccmds = {}
@@ -202,6 +233,8 @@ namespace pure{
       // no need to lock here.
       this->all_endpoints.o = vector<string>(all_endpoints.begin(),
                                              all_endpoints.end());
+      // 🦜 : We can't use set for all_endpoints. Because new nodes must be
+      // added to the end.
 
       if (not all_endpoints.contains(this->net->listened_endpoint()))
         this->start_listening_as_newcomer();
@@ -226,7 +259,55 @@ namespace pure{
                         bind(&RbftConsensus::handle_add_new_node_no_boardcast,this,_1,_2));
     }
 
-    void  handle_new_primary(string endpoint, string data){}
+    /**
+     * @brief Endpoint said it's the primary, if the data contains the required
+     things, then we follow it.
+
+     Here we should also handle adding-new nodes.
+
+     @param data: Serialized NewViewCertificate
+     */
+    void  handle_new_primary(string endpoint, string data){
+      NewViewCertificate o;
+      if (not cert.fromString(data)){
+        this->say(format("❌️Error parsing NewViewCertificate " S_RED "%s" S_NOR) % data);
+        return ;
+      }
+      vector<string> newcomers = this->get_newcommers(o.sig_of_nodes_to_be_added);
+      {
+        std::unique_lock l(this->all_endpoints->lock);
+        for (auto newcomer : newcomers){
+          if (contains(this->all_endpoints.o,newcomer)){
+            this->say("This primary has old newcomer, ignoring it");
+            return;
+          }
+        }
+      } // unlocks here
+
+      if (atm_get(this->epoch) > o.epoch){
+        this->say(format("Ignoring older msg in epoch=" S_CYAN "%d" S_NOR) % o.epoch);
+        return;
+      }
+
+      if (this->check_cert(o.new_view_certificate),o.epoch){
+        /*
+          🦜 : Now we are ready to start a new view. We do the following:
+
+          1. update the epoch
+          2. reset the timer
+          3. clear the laid_down_history
+          4. clear the sig_of_nodes_to_be_added
+          5. add the newcomers as per primary.
+          6. start as sub
+         */
+
+        // 1
+        int e = o.epoch;
+        atm_set(this->epoch,this->epoch_considering_newcomers(e,newcomers.size()));
+        this->say(format("🐸 changed to %d") % atm_get(this->epoch));
+        
+}
+    }
     bool check_cert(vector<string> l, int e, bool for_newcomer = true){
       return true;
 }
@@ -245,9 +326,19 @@ namespace pure{
     string get_signed_state(){
       return "";
 }
+
+    /**
+     * @brief The execute interface exposed to the outside world.
+     */
     optional<string> handle_execute_for_sub(string endpoint, string data) override{
+      handle_execute_for_sub1(string endpoint, string data);
       return "";
-}
+    }
+
+    void handle_execute_for_sub1(string endpoint, string data){
+      return "";
+    }
+
     void  add_to_to_be_confirmed_commands(string endpoint, string data){}
 
     int N(){
@@ -273,7 +364,12 @@ namespace pure{
     bool is_primary(){
       return false;
 }
-    void say(string_view s){}
+
+    template<typename T>
+    void say(T s){
+      BOOST_LOG_TRIVIAL(debug) << s;
+    }
+
     void boardcast_to_others(string_view target, string_view data){}
     void  handle_add_new_node_no_boardcast(string endpoint, string data){}
 
