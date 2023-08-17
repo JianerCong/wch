@@ -70,8 +70,17 @@ namespace pure{
     virtual string sign(string_view s) noexcept=0;
 
     virtual bool verify(string_view msg) noexcept=0;
-    virtual optional<string_view> get_data(string_view msg) noexcept=0;
-    virtual optional<string_view> get_from(string_view msg) noexcept=0;
+
+    /**
+     * @brief Extract the data in msg.
+     *
+     * @param msg The signed data.
+     *
+     * 🦜 : It is assumed that the `msg` has been verified using verify().
+     * Otherwise, this and get_from() will return rabbish.
+     */
+    virtual string_view get_data(string_view msg) noexcept=0;
+    virtual string_view get_from(string_view msg) noexcept=0;
   };
 
   class IAsyncEndpointBasedNetworkable: public virtual IForCnsssNetworkable{
@@ -95,8 +104,8 @@ namespace pure{
    * contain the `from` field.
    */
   class LaidDownMsg:
-   virtual public IJsonizable,
-   virtual public ISerializable
+    virtual public IJsonizable,
+    virtual public ISerializable
   {
   public:
     LaidDownMsg() = default;
@@ -318,7 +327,7 @@ namespace pure{
      Here we should also handle adding-new nodes.
 
      @param data: Serialized NewViewCertificate
-     */
+    */
     void  handle_new_primary(string endpoint, string data){
       NewViewCertificate o;
       if (not o.fromString(data)){
@@ -354,7 +363,7 @@ namespace pure{
 
           🦜 : Every time new nodes are added in the cluster, the epoch will be
           recalculated .
-         */
+        */
 
         // 1.
         int e = o.epoch;
@@ -373,7 +382,7 @@ namespace pure{
         {
           std::unique_lock l(this->sig_of_nodes_to_be_added.lock);
           this->sig_of_nodes_to_be_added.o.clear();
-} // unlocks
+        } // unlocks
 
         {
           std::unique_lock l(this->all_endpoints.lock);
@@ -382,7 +391,7 @@ namespace pure{
           /*
             🦜 : I don't think there will be a lot of newcomers in each round,
             so I'm just gonna stick to push_back.
-           */
+          */
           for (auto newcomer : newcomers){
             this->all_endpoints.o.push_back(newcomer);
           }
@@ -415,18 +424,11 @@ namespace pure{
      🐢 : Yeah, and it is also possible that we are different from the
      world, in that case... We stop
 
-     */
+    */
     bool check_cert(vector<string> l, int e, bool for_newcomer = true){
-      return true;
       std::set<string> valid_host;
-
-      if (l.size() == 0){
-        this->say(S_RED "\t ❌️ What ? Checking empty certificate ? There's no such thing." S_NOR);
-        return false;
-}
-
       try{
-
+        BOOST_ASSERT_MSG(l.size() != 0, "What ? Checking empty certificate ? There's no such thing.");
         /*
           🦜 : What are the elements in l?
 
@@ -440,31 +442,118 @@ namespace pure{
 
         */
         string s = l[0];
-        if (not this->sig->verify(s)){
-          this->say(format("❌️ Even the first signature = " S_RED " %s " S_NOR " is wrong") % s);
-          return false;
+        BOOST_ASSERT_MSG(this->sig->verify(s),
+                         (format("Even the first signature = %s is wrong") % s).str().c_str()
+                         );
+
+        // 🦜 : Boost assert can only accept cstring.. so we kinda have to make an extra c_str()
+        LaidDownMsg msg0;
+        BOOST_ASSERT_MSG(msg0.fromString(this->sig->get_data(s)),
+                         "Failed to form LaidDownMsg from string");
+
+        valid_host.insert(string(this->sig->get_from(s)));
+
+        if (not for_newcomer)
+          BOOST_ASSERT_MSG(
+                           msg0.state == this->get_state(),
+                           (format("State mismatch: %s != %s") % msg0.state % this->get_state()).str().c_str()
+                           );
+
+        for (auto it = l.begin()+1;it < l.end();it++){
+
+          BOOST_ASSERT(this->sig->verify(*it));
+          LaidDownMsg msg;
+          BOOST_ASSERT(msg.fromString(this->sig->get_data(*it)));
+          valid_host.insert(string(this->sig->get_from(*it)));
+
+          if (for_newcomer){
+            BOOST_ASSERT(msg.state == msg0.state);
+          }else{
+            BOOST_ASSERT(msg.state == this->get_state());
+          }
+
+          /*
+            🐢  : When a newcomer receives a new-view msgificate, it
+            also need to check it. But it won't check the state.
+          */
+          BOOST_ASSERT(msg.epoch == e);
+
         }
 
-}
-      catch(std::exception & e){
-          
-      }
-} // check_cert
+        /*
+          🦜 : How many laiddown do we need ?
 
-    void start_listening_as_primary(){}
-    void start_listening_as_sub(){}
+          🐢 : Every correct node sends this, so there should be N - f
+         */
+
+        int x = this->N() - this->f();
+        BOOST_ASSERT_MSG(valid_host.size() < x,
+                         (
+                          format("Requires %d LaidDownMsg%s, but got %d")
+                          % x % pluralizeOn(x) % valid_host.size()
+                          ).str().c_str()
+                         );
+      }
+      catch(my_assertion_error & e){
+        this->say(format(S_RED "❌️ Assertion error: %s" S_NOR) % e.what());
+        return false;
+      }
+
+      // this->say(format("Recieved ok view-change-vertificate"))
+      return true;
+    } // check_cert
+
+    void start_listening_as_primary(){
+      this->say("\t 🌱: Start listening as primary");
+      this->clear_and_listen_common_things();
+      this->net->listen("/pleaseExecuteThis",
+                        bind(&RbftConsensus::handle_execute_for_primary,this,_1,_2)
+                        );
+    }
+
+    void start_listening_as_sub(){
+      this->say("\t 🌱: Start listening as sub");
+      this->clear_and_listen_common_things();
+      this->net->listen("/pleaseExecuteThis",
+                        bind(&RbftConsensus::handle_execute_for_sub,this,_1,_2)
+                        );
+
+      this->net->listen("/pleaseConfirmThis",
+                        bind(&RbftConsensus::handle_confirm_for_sub,this,_1,_2)
+                        );
+    }
+
+    /**
+     * @brief The current primary
+     */
     string primary(){
-      return "";
-}
+      // 🦜 : We don't lock it here. Otherwise it will lock everything somebody say...
+
+      return this->all_endpoints[this->epoch.load() % this->all_endpoints.size()];
+    }
+
+    /**
+     * @brief Make a `state string` according to `self.command_history`.
+     *
+     * Get the (hash of) state, which should only be changed by the cmd executed
+     so far.
+
+     🦜 : Technically we should hash the commands history so far, but for
+     now...
+
+     🐢 : Let's just use:
+     */
     static string cmds_to_state(vector<string> cmds){
-        return "";
-}
+      return boost::algorithm::join(cmds,":");
+    }
+
     string get_state(){
-      return "";
-}
+      std::unique_lock l(this->command_history->lock);
+      return RbftConsensus::cmds_to_state(this->command_history->o);
+    }
     string get_signed_state(){
-      return "";
-}
+      return this->sig->sign(this->get_state());
+    }
 
     /**
      * @brief The execute interface exposed to the outside world.
@@ -475,16 +564,70 @@ namespace pure{
     }
 
     void handle_execute_for_sub1(string endpoint, string data){
+      /*
+        🐢 : All things starts with handle_execute_for_sub/primary(), which
+        is like the gateway of the node. So if we disable this, then...
+      */
+
+      if (this->view_change_state.test()){
+        BOOST_LOG_TRIVIAL(error) << format("❌️ Dear %s, we are currently selecting new primary "
+                                           "for epoch %d. Please try again later.") % endpoint % this->epoch.load();
+        return;
+}
+      if (endpoint == this->primary()){
+        /*
+          🦜 : Boardcast to other subs
+
+          🦜 : take out the endpoints, because self.primary() will also lock
+           'all_endpoints'
+         */
+
+        vector<string> all_endpoints;
+        {
+          std::unique_lock l(this->all_endpoints.lock);
+          all_endpoints = this->all_endpoints.o;
+} // unlocks
+
+        this->say("\t\tBoardcasting cmd confirm");
+
+        for (const string & sub : all_endpoints){
+          if (sub != this->net->listened_endpoint()
+              and
+              sub != this->primary()
+              ){
+            this->net->send(sub,"/pleaseConfirmThis",data);
+          }
+        }
+
+        this->say("\t\tAdding cmd to myself");
+        this->add_to_to_be_confirmed_commands(this->net->listened_endpoint(),data);
+        // done
+      }else{
+        // forward, it's from the client
+        this->net->send(this->primary(),"/pleaseExecuteThis",data);
+        // done
+      }
     }
 
-    void  add_to_to_be_confirmed_commands(string endpoint, string data){}
+     /**
+     * @brief Remember that endpoint `received` data.
+
+     *         🦜 : Is this the only method that touch `self.to_be_confirmed_commands` ?
+
+     *         🐢 : Looks so.
+     *      */
+    void  add_to_to_be_confirmed_commands(string endpoint, string data){
+      std::unique_lock l(this->to_be_confirmed_commands.lock);
+}
+
+    void  handle_confirm_for_sub(string endpoint, string data){}
 
     int N(){
       return 0;
-}
+    }
     int f(){
       return 0;
-}
+    }
 
     void start_faulty_timer(){}
     void comfort(){}
@@ -494,14 +637,14 @@ namespace pure{
     // remember_this_laiddown_and_be_primary_maybe
     vector<string> get_newcommers(vector<string> sigs){
       return {};
-}
+    }
     void try_to_be_primary(int e, string state, vector<string> my_list){}
     optional<string> handle_execute_for_primary(string endpoint, string data) override{
-        return "";
-}
+      return "";
+    }
     bool is_primary(){
       return false;
-}
+    }
 
     template<typename T>
     void say(T s){
@@ -515,7 +658,7 @@ namespace pure{
     void  handle_new_primary_for_newcomer(string endpoint, string data){}
     int epoch_considering_newcomers(int e, int num_newcomers){
       return 0;
-}
+    }
     void close(){}
   };
 

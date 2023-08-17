@@ -138,10 +138,27 @@ namespace pure{
 #define BOOST_ENABLE_ASSERT_HANDLER
 #include <boost/assert.hpp>
 
+class my_assertion_error: public std::exception{
+public:
+  std::string w;
+  my_assertion_error(std::string ww=""): w(ww){}
+  std::string what(){
+    return w;
+  }
+};
+
 // Called when BOOST_ASSERT_MSG failed
 void boost::assertion_failed_msg(char const * expr, char const * function,
                                  char const * msg, char const * file, long line){
   std::string s = (format("❌️ [%s]\n\tassertion %s has failed. (func=%s,file=%s,line=%ld)")
               % msg % expr % function % file % line).str();
-  BOOST_THROW_EXCEPTION(std::runtime_error(s));
+  BOOST_THROW_EXCEPTION(my_assertion_error(s));
+}
+
+// Called when BOOST_ASSERT failed
+void boost::assertion_failed(char const * expr, char const * function,
+                             char const * file, long line){
+  std::string s = (format("❌️\n\tassertion %s has failed. (func=%s,file=%s,line=%ld)")
+                   % expr % function % file % line).str();
+  BOOST_THROW_EXCEPTION(my_assertion_error(s));
 }
