@@ -88,12 +88,64 @@ namespace pure{
   };
 
 
-  class LaidDownMsg
-  //    virtual public IJsonizable,
-  // virtual public ISerializable
+  /**
+   * @brief Msg sent to the next primary when a node is ready to do view-change.
+   *
+   * This one is supposed to be signed before being sent. So it doesn't need to
+   * contain the `from` field.
+   */
+  class LaidDownMsg:
+   virtual public IJsonizable,
+   virtual public ISerializable
   {
-  
+  public:
+    LaidDownMsg() = default;
+    LaidDownMsg(string mmsg,int eepoch,string sstate):
+      msg(mmsg), epoch(eepoch), state(sstate) {};
+    string msg;
+    int epoch;
+    string state;
+
+    string toString() const noexcept override {
+      return IJsonizable::toJsonString();
+    }
+
+    bool fromString(string_view s) noexcept override{
+      BOOST_LOG_TRIVIAL(debug) <<  "Forming NewViewCertificate from string.";
+      return IJsonizable::fromJsonString(s);
+    }
+
+    json::value toJson() const noexcept override {
+      return json::value_from(*this);
+    }
+
+    bool fromJson(const json::value &v) noexcept override {
+      BOOST_LOG_TRIVIAL(debug) << format("Forming NewViewCertificate from Json");
+      try {
+        this->msg = value_to<string>(v.at("msg"));
+        this->epoch = value_to<int>(v.at("epoch"));
+        this->state = value_to<string>(v.at("state"));
+      }catch (std::exception &e){
+        BOOST_LOG_TRIVIAL(error) << format("❌️ error parsing json:" S_RED " %s" S_NOR) % e.what();
+        return false;
+      }
+      return true;
+    }
   }; // class LaidDownMsg
+
+  // json functions for LaidDownMsg
+  // 🦜 : Defining this method allows us to use json::serialize(value_from(t))
+  void tag_invoke(json::value_from_tag, json::value& jv, LaidDownMsg const& c ){
+    jv = {
+      {"msg", c.msg},
+      {"epoch", c.epoch},
+      {"state", c.state}
+    };
+  }
+
+  // This helper function deduces the type and assigns the value with the matching key
+  // 🦜 : Defining this allows us to use json::value_to<A>
+  ADD_FROM_JSON_TAG_INVOKE(LaidDownMsg);
 
   /**
    * @brief The new_view_certificate msg
@@ -269,13 +321,13 @@ namespace pure{
      */
     void  handle_new_primary(string endpoint, string data){
       NewViewCertificate o;
-      if (not cert.fromString(data)){
+      if (not o.fromString(data)){
         this->say(format("❌️Error parsing NewViewCertificate " S_RED "%s" S_NOR) % data);
         return ;
       }
       vector<string> newcomers = this->get_newcommers(o.sig_of_nodes_to_be_added);
       {
-        std::unique_lock l(this->all_endpoints->lock);
+        std::unique_lock l(this->all_endpoints.lock);
         for (auto newcomer : newcomers){
           if (contains(this->all_endpoints.o,newcomer)){
             this->say("This primary has old newcomer, ignoring it");
@@ -284,12 +336,12 @@ namespace pure{
         }
       } // unlocks here
 
-      if (atm_get(this->epoch) > o.epoch){
+      if (this->epoch.load() > o.epoch){
         this->say(format("Ignoring older msg in epoch=" S_CYAN "%d" S_NOR) % o.epoch);
         return;
       }
 
-      if (this->check_cert(o.new_view_certificate),o.epoch){
+      if (this->check_cert(o.new_view_certificate,o.epoch)){
         /*
           🦜 : Now we are ready to start a new view. We do the following:
 
@@ -299,18 +351,105 @@ namespace pure{
           4. clear the sig_of_nodes_to_be_added
           5. add the newcomers as per primary.
           6. start as sub
+
+          🦜 : Every time new nodes are added in the cluster, the epoch will be
+          recalculated .
          */
 
-        // 1
+        // 1.
         int e = o.epoch;
-        atm_set(this->epoch,this->epoch_considering_newcomers(e,newcomers.size()));
-        this->say(format("🐸 changed to %d") % atm_get(this->epoch));
-        
-}
-    }
+        this->epoch.store(this->epoch_considering_newcomers(e,newcomers.size()));
+        this->say(format("🐸 changed to %d") % this->epoch.load());
+
+        // 2.
+        this->comfort();
+
+        // 3.
+        {
+          std::unique_lock l(this->laid_down_history.lock);
+          this->laid_down_history.o.clear();
+        } // unlocks here
+
+        {
+          std::unique_lock l(this->sig_of_nodes_to_be_added.lock);
+          this->sig_of_nodes_to_be_added.o.clear();
+} // unlocks
+
+        {
+          std::unique_lock l(this->all_endpoints.lock);
+          // all_endpoints += newcomers
+
+          /*
+            🦜 : I don't think there will be a lot of newcomers in each round,
+            so I'm just gonna stick to push_back.
+           */
+          for (auto newcomer : newcomers){
+            this->all_endpoints.o.push_back(newcomer);
+          }
+        } // unlocks
+
+
+        this->start_listening_as_sub();
+      }else{
+        // check cert failed
+        this->say(format("❌️ Invalid certificate: " S_RED " %s " S_NOR " from " S_CYAN " %s " S_NOR ", Do nothing.")
+                  % o % endpoint);
+      }
+    } // handle_new_primary
+
+    /**
+     * @brief Check wether the view-change certificate is valid.
+
+     🦜 : The view-change certificate is valid if
+
+     1. All msgs in it are properly signed.
+
+     2. The state-hash and epoch of them are all the same. In particular,
+     the epoch of them should all be equal to `e`. And the state(-hash)
+     should all be equal to our hash
+
+     3. And they must have been sent from different nodes.
+
+     4. And that's it...?
+
+     🐢 : Yeah, and it is also possible that we are different from the
+     world, in that case... We stop
+
+     */
     bool check_cert(vector<string> l, int e, bool for_newcomer = true){
       return true;
+      std::set<string> valid_host;
+
+      if (l.size() == 0){
+        this->say(S_RED "\t ❌️ What ? Checking empty certificate ? There's no such thing." S_NOR);
+        return false;
 }
+
+      try{
+
+        /*
+          🦜 : What are the elements in l?
+
+          🐢 : LaidDownMsg
+
+          🦜 : What's in it?
+
+          🐢 : 'epoch' and 'state', and also, because it's signed, so the `from`
+          is there too. Note that the msg itself doesn't need to contain the
+          `from` field, because it's supposed to be signed.
+
+        */
+        string s = l[0];
+        if (not this->sig->verify(s)){
+          this->say(format("❌️ Even the first signature = " S_RED " %s " S_NOR " is wrong") % s);
+          return false;
+        }
+
+}
+      catch(std::exception & e){
+          
+      }
+} // check_cert
 
     void start_listening_as_primary(){}
     void start_listening_as_sub(){}
@@ -331,12 +470,11 @@ namespace pure{
      * @brief The execute interface exposed to the outside world.
      */
     optional<string> handle_execute_for_sub(string endpoint, string data) override{
-      handle_execute_for_sub1(string endpoint, string data);
+      handle_execute_for_sub1(endpoint, data);
       return "";
     }
 
     void handle_execute_for_sub1(string endpoint, string data){
-      return "";
     }
 
     void  add_to_to_be_confirmed_commands(string endpoint, string data){}

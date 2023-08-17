@@ -2,6 +2,7 @@
 #include <boost/json.hpp>
 #include <string>
 #include <string_view>
+#include <iostream>
 
 
 
@@ -18,8 +19,11 @@
 #include <functional>
 #include <algorithm>
 #include <numeric>
+#include <vector>
 
 namespace pure{
+  using std::vector;
+  
   using std::function;
   using boost::format;
   using std::string_view;
@@ -63,6 +67,12 @@ namespace pure{
       string d = json::serialize(v);
       return d;
     };
+
+    // 🦜 : In fact, we can teach ostream how to display an IJsonizable:
+    friend std::ostream& operator<<(std::ostream& os, const IJsonizable& I){
+      os << I.toJsonString();
+      return os;
+    };
   };
 
   class ISerializable{
@@ -99,17 +109,20 @@ namespace pure{
     return ranges::any_of(v,[x](T y){return x == y;});
   }
 
-  template<typename T>
-  // atomic get
-  T atm_get(std::atomic<T> x){
-    return x.load(std::memory_order::relaxed);
-  }
+  // 🦜 : atomic<T> & is deleted
 
-  template<typename T>
-  // atomic set
-  void atm_set(std::atomic<T> x, T y){
-    x.store(y,std::memory_order::relaxed);
-  }
+  // template<typename T>
+  // // atomic get
+  // T atm_get(std::atomic<T> x){
+  //   return x.load(std::memory_order::relaxed);
+  // }
+
+  // template<typename T>
+  // // atomic set
+  // void atm_set(std::atomic<T> x, T y){
+  //   x.store(y,std::memory_order::relaxed);
+  // }
+
 } // namespace pure
 
 // This helper function deduces the type and assigns the value with the matching key
@@ -121,3 +134,14 @@ namespace pure{
     return {};                                                \
   }
 
+
+#define BOOST_ENABLE_ASSERT_HANDLER
+#include <boost/assert.hpp>
+
+// Called when BOOST_ASSERT_MSG failed
+void boost::assertion_failed_msg(char const * expr, char const * function,
+                                 char const * msg, char const * file, long line){
+  std::string s = (format("❌️ [%s]\n\tassertion %s has failed. (func=%s,file=%s,line=%ld)")
+              % msg % expr % function % file % line).str();
+  BOOST_THROW_EXCEPTION(std::runtime_error(s));
+}
