@@ -101,12 +101,16 @@ namespace pure{
 
     NewViewCertificate() = default;
 
-    NewViewCertificate(string mmsg,int eepoch,vector<string> nnew_view_certificate,
-                       vector<string> ssig_of_nodes_to_be_added):
+    NewViewCertificate(string mmsg,int eepoch,vector<string> nnew_view_certificate={},
+                       vector<string> ssig_of_nodes_to_be_added={},
+                       vector<string> ccmds = {}
+                       ):
       msg(mmsg),
       epoch(eepoch),
       new_view_certificate(nnew_view_certificate),
-      sig_of_nodes_to_be_added(ssig_of_nodes_to_be_added){}
+      sig_of_nodes_to_be_added(ssig_of_nodes_to_be_added),
+      cmds(ccmds)
+    {}
 
     string toString() const noexcept override {
       return IJsonizable::toJsonString();
@@ -133,7 +137,7 @@ namespace pure{
         this->cmds = value_to<vector<string>>(v.at("cmds"));
 
       }catch (std::exception &e){
-        BOOST_LOG_TRIVIAL(error) << format("❌️ error parsing json: %s") % e.what();
+        BOOST_LOG_TRIVIAL(error) << format("❌️ error parsing json:" S_RED " %s" S_NOR) % e.what();
         return false;
       }
       return true;

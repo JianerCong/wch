@@ -1,0 +1,7 @@
+{
+  "msg" : 123,
+  "epoch" : 1,
+  "new_view_certificate" : ["v1","v2"],
+  "sig_of_nodes_to_be_added" : ["s1", "s2"],
+  "cmds": 4
+}
