@@ -269,7 +269,15 @@ namespace pure{
     std::atomic_int patience = 0;
 
     LockedObject<
-      unordered_map<int,unordered_map<string,vector<string>>>
+      unordered_map<int,
+                    shared_ptr<
+                      unordered_map<string,
+                                    shared_ptr<
+                                      vector<string>
+                                      >
+                                    >
+                      >
+                    >
       > laid_down_history;
 
     LockedObject<std::set<string>> sig_of_nodes_to_be_added;
@@ -654,7 +662,7 @@ namespace pure{
 
         this->exe->execute(data);
         {
-          std::unique_lock l(this->command_history->lock);
+          std::unique_lock l(this->command_history.lock);
           this->command_history.o.push_back(data);
         }
 
@@ -678,15 +686,14 @@ namespace pure{
     }
 
     int N(){
-      std::unique_lock l(this->all_endpoints);
+      std::unique_lock l(this->all_endpoints.lock);
       return this->all_endpoints.o.size();
     }
     /**
      * @brief Get the number of random nodes the system can tolerate
      */
     int f(){
-      int ff;
-      std::unique_lock l(this->all_endpoints);
+      std::unique_lock l(this->all_endpoints.lock);
       int N = this->all_endpoints.o.size();
       int ff = (N - 1) / 3;     // trancated
 
@@ -755,15 +762,188 @@ namespace pure{
       LaidDownMsg msg{
         "Dear " + next_primary + ", I laid down for U.",
         this->epoch.load(),
-        this->get_state()};
-      
-}
-    void  handle_laid_down(string endpoint, string data){}
-    // remember_this_laiddown_and_be_primary_maybe
-    vector<string> get_newcommers(vector<string> sigs){
-      return {};
+        this->get_state()
+      };
+
+      string data = this->sig->sign(msg.toString());
+
+      // Send to next_primary my state
+      if (next_primary == this->net->listened_endpoint()){
+        this->say(S_MAGENTA "Send laiddown for myself" S_NOR);
+        this->remember_this_laiddown_and_be_primary_maybe(msg,std::move(data));
+      }else{
+        this->net->send(next_primary,"/ILaidDown",data);
+      }
     }
-    void try_to_be_primary(int e, string state, vector<string> my_list){}
+
+    /**
+     * @brief Response to a `laid-down` msg.
+
+     *  🐢 : The goal is to see wether the `next primary` is OK. We need to
+     *  receive 2f msgs (plus this node itself, then it should have 2f + 1 state) to check
+     *  that.
+
+     *  In particular, the state of `next primary` must be known.
+
+     *  🦜 : What if we already got 2f msgs, but didn't got the one from `next
+     * primary`?
+
+     *  🐢 : Let's ask it explicitly?
+
+     *  🦜 : Yeah, and if it doesn't reply. We do a new view-change.
+     *
+     *  🦜 : Wait... I changed my mind. Let's just ignore it if it's down and
+     * wait for the next view change.
+     *
+     * @param endpoint The node that sends the laiddown msg. This node
+     * (probably) wants us to be the primary.
+     *
+     * @param data The signed LaidDownMsg
+     */
+    void  handle_laid_down(string endpoint, string data){
+      try {
+        BOOST_VERIFY(this->sig->verify(data));
+        LaidDownMsg msg;
+        BOOST_VERIFY(msg.fromString(this->sig->get_data(data)));
+
+        if (msg.epoch < this->epoch.load()){
+          this->say(format("🚮️ Ignoring lower epoch laid-down msg: epoch=%d")
+                    % msg.epoch);
+          return ;
+        }
+        /*
+          🦜 : I feel like we should only use BOOST_VERIFY if it's something
+          important.... Bucause they will be painted in red.
+        */
+
+        const string * next_primary;
+        {
+          std::unique_lock l(this->all_endpoints.lock);
+          next_primary = &(
+                           this->all_endpoints.o[
+                                                 msg.epoch %
+                                                 this->all_endpoints.o.size()
+                                                 ]
+                           );
+        } // unlocked here
+        if (*next_primary != this->net->listened_endpoint()){
+          this->say(format("🚮️ This view-change is for " S_CYAN "%d " S_NOR ",non of my bussinesses.")
+                    % *next_primary);
+          return;
+        }
+
+        this->remember_this_laiddown_and_be_primary_maybe(msg,data);
+      }catch (my_assertion_error & e){
+        this->say(format("❌️ Assertion error:" S_RED "\n\t%s" S_NOR) % e.what());
+        // do nothing
+        return;
+      }
+    }
+
+    /**
+     * @brief Add the laid-down msg `o` for this node into laid_down_history and
+     * if enough laid-down msg is collected, then be the primary.
+
+     * @param data `data` should be the signed form of `o`:
+     *         data = this->sig->sign(o.fromString())
+     *
+     * @param o the newly added LaidDownMsg
+     */
+    void remember_this_laiddown_and_be_primary_maybe(const LaidDownMsg & o, const string data){
+      // string state = o.state;
+      // int epoch = o.epoch;
+      shared_ptr<vector<string>> to_be_added_list;
+
+      {
+        std::unique_lock l(this->laid_down_history.lock);
+        // 🦜 : 1. Does this epoch already has something ? If not, create a new dict{}
+        if (not this->laid_down_history.o.contains(o.epoch)){
+  
+          this->say(format("\tAdding new record in laid_down_history for epoch " S_GREEN "%d " S_NOR)
+                    % o.epoch);
+          this->laid_down_history.o.insert({
+              epoch,
+              make_shared<
+              unordered_map<string,shared_ptr<vector<string>>>
+              //            state : votes for state
+              >()});
+        }
+
+        // 🦜 : 2. Does this epoch already got state like this ? If not, create a new list[]
+        if (not this->laid_down_history.o.at(o.epoch)->contains(o.state)){
+          this->say(format("t\tAdding new record in laid_down_history for " S_GREEN "epoch=%d,state=%s" S_NOR)
+                    % o.epoch % o.state);
+          this->laid_down_history.o.at(o.epoch)->insert({
+              o.state,
+              make_shared<vector<string>>()
+            });
+
+          // 🦜 Now take the list
+          to_be_added_list = this->laid_down_history.o.at(o.epoch)->at(o.state);
+        }
+      } // unlocks here
+
+      // 🦜 : This is the list that data (signed msg) will be added in.
+      if (contains(*to_be_added_list, data)){
+        this->say(format("🚮️ Ignoring duplicated msg:" S_CYAN "%s" S_NOR)% data);
+        return;
+      }
+      to_be_added_list->push_back(data);
+
+      /*
+
+        🦜 : How many laiddown msg does one need to collect in order to be the new primary?
+
+        🐢 : Every correct node will append to it even the next primary itself.
+        so it's N - f.
+
+       */
+
+      int x = this->N() - this->f();
+      if (to_be_added_list->size() >= x){
+        this->say(format("Collected enough " S_GREEN "%d " S_NOR " >= " S_CYAN "%d" S_NOR " LaidDownMsg%s")
+                  % to_be_added_list->size() % x % pluralizeOn(to_be_added_list->size())
+                  );
+        this->try_to_be_primary(o.epoch,o.state,to_be_added_list);
+      }else{
+        this->say(format("Collected enough " S_MAGENTA "%d " S_NOR " <= " S_CYAN "%d" S_NOR " LaidDownMsg%s"
+                         S_MAGENTA "not yet the time" S_NOR)
+                  % to_be_added_list->size() % x % pluralizeOn(to_be_added_list->size())
+                  );
+        /*
+          🐢 No need to return the to_be_added_list, because we are using shared_ptr<>
+         */
+      }
+
+      /*
+         🦜 : It is my bussinesses and the epoch is right for me. I am just
+         ganna get majority of same-state, and if I am not one of them... I will
+         sync to one of them?
+
+        🐢 : For now, let's just skip that step..We do that later.
+
+       */
+    }
+
+    /**
+     * @brief Verify and get the newcommers collected.
+     */
+    vector<string> get_newcommers(vector<string> sigs){
+      std::set<string> o;
+      for (const string & sig : sigs ){
+        if (not this->sig->verify(sig))
+          continue;
+
+        // else
+        string_view n = this->sig->get_from(sig);
+        if (o.insert(string(n)).second) // 🦜 added
+          this->say(format(" Verified node " S_GREEN "%s" S_NOR) % n);
+      }
+      vector<string> r(o.begin(),o.end()); // copy
+      return r;
+    }
+
+    void try_to_be_primary(int e, string state, shared_ptr<vector<string>> my_list){}
     optional<string> handle_execute_for_primary(string endpoint, string data) override{
       return "";
     }

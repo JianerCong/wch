@@ -105,7 +105,7 @@ namespace pure{
    * 🦜 : Initially used for rbft cnss.
    */
   template<typename T>
-  bool contains(vector<T> v, T x){
+  bool contains(const vector<T> v, const T x){
     return ranges::any_of(v,[x](T y){return x == y;});
   }
 
