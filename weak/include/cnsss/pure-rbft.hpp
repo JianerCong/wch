@@ -195,9 +195,9 @@ namespace pure{
      * @param ccmds : The command history so far. These should only be sent to
      * the new nodes.
      */
-    NewViewCertificate(string mmsg,int eepoch,vector<string> nnew_view_certificate={},
-                       vector<string> ssig_of_nodes_to_be_added={},
-                       vector<string> ccmds = {}
+    NewViewCertificate(string mmsg,int eepoch,vector<string> nnew_view_certificate,
+                       vector<string> ssig_of_nodes_to_be_added,
+                       vector<string> ccmds = {} // optional
                        ):
       msg(mmsg),
       epoch(eepoch),
@@ -285,7 +285,7 @@ namespace pure{
     LockedObject<unordered_map<string,
                                shared_ptr<std::set<string>>
                                >> to_be_confirmed_commands;
-    LockedObject<std::set<string>> recieved_commands;
+    LockedObject<std::set<string>> received_commands;
     LockedObject<vector<string>> command_history;
     /*
      * 🐢 : Make the ctor private, see pure-ListenToOneConsensus.hpp for reason.
@@ -331,6 +331,9 @@ namespace pure{
       this->net->listen("/IamThePrimary", bind(&RbftConsensus::handle_new_primary,this,_1,_2));
       this->net->listen("/pleaseAddMeNoBoardcast",
                         bind(&RbftConsensus::handle_add_new_node_no_boardcast,this,_1,_2));
+      {std::unique_lock l(this->received_commands.lock);
+        this->received_commands.o.clear();
+      }
     }
 
     /**
@@ -512,7 +515,7 @@ namespace pure{
         return false;
       }
 
-      // this->say(format("Recieved ok view-change-vertificate"))
+      // this->say(format("Received ok view-change-vertificate"))
       return true;
     } // check_cert
 
@@ -520,7 +523,7 @@ namespace pure{
       this->say("\t 🌱: Start listening as primary");
       this->clear_and_listen_common_things();
       this->net->listen("/pleaseExecuteThis",
-                        bind(&RbftConsensus::handle_execute_for_primary,this,_1,_2)
+                        bind(&RbftConsensus::handle_execute_for_primary1,this,_1,_2)
                         );
     }
 
@@ -528,7 +531,7 @@ namespace pure{
       this->say("\t 🌱: Start listening as sub");
       this->clear_and_listen_common_things();
       this->net->listen("/pleaseExecuteThis",
-                        bind(&RbftConsensus::handle_execute_for_sub,this,_1,_2)
+                        bind(&RbftConsensus::handle_execute_for_sub1,this,_1,_2)
                         );
 
       this->net->listen("/pleaseConfirmThis",
@@ -648,7 +651,7 @@ namespace pure{
 
         🐢 : I think it should be N - 1 - f, 1 corresponds to the
         primary. For example, when N = 2, there should be one confirm
-        (the one N1 put it after recieved the command). When N = 3,
+        (the one N1 put it after received the command). When N = 3,
         there should be two, (needs an extra one from N2).
 
        */
@@ -928,7 +931,7 @@ namespace pure{
     /**
      * @brief Verify and get the newcommers collected.
      */
-    vector<string> get_newcommers(vector<string> sigs){
+    vector<string> get_newcommers(const vector<string> & sigs) const {
       std::set<string> o;
       for (const string & sig : sigs ){
         if (not this->sig->verify(sig))
@@ -943,10 +946,190 @@ namespace pure{
       return r;
     }
 
-    void try_to_be_primary(int e, string state, shared_ptr<vector<string>> my_list){}
+    void try_to_be_primary(int e, string state, shared_ptr<vector<string>> my_list){
+      this->say(
+                format("This's my time for epoch " S_GREEN "%d" S_NOR ", my state is\n\t"
+                       S_CYAN "%s\n\t" S_NOR
+                       "and the majority has state\n\t"
+                       S_CYAN "%s\n\t" S_NOR
+                       ) % e % this->get_state() % state
+                );
+
+      {
+        // Should be my-view
+        std::unique_lock l(this->all_endpoints.lock);
+        // 🐢 : If U call self.N() here, dead lock happens.
+        BOOST_ASSERT(
+                     this->all_endpoints.o[e % this->all_endpoints.o.size()]
+                     ==
+                     this->net->listened_endpoint()
+                     );
+
+      }     // unlock
+
+      BOOST_ASSERT_MSG(this->get_state() == state,
+                       "I am different from other correct nodes. "
+                       "The cluster might contained too many random nodes."
+                       );
+
+      /*
+
+        🐢 : Add those new nodes, and notify them that they are in. The things
+        that needs to be sent to the newcomers are different from those sent to
+        other subs. In particular, it needs to send 'cmds' to those newcomers
+        too, in addition to what's sent to everybody.
+
+      */
+
+      unique_ptr<vector<string>> sig_for_newcomers;
+      // pop the newcomers
+      {
+        std::unique_lock l(this->sig_of_nodes_to_be_added.lock);
+        // set to list
+        sig_for_newcomers = make_unique<vector<string>>(this->sig_of_nodes_to_be_added.o.begin(),
+                                                        this->sig_of_nodes_to_be_added.o.end()
+                                                        );
+        this->sig_of_nodes_to_be_added.o.clear();
+      } // unlocks
+      vector<string> newcomers = this->get_newcommers(*sig_for_newcomers);
+
+      if (newcomers.empty()){
+        /*
+          🐢 : If there's no newcomer, then the life is much easier:
+          We just need to boardcast the new-view-certificate.
+        */
+
+        NewViewCertificate m{
+          "Hi, I am the primary now" /*msg*/ ,
+          e /*epoch*/ ,
+          *my_list /*new_view_certificate*/
+          ,
+          {} /*sig_of_nodes_to_be_added*/
+        };
+
+        this->epoch.store(e);
+        this->boardcast_to_others("/IamThePrimary",m.toString());
+      }else{
+        /*
+          🐢 : But if there're newcomers, then we have to do the
+          following:
+
+          1. Recalculate the 'to-be-updated' epoch such that this node is the
+          new primary. In details, the new epoch should be
+
+          self.epoch =  e + (e\\N) * len(newcomers)            (1)
+
+          However, the current epoch (before calculation) should still be
+          saved and passed over the network because the msgs in
+          `new-viwe-certificate` will be verified against this epoch (🐢 : No
+          worries, the subs will calculate the `to-be-updated epoch`
+          themselves.)
+
+          2. Boardcast to existing nodes the `self.sig_of_nodes_to_be_added`.
+          The other nodes should be able to derive the `newcomers` from it.
+          Inside this msg, the `sig_of_nodes_to_be_added` should contains the
+          new nodes to be added, and the `epoch` should be the *old one* we just
+          used. (🦜 : This epoch should be same as the one that appears in
+          the new-view-certificate.)
+
+          When sub nodes received this,
+          it will first see that the
+          `sig_of_nodes_to_be_added` (and the newcomers derived from it) is
+          not empty. Next, it will verify the `new-view-certificate`
+          according to the epoch passed.
+
+          But then, it will set its epoch according to eqn (1).
+
+          Just like the primary. (🦜 : So when passing things aroung over the
+          network, they all talk about the 'low' epoch, but in fact they will
+          update their epoch to equiation (1), 🐢 : Yes)
+
+          3. Notify the newcomers. This is basically the same process as for
+          the subs. It's just that 'cmds' will also be sent inside the msg.
+        */
+
+        // 1.
+        this->epoch.store(this->epoch_considering_newcomers(e,newcomers.size()));
+
+        // 2.
+
+        NewViewCertificate m{
+          "Hi, I am the primary now" /*msg*/ ,
+          e /*epoch*/ ,
+          *my_list /*new_view_certificate*/ ,
+          *sig_for_newcomers /*sig_of_nodes_to_be_added*/
+        };
+        this->boardcast_to_others("/IamThePrimary",m.toString());
+
+        // 3.
+        {
+          std::unique_lock l(this->all_endpoints.lock);
+          for (const string & newcomer : newcomers)
+            this->all_endpoints.o.push_back(newcomer);
+        }
+
+        {
+          std::unique_lock l(this->command_history.lock);
+          // 🦜 Append cmds in the new-view cert
+          m.cmds = this->command_history.o;
+        }
+
+        for (const string & newcomer : newcomers)
+          this->net->send(newcomer,"/IamThePrimaryForNewcomer",m.toString());
+
+        // 🦜 : In fact, the above can all be called asynchronously.
+
+      } // case when there're newcomers
+
+      // 🐢 be the primary
+
+      this->say(format("\t🌐️ Epoch set to " S_MAGENTA "%d" S_NOR)
+                % this->epoch.load());
+
+      this->start_listening_as_primary();
+
+    } // try_to_be_primary
+
+  /**
+   * @brief The execute interface exposed to the outside world. (we need to
+   * override it.)
+   */
     optional<string> handle_execute_for_primary(string endpoint, string data) override{
+      handle_execute_for_primary1(endpoint,data);
       return "";
     }
+
+  void handle_execute_for_primary1(string endpoint, string data){
+    if (this->view_change_state.test()){
+      BOOST_LOG_TRIVIAL(error) << format("❌️ Dear %s, we are currently selecting new primary "
+                                         "for epoch %d. Please try again later.") % endpoint % this->epoch.load();
+      return;
+    }
+
+    {
+      std::unique_lock l(this->received_commands.lock);
+      if (this->received_commands.contains(data)){
+        this->say("\tIgnoring duplicated cmd " S_MAGENTA + data + S_NOR);
+        return;
+}
+} // unlocks here
+
+    {
+      std::unique_lock l(this->command_history.lock);
+      this->command_history.o.push_back(data);
+}
+
+    this->exe->execute(data);
+    /*
+       🦜 : Can primary just execute it?
+
+      🐢 : Yeah, it can. Then it just assume that the group has 2f + 1 correct
+       nodes, and that should be fine. It doesn't bother checking
+     */
+
+    this->boardcast_to_others("/pleaseExecuteThis",data);
+  }
+
     bool is_primary(){
       return false;
     }
