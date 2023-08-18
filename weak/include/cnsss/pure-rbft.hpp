@@ -303,7 +303,7 @@ namespace pure{
 
       When a node has collected enough `commit` for a command, it executes it
       no matter what. 
-     */
+    */
     LockedObject<unordered_map<string,
                                shared_ptr<std::set<string>>
                                >> to_be_committed_commands;
@@ -389,7 +389,7 @@ namespace pure{
         return;
       }
 
-      if (this->check_cert(o.new_view_certificate,o.epoch)){
+      if (this->check_cert(o.new_view_certificate,o.epoch,false)){
         /*
           🦜 : Now we are ready to start a new view. We do the following:
 
@@ -523,7 +523,7 @@ namespace pure{
           🦜 : How many laiddown do we need ?
 
           🐢 : Every correct node sends this, so there should be N - f
-         */
+        */
 
         int x = this->N() - this->f();
         BOOST_ASSERT_MSG(valid_host.size() < x,
@@ -569,7 +569,7 @@ namespace pure{
     /**
      * @brief The current primary
      */
-    string primary(){
+    string primary() const {
       // 🦜 : We don't lock it here. Otherwise it will lock everything somebody say...
 
       return this->all_endpoints.o[this->epoch.load() % this->all_endpoints.o.size()];
@@ -585,7 +585,7 @@ namespace pure{
      now...
 
      🐢 : Let's just use:
-     */
+    */
     static string cmds_to_state(vector<string> cmds){
       return boost::algorithm::join(cmds,":");
     }
@@ -616,14 +616,14 @@ namespace pure{
         BOOST_LOG_TRIVIAL(error) << format("❌️ Dear %s, we are currently selecting new primary "
                                            "for epoch %d. Please try again later.") % endpoint % this->epoch.load();
         return;
-}
+      }
       if (endpoint == this->primary()){
         /*
           🦜 : Boardcast to other subs
 
           🦜 : take out the endpoints, because self.primary() will also lock
-           'all_endpoints'
-         */
+          'all_endpoints'
+        */
 
         this->boardcast_to_other_subs("/pleaseConfirmThis",data);
 
@@ -637,7 +637,7 @@ namespace pure{
       }
     }
 
-     /**
+    /**
      * @brief Remember that endpoint `received` data.
 
      * 🦜 : Is this the only method that touch `self.to_be_confirmed_commands` ?
@@ -646,7 +646,7 @@ namespace pure{
      that to the `to_be_confirmed_commands` (this might boardcast
      '/pleaseCommitThis'.)
 
-     */
+    */
     void  add_to_to_be_confirmed_commands(string endpoint, string data){
       std::unique_lock l(this->to_be_confirmed_commands.lock);
 
@@ -669,7 +669,7 @@ namespace pure{
         (the one N1 put it after received the command). When N = 3,
         there should be two, (needs an extra one from N2).
 
-       */
+      */
 
       long unsigned int x = this->N() - 1 - this->f();
       if (s->size() >= x){
@@ -690,7 +690,7 @@ namespace pure{
                   % data % s->size() % pluralizeOn(s->size())
                   );
       }
-}
+    }
 
     void boardcast_to_other_subs(string target, string data){
       vector<string> all_endpoints;
@@ -708,13 +708,13 @@ namespace pure{
           this->net->send(sub,target,data);
         }
       }
-}
+    }
 
     void finally_execute_it(string data){
       this->exe->execute(data);
       std::unique_lock l(this->command_history.lock);
       this->command_history.o.push_back(data);
-}
+    }
 
 
 
@@ -748,7 +748,7 @@ namespace pure{
         (the one N1 put it after received the command). When N = 3,
         there should be two, (needs an extra one from N2).
 
-       */
+      */
 
       std::size_t x = this->N() - 1 - this->f();
       if (s->size() >= x){
@@ -765,7 +765,7 @@ namespace pure{
                   % data % s->size() % pluralizeOn(s->size())
                   );
       }
-}
+    }
 
     void  handle_commit_for_sub(string endpoint, string data){
       if (this->view_change_state.test()){
@@ -792,7 +792,7 @@ namespace pure{
     /**
      * @brief Get the number of random nodes the system can tolerate
      */
-     std::size_t f(){
+    std::size_t f(){
       std::unique_lock l(this->all_endpoints.lock);
       long unsigned int N = this->all_endpoints.o.size();
       return (N - 1) / 3;
@@ -848,7 +848,7 @@ namespace pure{
         'I laid down with this state: {...} for view {0}'
 
         And others will listens to it.
-       */
+      */
 
       this->epoch++;
       this->say("ViewChange triggered");
@@ -995,7 +995,7 @@ namespace pure{
         🐢 : Every correct node will append to it even the next primary itself.
         so it's N - f.
 
-       */
+      */
 
       int x = this->N() - this->f();
       if (to_be_added_list->size() >= x){
@@ -1010,17 +1010,17 @@ namespace pure{
                   );
         /*
           🐢 No need to return the to_be_added_list, because we are using shared_ptr<>
-         */
+        */
       }
 
       /*
-         🦜 : It is my bussinesses and the epoch is right for me. I am just
-         ganna get majority of same-state, and if I am not one of them... I will
-         sync to one of them?
+        🦜 : It is my bussinesses and the epoch is right for me. I am just
+        ganna get majority of same-state, and if I am not one of them... I will
+        sync to one of them?
 
         🐢 : For now, let's just skip that step..We do that later.
 
-       */
+      */
     }
 
     /**
@@ -1185,60 +1185,216 @@ namespace pure{
 
     } // try_to_be_primary
 
-  /**
-   * @brief The execute interface exposed to the outside world. (we need to
-   * override it.)
-   */
+    /**
+     * @brief The execute interface exposed to the outside world. (we need to
+     * override it.)
+     */
     optional<string> handle_execute_for_primary(string endpoint, string data) override{
       handle_execute_for_primary1(endpoint,data);
       return "";
     }
 
-  void handle_execute_for_primary1(string endpoint, string data){
-    if (this->view_change_state.test()){
-      BOOST_LOG_TRIVIAL(error) << format("❌️ Dear %s, we are currently selecting new primary "
-                                         "for epoch %d. Please try again later.") % endpoint % this->epoch.load();
-      return;
-    }
-
-    {
-      std::unique_lock l(this->received_commands.lock);
-      if (this->received_commands.o.contains(data)){
-        this->say("\tIgnoring duplicated cmd " S_MAGENTA + data + S_NOR);
+    void handle_execute_for_primary1(string endpoint, string data){
+      if (this->view_change_state.test()){
+        BOOST_LOG_TRIVIAL(error) << format("❌️ Dear %s, we are currently selecting new primary "
+                                           "for epoch %d. Please try again later.") % endpoint % this->epoch.load();
         return;
       }
-} // unlocks here
 
-    this->finally_execute_it(data);
+      {
+        std::unique_lock l(this->received_commands.lock);
+        if (this->received_commands.o.contains(data)){
+          this->say("\tIgnoring duplicated cmd " S_MAGENTA + data + S_NOR);
+          return;
+        }
+      } // unlocks here
 
-    /*
-       🦜 : Can primary just execute it?
+      this->finally_execute_it(data);
 
-      🐢 : Yeah, it can. Then it just assume that the group has 2f + 1 correct
-       nodes, and that should be fine. It doesn't bother checking
+      /*
+        🦜 : Can primary just execute it?
+
+        🐢 : Yeah, it can. Then it just assume that the group has 2f + 1 correct
+        nodes, and that should be fine. It doesn't bother checking
+      */
+
+      this->boardcast_to_others("/pleaseExecuteThis",data);
+    }
+
+    /**
+     * @brief Check whether I am primary
      */
+    bool is_primary() const noexcept{
+      if (this->view_change_state.test())
+        return false;
 
-    this->boardcast_to_others("/pleaseExecuteThis",data);
-  }
-
-    bool is_primary(){
-      return false;
+      return this->primary() == this->net->listened_endpoint();
     }
 
     template<typename T>
     void say(T s) const{
-      BOOST_LOG_TRIVIAL(debug) << s;
+      string my_id = "NewCommer";
+
+      {
+        std::unique_lock l(this->all_endpoints.lock);
+        auto v = &(this->all_endpoints.o);
+        if (contains(this->all_endpoints.o,this->net->listened_endpoint()))
+          my_id = lexical_cast<string>(
+                                       std::distance(v->begin(),
+                                                     ranges::find(*v,this->net->listened_endpoint()))
+                                       );
+      } // unlocks here
+
+      // 🦜 : Don't show this in actual run ⚠️
+      string cmds;
+      {
+        std::unique_lock l(this->command_history.lock);
+        cmds = boost::algorithm::join(this->command_history.o,":");
+      }
+
+      BOOST_LOG_TRIVIAL(debug)
+        << S_CYAN "\t" + my_id + S_NOR " "
+        // comment the folloing line out in real run
+        << S_GREEN "[ " + cmds + " ]" S_NOR
+        << " " S_BLUE "<" << this->epoch.load() << ">: "
+        << s;
     }
 
-    void boardcast_to_others(string_view target, string_view data){}
-    void  handle_add_new_node_no_boardcast(string endpoint, string data){}
+    /**
+     * @brief Board cast target with data to all other nodes in
+     `self.all_endpoints.
+    */
+    void boardcast_to_others(string_view target, string_view data){
+      std::unique_lock l(this->all_endpoints.lock);
+      for (const string & node : this->all_endpoints.o)
+        if (node != this->net->listened_endpoint())
+          this->net->send(node, string(target), string(data));
+    }
 
-    void start_listening_as_newcomer(){}
-    void  handle_new_primary_for_newcomer(string endpoint, string data){}
+    /**
+     * @brief Add a new node.
+     *
+     * this just remembers the add-new msg, which should have been signed by
+     putting it into the self.sig_of_nodes_to_be_added.
+    */
+    void  handle_add_new_node_no_boardcast(string endpoint, string data){
+      /*
+        🐢 : Using a set is ok, in fact only the next-primary needs to
+        remember it, and it will boardcast it when becoming the new primary. At
+        that time, it turns the set into a list.
+
+        🦜 : Do we need to check the result ?
+
+        🐢 : Technically, we do. And the majority should answer 'OK'. But...
+
+        🦜 : Yeah..
+      */
+
+      std::unique_lock l(this->sig_of_nodes_to_be_added.lock);
+      this->sig_of_nodes_to_be_added.o.insert(data);
+    }
+
+    void start_listening_as_newcomer(){
+      /*
+        🦜 : Here we used `self.boardcast_to_others()`, but because this
+        node is not in `self.all_endpoints` yet, so it will in fact boardcast
+        to the whole group.
+      */
+      this->boardcast_to_others("/pleaseAddMeNoBoardcast", this->sig->sign("Hi, please let me in."));
+      this->net->listen("/IamThePrimaryForNewcomer",
+                        bind(&RbftConsensus::handle_new_primary_for_newcomer,this,_1,_2)
+                        );
+    }
+    void  handle_new_primary_for_newcomer(string endpoint, string data){
+      /*
+        🦜 : The data for handle_new_primary_for_newcomer should be same as the
+        one received by handle_new_primary(), but with the additional field :
+        'cmds', which contains the cmds that the new node should execute.
+
+        So it should be parsed into something like
+
+        d = {
+        'epoch' : 2,
+        'sig_of_nodes_to_be_added' : ['sig1','sig2'],
+        'cmds' : ['c1','c2'],
+        'new-view-certificate' : ['sig1','sig2'],
+        'msg' : 'Hi, I am the primary now'
+        }
+      */
+
+      NewViewCertificate d;
+      if (not d.fromString(data)){
+        this->say("❌️ Failed to parse data into NewViewCertificate:\n" S_RED + data + S_NOR ", ignoring it.");
+        return;
+      }
+
+      this->say(format("Checking new cert with \n"
+                       // "\t" S_MAGENTA "all_endpoints = %s" S_NOR
+                       "\t " S_MAGENTA "cert = %s, epoch = %d" S_NOR
+                       ) %
+                boost::algorithm::join(d.new_view_certificate,",")
+                % d.epoch);
+
+      if (not this->check_cert(d.new_view_certificate,d.epoch,true /*for_newcomer*/)){
+        this->say(
+                  ("Invalid certificate: " S_RED) +
+                  data +
+                  (S_NOR "from " S_CYAN) +
+                  endpoint +
+                  S_NOR ". Do nothing."
+                  );
+        return ;
+      }
+
+      vector<string> newcomers = this->get_newcommers(d.sig_of_nodes_to_be_added);
+
+      /*
+        `self.epoch_considering_newcomers` will access
+        `self.all_endpoints`, so make sure to calculate the `epoch` before
+        calling:
+
+        self.all_endpoints += newcomers
+
+        This is important, otherwise you get wrong epoch.
+      */
+
+      this->epoch.store(this->epoch_considering_newcomers(d.epoch,
+                                                          newcomers.size()));
+      this->say(format("\t 🌐️ Epoch set to " S_MAGENTA "%d" S_NOR)
+                % this->epoch.load());
+
+      {
+        std::unique_lock l(this->all_endpoints.lock);
+        BOOST_ASSERT_MSG(contains(this->all_endpoints.o,this->net->listened_endpoint()),
+                         "What? I am not added by the new primary?");
+      } // unlocks
+
+      for (string & cmd : d.cmds){
+        this->exe->execute(cmd);
+      }
+      // no need to lock here
+      this->command_history.o = d.cmds;
+
+      
+      // start the timer
+      std::thread(std::bind(&RbftConsensus::start_faulty_timer, this)).detach();
+
+      this->start_listening_as_sub();
+
+    }
+
+    /**
+     * @brief The equivalent epoch number when there're newcomers.
+     *
+     * 🦜 : Note that when there's no newcomers, then it's just e.
+     */
     int epoch_considering_newcomers(int e, int num_newcomers){
-      return 0;
+      return e + (e / this->N()) * num_newcomers;
     }
-    void close(){}
+    void close(){
+      this->closed.clear();
+      this->net->clear();
+    }
   };
 
 } // namespace pure

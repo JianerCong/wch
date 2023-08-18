@@ -4,6 +4,7 @@
 #include <string_view>
 #include <iostream>
 
+#include <boost/lexical_cast.hpp>
 
 
 // colors
@@ -24,6 +25,7 @@
 namespace pure{
   using std::vector;
   
+  using boost::lexical_cast;
   using std::function;
   using boost::format;
   using std::string_view;
