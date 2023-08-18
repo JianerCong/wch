@@ -282,9 +282,32 @@ namespace pure{
 
     LockedObject<std::set<string>> sig_of_nodes_to_be_added;
 
+    /*
+      🦜 : This list of commands to be confirmed. This is kinda like a
+      counter. When a command has reached more than 2f + 1 count (confirmed
+      message) then the command can be savely executed.
+      
+      The meaning of to_be_confirmed_commands is kinda like : <cmd> : {set of who received commands}
+      
+      So when two sub-nodes call each other, they will exchange what
+      they've got in their hand. As a result, eventually the node will
+      still execute what primary sent to most nodes. (🦜: This eventually makes each nodes "selfless").
+    */
     LockedObject<unordered_map<string,
                                shared_ptr<std::set<string>>
                                >> to_be_confirmed_commands;
+
+    /*
+      When a node has collected enough `comfirm` for a command, it will
+      boardcast the `commit` for a command.
+
+      When a node has collected enough `commit` for a command, it executes it
+      no matter what. 
+     */
+    LockedObject<unordered_map<string,
+                               shared_ptr<std::set<string>>
+                               >> to_be_committed_commands;
+
     LockedObject<std::set<string>> received_commands;
     LockedObject<vector<string>> command_history;
     /*
@@ -537,6 +560,10 @@ namespace pure{
       this->net->listen("/pleaseConfirmThis",
                         bind(&RbftConsensus::handle_confirm_for_sub,this,_1,_2)
                         );
+
+      this->net->listen("/pleaseCommitThis",
+                        bind(&RbftConsensus::handle_commit_for_sub,this,_1,_2)
+                        );
     }
 
     /**
@@ -598,24 +625,9 @@ namespace pure{
            'all_endpoints'
          */
 
-        vector<string> all_endpoints;
-        {
-          std::unique_lock l(this->all_endpoints.lock);
-          all_endpoints = this->all_endpoints.o;
-} // unlocks
+        this->boardcast_to_other_subs("/pleaseConfirmThis",data);
 
-        this->say("\t\tBoardcasting cmd confirm");
-
-        for (const string & sub : all_endpoints){
-          if (sub != this->net->listened_endpoint()
-              and
-              sub != this->primary()
-              ){
-            this->net->send(sub,"/pleaseConfirmThis",data);
-          }
-        }
-
-        this->say("\t\tAdding cmd to myself");
+        this->say(S_BLUE "\t\tConfirmming cmd to myself" S_NOR);
         this->add_to_to_be_confirmed_commands(this->net->listened_endpoint(),data);
         // done
       }else{
@@ -628,10 +640,13 @@ namespace pure{
      /**
      * @brief Remember that endpoint `received` data.
 
-     *         🦜 : Is this the only method that touch `self.to_be_confirmed_commands` ?
+     * 🦜 : Is this the only method that touch `self.to_be_confirmed_commands` ?
 
-     *         🐢 : Looks so.
-     *      */
+     * 🐢 : Looks so. When `to_be_confirmed_commands` have collected enough. Add
+     that to the `to_be_confirmed_commands` (this might boardcast
+     '/pleaseCommitThis'.)
+
+     */
     void  add_to_to_be_confirmed_commands(string endpoint, string data){
       std::unique_lock l(this->to_be_confirmed_commands.lock);
 
@@ -656,18 +671,16 @@ namespace pure{
 
        */
 
-      int x = this->N() - 1 - this->f();
+      long unsigned int x = this->N() - 1 - this->f();
       if (s->size() >= x){
         this->say(format("⚙️ command " S_CYAN "%s " S_NOR
-                         " confirmed by " S_CYAN "%d " S_NOR " node%s, executing it and clear")
+                         " confirmed by " S_CYAN "%d " S_NOR " node%s, boardcasting commit")
                   % data % s->size() % pluralizeOn(s->size())
                   );
 
-        this->exe->execute(data);
-        {
-          std::unique_lock l(this->command_history.lock);
-          this->command_history.o.push_back(data);
-        }
+        this->boardcast_to_other_subs("/pleaseCommitThis", data);
+        this->say(S_GREEN "\t\tCommitting cmd to myself" S_NOR);
+        this->add_to_to_be_committed_commands(this->net->listened_endpoint(),data);
 
         // remove the entry at all
         this->to_be_confirmed_commands.o.erase(data);
@@ -679,6 +692,90 @@ namespace pure{
       }
 }
 
+    void boardcast_to_other_subs(string target, string data){
+      vector<string> all_endpoints;
+      {
+        std::unique_lock l(this->all_endpoints.lock);
+        all_endpoints = this->all_endpoints.o;
+      } // unlocks
+
+
+      for (const string & sub : all_endpoints){
+        if (sub != this->net->listened_endpoint()
+            and
+            sub != this->primary()
+            ){
+          this->net->send(sub,target,data);
+        }
+      }
+}
+
+    void finally_execute_it(string data){
+      this->exe->execute(data);
+      std::unique_lock l(this->command_history.lock);
+      this->command_history.o.push_back(data);
+}
+
+
+
+    /**
+     * @brief Remember that endpoint `received` data.
+
+     *         When `to_be_committed_commands` have collected enough. It will finally
+     *         execute.
+
+     *         🦜 : Most of the code here is copied from add_to_to_be_confirmed_commands
+     */
+    void  add_to_to_be_committed_commands(string endpoint, string data){
+      std::unique_lock l(this->to_be_committed_commands.lock);
+
+      if (not this->to_be_committed_commands.o.contains(data)){
+        this->say(format("Adding " S_MAGENTA "%s " S_NOR " from  " S_MAGENTA "%s" S_NOR)
+                  % data % endpoint);
+        this->to_be_committed_commands.o[data] = make_shared<std::set<string>>();
+      }
+
+      // 🦜 : reference the one (this is not something that we can do in OOthon)
+      shared_ptr<std::set<string>> s = this->to_be_committed_commands.o[data];
+      s->insert(endpoint);
+
+      /*
+
+        🦜 : How many we should collect?
+
+        🐢 : I think it should be N - 1 - f, 1 corresponds to the
+        primary. For example, when N = 2, there should be one confirm
+        (the one N1 put it after received the command). When N = 3,
+        there should be two, (needs an extra one from N2).
+
+       */
+
+      std::size_t x = this->N() - 1 - this->f();
+      if (s->size() >= x){
+        this->say(format("⚙️ command " S_CYAN "%s " S_NOR
+                         " committed by " S_CYAN "%d " S_NOR " node%s, execute it and clear 🚮️")
+                  % data % s->size() % pluralizeOn(s->size())
+                  );
+        this->finally_execute_it(data);
+        // remove the entry at all
+        this->to_be_committed_commands.o.erase(data);
+      }else{
+        this->say(format("⚙️ command " S_CYAN "%s " S_NOR
+                         " committed by " S_CYAN "%d " S_NOR " node%s, not yet.")
+                  % data % s->size() % pluralizeOn(s->size())
+                  );
+      }
+}
+
+    void  handle_commit_for_sub(string endpoint, string data){
+      if (this->view_change_state.test()){
+        BOOST_LOG_TRIVIAL(error) << format("❌️ Dear %s, we are currently selecting new primary "
+                                           "for epoch %d. Please try again later.") % endpoint % this->epoch.load();
+        return;
+      }
+      this->add_to_to_be_committed_commands(endpoint, data);
+    }
+
     void  handle_confirm_for_sub(string endpoint, string data){
       if (this->view_change_state.test()){
         BOOST_LOG_TRIVIAL(error) << format("❌️ Dear %s, we are currently selecting new primary "
@@ -688,25 +785,23 @@ namespace pure{
       this->add_to_to_be_confirmed_commands(endpoint, data);
     }
 
-    int N(){
+    std::size_t N(){
       std::unique_lock l(this->all_endpoints.lock);
       return this->all_endpoints.o.size();
     }
     /**
      * @brief Get the number of random nodes the system can tolerate
      */
-    int f(){
+     std::size_t f(){
       std::unique_lock l(this->all_endpoints.lock);
-      int N = this->all_endpoints.o.size();
-      int ff = (N - 1) / 3;     // trancated
-
+      long unsigned int N = this->all_endpoints.o.size();
+      return (N - 1) / 3;
       // BOOST_CHECK_EQUAL(1/3,0);
       // BOOST_CHECK_EQUAL(2/3,0);
       // BOOST_CHECK_EQUAL(3/3,1);
       // BOOST_CHECK_EQUAL(4/3,1);
 
       // 🦜 : C by default, does truncated division.
-      return ff;
     }
 
     /**
@@ -1108,18 +1203,14 @@ namespace pure{
 
     {
       std::unique_lock l(this->received_commands.lock);
-      if (this->received_commands.contains(data)){
+      if (this->received_commands.o.contains(data)){
         this->say("\tIgnoring duplicated cmd " S_MAGENTA + data + S_NOR);
         return;
-}
+      }
 } // unlocks here
 
-    {
-      std::unique_lock l(this->command_history.lock);
-      this->command_history.o.push_back(data);
-}
+    this->finally_execute_it(data);
 
-    this->exe->execute(data);
     /*
        🦜 : Can primary just execute it?
 
@@ -1135,7 +1226,7 @@ namespace pure{
     }
 
     template<typename T>
-    void say(T s){
+    void say(T s) const{
       BOOST_LOG_TRIVIAL(debug) << s;
     }
 
