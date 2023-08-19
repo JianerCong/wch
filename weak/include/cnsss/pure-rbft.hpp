@@ -1375,7 +1375,6 @@ namespace pure{
       // no need to lock here
       this->command_history.o = d.cmds;
 
-      
       // start the timer
       std::thread(std::bind(&RbftConsensus::start_faulty_timer, this)).detach();
 
@@ -1395,6 +1394,117 @@ namespace pure{
       this->closed.clear();
       this->net->clear();
     }
-  };
+  };                            // class RbftConsensus
+
+  /*
+    --------------------------------------------------
+
+    🦜 :Below we try to use the PBFT.
+   */
+
+  namespace mock{
+  using namespace pure;
+  unordered_map<string,
+                function<void(string,string)>
+                > network_hub;
+  std::mutex lock_for_network_hub;
+
+  class AsyncEndpointNetworkNode: public virtual IAsyncEndpointBasedNetworkable{
+  public:
+    string endpoint;
+    AsyncEndpointNetworkNode(string e): endpoint(e){};
+
+    string listened_endpoint() noexcept override{
+      return this->endpoint;
+    };
+
+    void listen(string target,
+                function<void(string,string)> handler
+                ) noexcept override{
+      string k = (format("%s-%s") % this->endpoint % target).str();
+      BOOST_LOG_TRIVIAL(debug) << format("Adding handler: " S_GREEN " %s" S_NOR) % k;
+      std::unique_lock l(lock_for_network_hub);
+      network_hub[k] = handler;
+
+    };                          // unlocks here
+
+    void clear() noexcept override{
+      std::unique_lock l(lock_for_network_hub);
+      for (auto it = network_hub.begin(); it != network_hub.end();){
+        if (it->first.starts_with(this->endpoint + "-")){
+          BOOST_LOG_TRIVIAL(debug) << format("\t🚮️ Removing handler: " S_MAGENTA " %s" S_NOR) % it->first;
+          it = network_hub.erase(it);
+        }else{
+          ++it;
+        }
+      }
+    }; // unlock here
+
+
+    void send(string endpoint, string target, string data) noexcept override{
+      string k = (format("%s-%s") % endpoint % target).str();
+      BOOST_LOG_TRIVIAL(debug) << format(" Calling handler:  " S_GREEN "%s " S_NOR
+                                         "with data\n"
+                                         S_CYAN "%s" S_NOR
+                                         ) % k % data;
+      // write send()
+      optional<string> r;
+      std::unique_lock l(lock_for_network_hub);
+      if (network_hub.contains(k)){
+        BOOST_LOG_TRIVIAL(debug) << format("Handler found");
+        std::thread(std::bind(network_hub.at(k),this->endpoint,data)).detach();
+      }else{
+        BOOST_LOG_TRIVIAL(debug) << format("Handler %s not found" ) % k;
+      }
+    };
+  };                            // class AsyncEndpointNetworkNode
+
+    /*
+
+      🐢 : The above two classes are copied from ListenToOneConsensus. But in
+      addition to that, we need a signer which will do digital signtature.
+
+     */
+
+    /**
+     * @brief A mocked signer
+     */
+    class Signer: public virtual ISignable{
+    public:
+      string id;
+      Signer(string iid): id(iid){}
+
+      string sign(string_view s) noexcept override {
+        return this->id + ':'  + string(s);
+      }
+
+      bool verify(string_view msg) noexcept override{
+        return true;
+      }
+
+
+
+
+      /**
+       * @brief Split the string into two.
+       *
+       * @param s The string to split
+       */
+      static 
+      optional<tuple<string_view,string_view>> split_first(string_view s, char c = ':'){
+        string::size_type pos = s.find_first_of(c);
+        if (pos == string::npos)
+          return {};
+
+        return make_tuple(string_view(s.begin(),s.begin()+pos),
+                          string_view(s.begin()+pos+1,s.end()));
+      }
+      static 
+      optional<tuple<string_view,string_view>> split_first(const string & s, char c = ':'){
+        return split_first(string_view(s));
+      }
+    };                          // class Signer
+
+} // namespace mock
 
 } // namespace pure

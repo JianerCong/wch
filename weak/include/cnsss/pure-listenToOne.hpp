@@ -1,15 +1,5 @@
 #pragma once
 
-#include <unordered_map>
-
-#include <boost/algorithm/string.hpp> // for join()
-#include <mutex>
-#include <memory>
-
-#include <boost/json.hpp>
-#include <vector>
-#include <boost/format.hpp>
-#include <boost/log/trivial.hpp>
 #include "pure-forCnsss.hpp"
 
 // colors
@@ -226,18 +216,8 @@ namespace pure{
 
 
 namespace mock{
-  using namespace pure;
-  class Executable: public virtual IForConsensusExecutable{
-  public:
-    string id;
-    Executable(string i):id(i){};
-    string execute(string & cmd) noexcept override{
-      BOOST_LOG_TRIVIAL(debug) << format(S_RED "🦜 [%s] Exec: %s" S_NOR)
-        % this->id % cmd;
-      return "OK";
-    };
-  };
 
+  using namespace pure;
   unordered_map<string,
                 function<optional<string>(string,string)>
                 > network_hub;
@@ -302,3 +282,4 @@ namespace mock{
   };
 
 }
+

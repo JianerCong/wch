@@ -8,11 +8,25 @@
 #include <string>
 #include <optional>
 #include <functional>
+#include <unordered_map>
+
+#include <boost/algorithm/string.hpp> // for join()
+#include <mutex>
+#include <memory>
+#include <tuple>
+
+
+#include <boost/json.hpp>
+#include <vector>
+#include <boost/format.hpp>
+#include <boost/log/trivial.hpp>
+
 #include "../pure-common.hpp"
 
 
 namespace pure {
 
+  using std::tuple;
   using std::function;
   using std::optional;
   using std::string;
@@ -106,4 +120,19 @@ namespace pure {
 #define S_MAGENTA "\x1b[35m"
 #define S_CYAN    "\x1b[36m"
 #define S_NOR "\x1b[0m"
+
+  namespace mock{
+    using namespace pure;
+    class Executable: public virtual IForConsensusExecutable{
+    public:
+      string id;
+      Executable(string i):id(i){};
+      string execute(string & cmd) noexcept override{
+        BOOST_LOG_TRIVIAL(debug) << format(S_RED "🦜 [%s] Exec: %s" S_NOR)
+          % this->id % cmd;
+        return "OK";
+      };
+    };
 }
+
+} // namespace pure
