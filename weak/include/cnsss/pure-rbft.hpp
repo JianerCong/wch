@@ -1478,11 +1478,25 @@ namespace pure{
         return this->id + ':'  + string(s);
       }
 
-      bool verify(string_view msg) noexcept override{
+      bool verify(string_view /*msg*/) noexcept override{
         return true;
       }
 
+      string_view get_data(string_view msg) noexcept override{
+        auto r = Signer::split_first(msg,':');
+        string_view s = std::get<1>(r.value());
+        BOOST_LOG_TRIVIAL(debug) << format("⚙️ Got " S_GREEN "data=%s " S_NOR " from " S_GREEN "%s" S_NOR)
+          % s % msg;
+        return s;
+      }
 
+      string_view get_from(string_view msg) noexcept override{
+        auto r = Signer::split_first(msg,':');
+        string_view s = std::get<0>(r.value());
+        BOOST_LOG_TRIVIAL(debug) << format("⚙️ Got " S_GREEN "from=%s " S_NOR " from " S_GREEN "%s" S_NOR)
+          % s % msg;
+        return s;
+      }
 
 
       /**
