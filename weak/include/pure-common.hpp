@@ -21,10 +21,13 @@
 #include <algorithm>
 #include <numeric>
 #include <vector>
+#include <memory>
 
 namespace pure{
   using std::vector;
+  using std::shared_ptr;
   
+  namespace ranges = std::ranges;
   using boost::lexical_cast;
   using std::function;
   using boost::format;
@@ -100,16 +103,6 @@ namespace pure{
 
 
 
-  namespace ranges = std::ranges;
-  /**
-   * @brief The contain for vector.
-   *
-   * 🦜 : Initially used for rbft cnss.
-   */
-  template<typename T>
-  bool contains(const vector<T> v, const T x){
-    return ranges::any_of(v,[x](T y){return x == y;});
-  }
 
   // 🦜 : atomic<T> & is deleted
 
@@ -136,6 +129,23 @@ namespace pure{
     return {};                                                \
   }
 
+namespace std{
+  /**
+   * @brief The contain for vector.
+   *
+   * 🦜 : Initially used for rbft cnss.
+   */
+  template<typename T>
+  bool contains(const vector<T> v, const T x){
+    return ranges::find(v,x) != v.end();
+  }
+
+  template<typename T>
+  bool contains(const shared_ptr<vector<T>> v, const T x){
+    BOOST_LOG_TRIVIAL(debug) << "Calling contains(ptr<vector<>>)";
+    return ranges::find(v->begin(),v->end(),x) != v->end();
+  }
+}
 
 #define BOOST_ENABLE_ASSERT_HANDLER
 #include <boost/assert.hpp>

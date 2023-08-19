@@ -17,52 +17,86 @@ using std::vector;
 using namespace pure;
 
 struct BftAndColleague{
-  BftAndColleague()
-}
+  unique_ptr<mock::Executable> e;
+  unique_ptr<mock::Signer> s;
+  unique_ptr<mock::AsyncEndpointNetworkNode> n;
+  shared_ptr<RbftConsensus> nd;
+  BftAndColleague(string  s,
+                  vector<string> all_endpoints
+                  /*pass by value (important)*/
+                  ){
+    this->e = make_unique<mock::Executable>(s);
+    this->s = make_unique<mock::Signer>(s);
+    this->n = make_unique<mock::AsyncEndpointNetworkNode>(s);
 
-  struct NodeFactory{
-    unordered_map<string,shared_ptr<ListenToOneConsensus>> nodes;
-    string primary_name;
-
-    // 🐢 : You need to keep the exe and network available until the consensus
-    // finishes.
-    vector<unique_ptr<mock::Executable>> ve;
-    vector<unique_ptr<mock::EndpointNetworkNode>> vn;
-
-    void make_node(){
-      int i = nodes.size();
-      string s = (format("N%d") % i).str();
-      ve.push_back(make_unique<mock::Executable>(s));
-      vn.push_back(make_unique<mock::EndpointNetworkNode>(s));
-
-      IEndpointBasedNetworkable * n = dynamic_cast<IEndpointBasedNetworkable*>(vn.back().get());
-      IForConsensusExecutable * e = dynamic_cast<IForConsensusExecutable*>(ve.back().get());
-
-      if (i == 0){
-        // this->nodes[s] = ListenToOneConsensus(move(n),move(e));
-        this->nodes.insert({s,ListenToOneConsensus::create(n,e)});
-        this->primary_name = s;
-        return;
-      }
-      // 🦜: To use the following you need to have the empty ctor ()
-      // this->nodes[s] = ListenToOneConsensus(move(n),move(e),
-      //                                       this->primary_name);
-
-      this->nodes.insert({s,ListenToOneConsensus::create(n,e,
-                                                         this->primary_name
-                                                         )});
-    }
-  };
-
-int main(int argc, char *argv[]){
-  NodeFactory  fac;
-  for (int i : {1,2,3}){
-    fac.make_node();
+    this->nd = RbftConsensus::create(
+                                     dynamic_cast<IAsyncEndpointBasedNetworkable *>(&(*this->n)),
+                                     dynamic_cast<IForConsensusExecutable*>(&(*this->e)),
+                                     dynamic_cast<ISignable *>(&(*this->s)),
+                                     all_endpoints
+                                     );
   }
 
-  unique_ptr<IEndpointBasedNetworkable> nClient{
-    new mock::EndpointNetworkNode("ClientAAA")
-  };
+  void close(){
+    this->nd->close();
+  }
+};
+
+struct NodeFactory{
+  unordered_map<string,shared_ptr<BftAndColleague>> nodes;
+  vector<string> all_endpoints;
+  int N;
+  NodeFactory(int n = 2): N(n){
+    BOOST_LOG_TRIVIAL(debug) << "🌱 \tInitial cluster size: " S_CYAN << n << S_NOR ;
+    for (int i = 0;i<2;i++){
+      this->all_endpoints.push_back(
+                                 (format("N%d") % i).str()
+                                 );
+    }
+
+    for (const string & s : this->all_endpoints){
+      BOOST_LOG_TRIVIAL(debug) << "\tStarting node" S_CYAN << s << S_NOR;
+      this->nodes[s] = make_shared<BftAndColleague>(s,this->all_endpoints);
+    }
+  }
+
+  void kick(string s){
+    if (not this->nodes.contains(s)){
+      BOOST_LOG_TRIVIAL(debug) << "Trying to kick " S_RED + s + S_NOR ", but it doesn't exists. ";
+      return ;
+    }
+
+    BOOST_LOG_TRIVIAL(debug) << "🚮️ kick " S_RED + s + S_NOR;
+
+    this->nodes[s]->close();
+    this->nodes.erase(s);
+  }
+
+  void make_node(){
+    string s = (format("N%d") % this->N).str();
+    this->N++;
+
+    BOOST_LOG_TRIVIAL(debug) <<  "\tAdding node" S_GREEN + s + S_NOR;
+
+    // 🦜 Update the current all_endpoints
+
+    {
+      std::unique_lock l(this->nodes.begin()->second->nd->all_endpoints.lock);
+      this->all_endpoints = this->nodes.begin()->second->nd->all_endpoints.o;
+    }
+
+    // make the node
+    this->nodes[s] = make_shared<BftAndColleague>(s, this->all_endpoints);
+
+  }
+};
+
+void start_cluster(int n){
+  unique_ptr<mock::AsyncEndpointNetworkNode> nClient =
+    make_unique<mock::AsyncEndpointNetworkNode>("ClientAAA");
+
+  NodeFactory fac{n};
+
 
   while (true){
     string reply;
@@ -70,7 +104,8 @@ int main(int argc, char *argv[]){
     cin >> reply;
     if (reply == "stop")
       break;
-    if (reply == "append"){
+
+    if (reply == "append" or reply == "a"){
       cout << S_MAGENTA << "Appending node\n" << S_NOR;
       fac.make_node();
       while (cin.get() != '\n') continue;
@@ -83,8 +118,9 @@ int main(int argc, char *argv[]){
       cout << S_MAGENTA << "Kicking node " << nodeToKick
            << "\n" << S_NOR;
 
-      fac.nodes.at(nodeToKick)->net->clear();
+      fac.kick(nodeToKick);
 
+      // eat line
       while (cin.get() != '\n') continue;
       continue;
     }
@@ -92,11 +128,22 @@ int main(int argc, char *argv[]){
     string cmd;
     cin >> cmd;
     while (cin.get() != '\n') continue;
-
     cout << S_MAGENTA "Sending " + cmd +
       " To " + reply +  S_NOR << "\n";
     nClient->send(reply,"/pleaseExecuteThis",cmd);
   }
+}
+
+#define ARGV_SHIFT()  { i_argc--; i_argv++; }
+int main(int i_argc, const char *i_argv[]){
+  ARGV_SHIFT(); // Skip executable name
+
+  int n = 2;
+  if (i_argc > 0){
+    n = lexical_cast<int>(i_argv[0]);
+  }
+
+  start_cluster(n);
   return 0;
 }
 

@@ -21,7 +21,8 @@ target_link_libraries(main PUBLIC Boost::log Boost::json)
 #[=[
 
 cd ../../..
-cmake -S weak/include/cnsss/test-listenToOne -B build-testListenToOneConsensus
-cmake --build build-testListenToOneConsensus
-./build-testListenToOneConsensus/main
+cmake -S weak/include/cnsss/test-rbft -B build-testRbft
+cmake --build build-testRbft
+./build-testRbft/main 2
+./build-testRbft/main 3
 #]=]

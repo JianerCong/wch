@@ -122,7 +122,7 @@ namespace pure{
     }
 
     bool fromString(string_view s) noexcept override{
-      BOOST_LOG_TRIVIAL(debug) <<  "Forming NewViewCertificate from string.";
+      BOOST_LOG_TRIVIAL(debug) <<  "Forming LaidDownMsg from string.";
       return IJsonizable::fromJsonString(s);
     }
 
@@ -131,7 +131,7 @@ namespace pure{
     }
 
     bool fromJson(const json::value &v) noexcept override {
-      BOOST_LOG_TRIVIAL(debug) << format("Forming NewViewCertificate from Json");
+      BOOST_LOG_TRIVIAL(debug) << format("Forming LaidDownMsg from Json");
       try {
         this->msg = value_to<string>(v.at("msg"));
         this->epoch = value_to<int>(v.at("epoch"));
@@ -140,6 +140,8 @@ namespace pure{
         BOOST_LOG_TRIVIAL(error) << format("❌️ error parsing json:" S_RED " %s" S_NOR) % e.what();
         return false;
       }
+
+      BOOST_LOG_TRIVIAL(trace) << "LaidDown msg formed.";
       return true;
     }
   }; // class LaidDownMsg
@@ -267,16 +269,17 @@ private:
   RbftConsensus(IAsyncEndpointBasedNetworkable * const n,
                 IForConsensusExecutable * const e,
                 ISignable * const s,
-                std::set<string> all_endpoints):
-    exe(e), sig(s), net(n){
-
+                vector<string> all_endpoints):
+    exe(e), sig(s), net(n)
+    {
     // no need to lock here.
-    this->all_endpoints.o = vector<string>(all_endpoints.begin(),
-                                            all_endpoints.end());
+      this->all_endpoints.o = all_endpoints;
+
+
     // 🦜 : We can't use set for all_endpoints. Because new nodes must be
     // added to the end.
 
-    if (not all_endpoints.contains(this->net->listened_endpoint()))
+      if (not std::contains(all_endpoints,this->net->listened_endpoint()))
       this->start_listening_as_newcomer();
     else{
       if (this->primary() == this->net->listened_endpoint())
@@ -296,8 +299,7 @@ public:
     [[nodiscard]] static shared_ptr<RbftConsensus> create(IAsyncEndpointBasedNetworkable * const n,
                                                                  IForConsensusExecutable * const e,
                                                                  ISignable * const s,
-                                                                 std::set<string> all_endpoints
-                                                                 ){
+                                                          vector<string> all_endpoints){
       // Not using std::make_shared<B> because the c'tor is private.
       return shared_ptr<RbftConsensus>(new RbftConsensus(n,e,s,all_endpoints));
     }
@@ -391,7 +393,7 @@ public:
       {
         std::unique_lock l(this->all_endpoints.lock);
         for (auto newcomer : newcomers){
-          if (contains(this->all_endpoints.o,newcomer)){
+          if (std::contains(this->all_endpoints.o,newcomer)){
             this->say("This primary has old newcomer, ignoring it");
             return;
           }
@@ -480,6 +482,7 @@ public:
     */
     bool check_cert(vector<string> l, int e, bool for_newcomer = true){
       std::set<string> valid_host;
+
       try{
         BOOST_ASSERT_MSG(l.size() != 0, "What ? Checking empty certificate ? There's no such thing.");
         /*
@@ -504,6 +507,7 @@ public:
         BOOST_ASSERT_MSG(msg0.fromString(this->sig->get_data(s)),
                          "Failed to form LaidDownMsg from string");
 
+        this->say("Start inserting into valid_host");
         valid_host.insert(string(this->sig->get_from(s)));
 
         if (not for_newcomer)
@@ -540,7 +544,7 @@ public:
         */
 
         int x = this->N() - this->f();
-        BOOST_ASSERT_MSG(valid_host.size() < x,
+        BOOST_ASSERT_MSG(valid_host.size() >= x,
                          (
                           format("Requires %d LaidDownMsg%s, but got %d")
                           % x % pluralizeOn(x) % valid_host.size()
@@ -833,7 +837,7 @@ public:
 
         // 🦜 : Here we used atomic, so we don't need to lock it.
         while (this->patience.load() > 0){
-          std::this_thread::sleep_for(std::chrono::seconds(3));
+          std::this_thread::sleep_for(std::chrono::seconds(1));
           if (this->closed.test()){
             this->say("\t 👋 Timer closed");
             return;
@@ -852,7 +856,7 @@ public:
     }
 
     void comfort(){
-      this->patience.store(8);
+      this->patience.store(5);
       this->say(format("❄ patience set to %d") % this->patience.load());
     }
 
@@ -914,6 +918,7 @@ public:
      */
     void  handle_laid_down(string endpoint, string data){
       try {
+        this->say("Handling laid_down");
         BOOST_VERIFY(this->sig->verify(data));
         LaidDownMsg msg;
         BOOST_VERIFY(msg.fromString(this->sig->get_data(data)));
@@ -928,19 +933,21 @@ public:
           important.... Bucause they will be painted in red.
         */
 
-        const string * next_primary;
+        this->say("Getting next primary");
+        string next_primary;
         {
           std::unique_lock l(this->all_endpoints.lock);
-          next_primary = &(
-                           this->all_endpoints.o[
+          next_primary = this->all_endpoints.o[
                                                  msg.epoch %
                                                  this->all_endpoints.o.size()
-                                                 ]
-                           );
+                                                 ];
+
         } // unlocked here
-        if (*next_primary != this->net->listened_endpoint()){
-          this->say(format("🚮️ This view-change is for " S_CYAN "%d " S_NOR ",non of my bussinesses.")
-                    % *next_primary);
+        this->say("Got next primary = " + next_primary);
+
+        if (next_primary != this->net->listened_endpoint()){
+          this->say(format("🚮️ This view-change is for " S_CYAN "%s " S_NOR ",non of my bussinesses.")
+                    % next_primary);
           return;
         }
 
@@ -962,10 +969,13 @@ public:
      * @param o the newly added LaidDownMsg
      */
     void remember_this_laiddown_and_be_primary_maybe(const LaidDownMsg & o, const string data){
+
+      // this->say("Start remembering");
       // string state = o.state;
       // int epoch = o.epoch;
       shared_ptr<vector<string>> to_be_added_list;
 
+      this->say("1.");
       {
         std::unique_lock l(this->laid_down_history.lock);
         // 🦜 : 1. Does this epoch already has something ? If not, create a new dict{}
@@ -981,22 +991,25 @@ public:
               >()});
         }
 
+        this->say("2.");
         // 🦜 : 2. Does this epoch already got state like this ? If not, create a new list[]
         if (not this->laid_down_history.o.at(o.epoch)->contains(o.state)){
-          this->say(format("t\tAdding new record in laid_down_history for " S_GREEN "epoch=%d,state=%s" S_NOR)
+          this->say(format("\tAdding new record in laid_down_history for " S_GREEN "epoch=%d,state=%s" S_NOR)
                     % o.epoch % o.state);
           this->laid_down_history.o.at(o.epoch)->insert({
               o.state,
               make_shared<vector<string>>()
             });
 
-          // 🦜 Now take the list
-          to_be_added_list = this->laid_down_history.o.at(o.epoch)->at(o.state);
         }
+
+        // 🦜 Now take the list
+        to_be_added_list = this->laid_down_history.o.at(o.epoch)->at(o.state);
       } // unlocks here
 
+      this->say("3.");
       // 🦜 : This is the list that data (signed msg) will be added in.
-      if (contains(*to_be_added_list, data)){
+      if (std::contains(to_be_added_list, data)){
         this->say(format("🚮️ Ignoring duplicated msg:" S_CYAN "%s" S_NOR)% data);
         return;
       }
@@ -1011,6 +1024,7 @@ public:
 
       */
 
+      this->say("4.");
       int x = this->N() - this->f();
       if (to_be_added_list->size() >= x){
         this->say(format("Collected enough " S_GREEN "%d " S_NOR " >= " S_CYAN "%d" S_NOR " LaidDownMsg%s")
@@ -1019,7 +1033,7 @@ public:
         this->try_to_be_primary(o.epoch,o.state,to_be_added_list);
       }else{
         this->say(format("Collected enough " S_MAGENTA "%d " S_NOR " <= " S_CYAN "%d" S_NOR " LaidDownMsg%s"
-                         S_MAGENTA "not yet the time" S_NOR)
+                         S_MAGENTA " not yet the time" S_NOR)
                   % to_be_added_list->size() % x % pluralizeOn(to_be_added_list->size())
                   );
         /*
@@ -1252,7 +1266,7 @@ public:
       {
         std::unique_lock l(this->all_endpoints.lock);
         auto v = &(this->all_endpoints.o);
-        if (contains(this->all_endpoints.o,this->net->listened_endpoint()))
+        if (std::contains(this->all_endpoints.o,this->net->listened_endpoint()))
           my_id = lexical_cast<string>(
                                        std::distance(v->begin(),
                                                      ranges::find(*v,this->net->listened_endpoint()))
@@ -1263,14 +1277,14 @@ public:
       string cmds;
       {
         std::unique_lock l(this->command_history.lock);
-        cmds = boost::algorithm::join(this->command_history.o,":");
+        cmds = boost::algorithm::join(this->command_history.o,",");
       }
 
       BOOST_LOG_TRIVIAL(debug)
-        << S_CYAN "\t" + my_id + S_NOR " "
+        << S_CYAN "[" + my_id + "]" S_NOR " "
         // comment the folloing line out in real run
-        << S_GREEN "[ " + cmds + " ]" S_NOR
-        << " " S_BLUE "<" << this->epoch.load() << ">: "
+        << S_GREEN "[" + cmds + "]" S_NOR
+        << " " S_BLUE "<" << this->epoch.load() << ">: " S_NOR
         << s;
     }
 
@@ -1379,7 +1393,7 @@ public:
 
       {
         std::unique_lock l(this->all_endpoints.lock);
-        BOOST_ASSERT_MSG(contains(this->all_endpoints.o,this->net->listened_endpoint()),
+        BOOST_ASSERT_MSG(std::contains(this->all_endpoints.o,this->net->listened_endpoint()),
                          "What? I am not added by the new primary?");
       } // unlocks
 

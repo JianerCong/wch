@@ -1,5 +1,6 @@
 #! /bin/bash
 # while inotifywait -e close_write myfile.py; do ./myfile.py; done
+
 src=weak
 bld=build-${src}
 # rm ${bld} -rf
