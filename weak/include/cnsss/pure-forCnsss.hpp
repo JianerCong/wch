@@ -26,6 +26,17 @@
 
 namespace pure {
 
+  using boost::format;
+  using std::move;
+  using std::vector;
+
+
+  using std::unique_ptr;
+  using std::unordered_map;
+  namespace json = boost::json;
+  using namespace std::placeholders;  // for _1, _2, _3...
+  using std::bind;
+  using std::shared_ptr;
   using std::tuple;
   using std::function;
   using std::optional;

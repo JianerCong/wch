@@ -206,6 +206,7 @@ namespace pure{
       cmds(ccmds)
     {}
 
+
     string toString() const noexcept override {
       return IJsonizable::toJsonString();
     }
@@ -262,7 +263,45 @@ namespace pure{
     public std::enable_shared_from_this<RbftConsensus>
     // define shared_from_this()
   {
-  private:
+private:
+  RbftConsensus(IAsyncEndpointBasedNetworkable * const n,
+                IForConsensusExecutable * const e,
+                ISignable * const s,
+                std::set<string> all_endpoints):
+    exe(e), sig(s), net(n){
+
+    // no need to lock here.
+    this->all_endpoints.o = vector<string>(all_endpoints.begin(),
+                                            all_endpoints.end());
+    // 🦜 : We can't use set for all_endpoints. Because new nodes must be
+    // added to the end.
+
+    if (not all_endpoints.contains(this->net->listened_endpoint()))
+      this->start_listening_as_newcomer();
+    else{
+      if (this->primary() == this->net->listened_endpoint())
+        this->start_listening_as_primary();
+      else
+        this->start_listening_as_sub();
+
+      // start the timer
+      std::thread(std::bind(&RbftConsensus::start_faulty_timer, this)).detach();
+      // here the ctor ends
+    }
+  }
+public:
+
+    // 🐢 No public constructor, only a factory function, so there's no way to have
+    // shared_from_this() return nullptr. (🦜 this is recommanded code from c++ official website)
+    [[nodiscard]] static shared_ptr<RbftConsensus> create(IAsyncEndpointBasedNetworkable * const n,
+                                                                 IForConsensusExecutable * const e,
+                                                                 ISignable * const s,
+                                                                 std::set<string> all_endpoints
+                                                                 ){
+      // Not using std::make_shared<B> because the c'tor is private.
+      return shared_ptr<RbftConsensus>(new RbftConsensus(n,e,s,all_endpoints));
+    }
+
     std::atomic_flag closed = ATOMIC_FLAG_INIT;
     std::atomic_flag view_change_state = ATOMIC_FLAG_INIT;
     std::atomic_int epoch = 0;
@@ -321,31 +360,6 @@ namespace pure{
 
     LockedObject<vector<string>> all_endpoints;
 
-    RbftConsensus(IAsyncEndpointBasedNetworkable * const n,
-                  IForConsensusExecutable * const e,
-                  ISignable * const s,
-                  std::set<string> all_endpoints):
-      exe(e), sig(s), net(n){
-
-      // no need to lock here.
-      this->all_endpoints.o = vector<string>(all_endpoints.begin(),
-                                             all_endpoints.end());
-      // 🦜 : We can't use set for all_endpoints. Because new nodes must be
-      // added to the end.
-
-      if (not all_endpoints.contains(this->net->listened_endpoint()))
-        this->start_listening_as_newcomer();
-      else{
-        if (this->primary() == this->net->listened_endpoint())
-          this->start_listening_as_primary();
-        else
-          this->start_listening_as_sub();
-
-        // start the timer
-        std::thread(std::bind(&RbftConsensus::start_faulty_timer, this)).detach();
-        // here the ctor ends
-      }
-    }
 
     void clear_and_listen_common_things(){
       this->view_change_state.clear(); // set to false

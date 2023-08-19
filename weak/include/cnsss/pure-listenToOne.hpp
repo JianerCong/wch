@@ -12,18 +12,6 @@
 #define S_NOR "\x1b[0m"
 
 namespace pure{
-    using boost::format;
-  using std::move;
-  using std::vector;
-
-
-  using std::unique_ptr;
-
-  using std::unordered_map;
-  namespace json = boost::json;
-  using namespace std::placeholders;  // for _1, _2, _3...
-  using std::bind;
-  using std::shared_ptr;
 
   class ListenToOneConsensus:
     public virtual ICnsssPrimaryBased,
@@ -67,8 +55,8 @@ namespace pure{
   public:
     // use shared_from_this()
 
-    // No public constructor, only a factory function, so there's no way to have
-    // shared_from_this() return nullptr.
+    // 🐢 No public constructor, only a factory function, so there's no way to have
+    // shared_from_this() return nullptr. (🦜 this is recommanded code from c++ official website)
     [[nodiscard]] static shared_ptr<ListenToOneConsensus> create(IEndpointBasedNetworkable *  const n,
                                                                  IForConsensusExecutable *  const e,
                                                                  const string & nodeToConnect = ""){
