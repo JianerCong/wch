@@ -651,8 +651,9 @@ public:
 
      🐢 : Let's just use:
     */
-    static string cmds_to_state(vector<string> cmds){
-      return boost::algorithm::join(cmds,":");
+    static string cmds_to_state(vector<string> /*cmds*/){
+      return "<mocked-state>"
+      // return boost::algorithm::join(cmds,":");
     }
 
     string get_state(){
