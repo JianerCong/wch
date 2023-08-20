@@ -1,3 +1,4 @@
+#define BFT_STATE_DEBUG
 #include "pure-rbft.hpp"
 #include <iostream>
 
@@ -17,29 +18,49 @@ using std::vector;
 using namespace pure;
 
 struct BftAndColleague{
-  unique_ptr<mock::Executable> e;
-  unique_ptr<mock::Signer> s;
-  unique_ptr<mock::AsyncEndpointNetworkNode> n;
+  // unique_ptr<mock::Executable> e;
+  // unique_ptr<mock::Signer> s;
+  // unique_ptr<mock::AsyncEndpointNetworkNode> n;
+
+  /*
+
+    🦜 : We kinda need to manage them manually because cnsss must be closed
+    before these. (especially the network... cnsss will call net->clear() in its
+    dtor. and you don't want segmentation fault)
+   */
+
+  mock::Executable * e;
+  mock::Signer * s;
+  mock::AsyncEndpointNetworkNode * n;
+
   shared_ptr<RbftConsensus> nd;
+  string id;
   BftAndColleague(string  s,
                   vector<string> all_endpoints
                   /*pass by value (important)*/
-                  ){
-    this->e = make_unique<mock::Executable>(s);
-    this->s = make_unique<mock::Signer>(s);
-    this->n = make_unique<mock::AsyncEndpointNetworkNode>(s);
+                  ): id(s){
+    this->e = new mock::Executable(s);
+    this->s = new mock::Signer(s);
+    this->n = new mock::AsyncEndpointNetworkNode(s);
+
 
     this->nd = RbftConsensus::create(
-                                     dynamic_cast<IAsyncEndpointBasedNetworkable *>(&(*this->n)),
-                                     dynamic_cast<IForConsensusExecutable*>(&(*this->e)),
-                                     dynamic_cast<ISignable *>(&(*this->s)),
+                                     dynamic_cast<IAsyncEndpointBasedNetworkable *>(this->n),
+                                     dynamic_cast<IForConsensusExecutable*>(this->e),
+                                     dynamic_cast<ISignable *>(this->s),
                                      all_endpoints
                                      );
   }
 
-  void close(){
-    this->nd->close();
-  }
+  ~BftAndColleague(){
+    BOOST_LOG_TRIVIAL(debug) <<  "Closing BftAndColleague: " S_MAGENTA << this->id << S_NOR;
+    this->nd.reset();           // release the shared_ptr and close the BFT (calls the d'tor)
+
+    // Now they can be safely freed
+    delete this->e;
+    delete this->s;
+    delete this->n;
+}
 };
 
 struct NodeFactory{
@@ -48,7 +69,7 @@ struct NodeFactory{
   int N;
   NodeFactory(int n = 2): N(n){
     BOOST_LOG_TRIVIAL(debug) << "🌱 \tInitial cluster size: " S_CYAN << n << S_NOR ;
-    for (int i = 0;i<2;i++){
+    for (int i = 0;i<n;i++){
       this->all_endpoints.push_back(
                                  (format("N%d") % i).str()
                                  );
@@ -68,7 +89,7 @@ struct NodeFactory{
 
     BOOST_LOG_TRIVIAL(debug) << "🚮️ kick " S_RED + s + S_NOR;
 
-    this->nodes[s]->close();
+    // this->nodes[s]->close();
     this->nodes.erase(s);
   }
 
@@ -76,10 +97,9 @@ struct NodeFactory{
     string s = (format("N%d") % this->N).str();
     this->N++;
 
-    BOOST_LOG_TRIVIAL(debug) <<  "\tAdding node" S_GREEN + s + S_NOR;
+    BOOST_LOG_TRIVIAL(debug) <<  "\tAdding node " S_GREEN + s + S_NOR;
 
     // 🦜 Update the current all_endpoints
-
     {
       std::unique_lock l(this->nodes.begin()->second->nd->all_endpoints.lock);
       this->all_endpoints = this->nodes.begin()->second->nd->all_endpoints.o;
@@ -87,7 +107,6 @@ struct NodeFactory{
 
     // make the node
     this->nodes[s] = make_shared<BftAndColleague>(s, this->all_endpoints);
-
   }
 };
 
@@ -102,7 +121,7 @@ void start_cluster(int n){
     string reply;
     cout << "Enter: ";
     cin >> reply;
-    if (reply == "stop")
+    if (reply == "stop" or reply == "s")
       break;
 
     if (reply == "append" or reply == "a"){
@@ -132,6 +151,10 @@ void start_cluster(int n){
       " To " + reply +  S_NOR << "\n";
     nClient->send(reply,"/pleaseExecuteThis",cmd);
   }
+
+  BOOST_LOG_TRIVIAL(debug) << "Tester closed";
+
+  fac.nodes.clear();            // remove all (🦜 : calls the dtor respectively).
 }
 
 #define ARGV_SHIFT()  { i_argc--; i_argv++; }

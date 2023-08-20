@@ -288,7 +288,7 @@ private:
         this->start_listening_as_sub();
 
       // start the timer
-      std::thread(std::bind(&RbftConsensus::start_faulty_timer, this)).detach();
+      this->timer = std::thread(std::bind(&RbftConsensus::start_faulty_timer, this));
       // here the ctor ends
     }
   }
@@ -303,6 +303,8 @@ public:
       // Not using std::make_shared<B> because the c'tor is private.
       return shared_ptr<RbftConsensus>(new RbftConsensus(n,e,s,all_endpoints));
     }
+
+    std::thread timer;
 
     std::atomic_flag closed = ATOMIC_FLAG_INIT;
     std::atomic_flag view_change_state = ATOMIC_FLAG_INIT;
@@ -883,10 +885,12 @@ public:
         // 🦜 : Here we used atomic, so we don't need to lock it.
         while (this->patience.load() > 0){
           std::this_thread::sleep_for(std::chrono::seconds(3));
+          // this->say("closed?");
           if (this->closed.test()){
             this->say("\t 👋 Timer closed");
             return;
           }
+          // this->say("down?");
           this->patience--;
           this->say(format(" patience >> " S_MAGENTA "%d " S_NOR ", 🐢: Pr : " S_CYAN "%s" S_NOR)
                     % this->patience.load() % this->primary());
@@ -901,7 +905,7 @@ public:
     }
 
     void comfort(){
-      this->patience.store(5);
+      this->patience.store(8);
       this->say(format("❄ patience set to %d") % this->patience.load());
     }
 
@@ -1320,15 +1324,19 @@ public:
 
       // 🦜 : Don't show this in actual run ⚠️
       string cmds;
+
+      #ifdef BFT_STATE_DEBUG
       {
         std::unique_lock l(this->command_history.lock);
-        cmds = boost::algorithm::join(this->command_history.o,",");
+        cmds = S_GREEN "[" +
+          boost::algorithm::join(this->command_history.o,",") +
+          "]" S_NOR;
       }
+      #endif
 
       BOOST_LOG_TRIVIAL(debug)
         << S_CYAN "[" + my_id + "]" S_NOR " "
-        // comment the folloing line out in real run
-        << S_GREEN "[" + cmds + "]" S_NOR
+        << cmds
         << " " S_BLUE "<" << this->epoch.load() << ">: " S_NOR
         << s;
     }
@@ -1458,7 +1466,8 @@ public:
       this->command_history.o = d.cmds;
 
       // start the timer
-      std::thread(std::bind(&RbftConsensus::start_faulty_timer, this)).detach();
+
+      this->timer = std::thread(std::bind(&RbftConsensus::start_faulty_timer, this));
 
       this->start_listening_as_sub();
 
@@ -1472,9 +1481,12 @@ public:
     int epoch_considering_newcomers(int e, int num_newcomers){
       return e + (e / this->N()) * num_newcomers;
     }
-    void close(){
-      this->closed.clear();
-      this->net->clear();
+
+    virtual ~RbftConsensus(){
+      BOOST_LOG_TRIVIAL(debug) <<  "👋 BFT closed";
+      this->net->clear();          // 🐢 : Make sure to close the cnsss before net
+      this->closed.test_and_set(); // closed = true
+      this->timer.join();          // wait for the timer
     }
   };                            // class RbftConsensus
 
@@ -1539,6 +1551,8 @@ public:
         BOOST_LOG_TRIVIAL(debug) << format("Handler %s not found" ) % k;
       }
     };
+
+    virtual ~AsyncEndpointNetworkNode(){};
   };                            // class AsyncEndpointNetworkNode
 
     /*
@@ -1579,6 +1593,8 @@ public:
           % s % msg;
         return s;
       }
+
+      virtual ~Signer(){};
 
 
       /**

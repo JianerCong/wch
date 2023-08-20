@@ -143,6 +143,8 @@ namespace pure {
           % this->id % cmd;
         return "OK";
       };
+
+      virtual ~Executable(){};
     };
 }
 
