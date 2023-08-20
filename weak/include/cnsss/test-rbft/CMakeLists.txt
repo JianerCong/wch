@@ -21,8 +21,10 @@ target_link_libraries(main PUBLIC Boost::log Boost::json)
 #[=[
 
 cd ../../..
+
+. ./s-options.sh ./weak/include/cnsss/test-rbdt ./weak
 cmake -S weak/include/cnsss/test-rbft -B build-testRbft
-cmake --build build-testRbft
-./build-testRbft/main 2
-./build-testRbft/main 3
+cmake --build build-hi
+./build-hi/main 2
+./build-hi/main 3
 #]=]

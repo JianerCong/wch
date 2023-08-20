@@ -279,7 +279,7 @@ private:
     // 🦜 : We can't use set for all_endpoints. Because new nodes must be
     // added to the end.
 
-      if (not std::contains(all_endpoints,this->net->listened_endpoint()))
+      if (not ::pure::contains(all_endpoints,this->net->listened_endpoint()))
       this->start_listening_as_newcomer();
     else{
       if (this->primary() == this->net->listened_endpoint())
@@ -308,6 +308,24 @@ public:
     std::atomic_flag view_change_state = ATOMIC_FLAG_INIT;
     std::atomic_int epoch = 0;
     std::atomic_int patience = 0;
+
+    /**
+     * @brief The role of the node. Can be one of :
+     *
+     *  + 0 : Newcomer
+     *  + 1 : Sub
+     *  + 2 : Primary
+     *
+     *  🦜 : Why bother?
+     *
+     *  🐢 : Because we kinda feel like it's somewhat too wasteful to clear()
+     *  and re-listen() the same things when a Sub node just needs to stay Sub
+     *  in a new epoch.
+     *
+     *  🦜 : Make sense... That can save a lot of console output too.
+     */
+    std::atomic_char role = static_cast<char>(Role::Newcomer);
+    enum class Role: char {Newcomer=0,Sub=1,Primary=2};
 
     LockedObject<
       unordered_map<int,
@@ -362,17 +380,20 @@ public:
 
     LockedObject<vector<string>> all_endpoints;
 
+    void clear_memory(){
+      this->view_change_state.clear(); // set to false
+      {std::unique_lock l(this->received_commands.lock);
+        this->received_commands.o.clear();
+      }
+}
 
     void clear_and_listen_common_things(){
-      this->view_change_state.clear(); // set to false
+      this->clear_memory();
       this->net->clear();
       this->net->listen("/ILaidDown", bind(&RbftConsensus::handle_laid_down,this,_1,_2));
       this->net->listen("/IamThePrimary", bind(&RbftConsensus::handle_new_primary,this,_1,_2));
       this->net->listen("/pleaseAddMeNoBoardcast",
                         bind(&RbftConsensus::handle_add_new_node_no_boardcast,this,_1,_2));
-      {std::unique_lock l(this->received_commands.lock);
-        this->received_commands.o.clear();
-      }
     }
 
     /**
@@ -393,7 +414,7 @@ public:
       {
         std::unique_lock l(this->all_endpoints.lock);
         for (auto newcomer : newcomers){
-          if (std::contains(this->all_endpoints.o,newcomer)){
+          if (::pure::contains(this->all_endpoints.o,newcomer)){
             this->say("This primary has old newcomer, ignoring it");
             return;
           }
@@ -561,14 +582,36 @@ public:
     } // check_cert
 
     void start_listening_as_primary(){
+
+      /*
+        🦜 : Okay, I feel like the following is not very likely. Let's ignore it.
+
+        🐢 : Yeah... But becoming Sub again. I think it's common enough to do something 
+       */
+
+      // if (this->role.load() == static_cast<char>(Role::Primary)){
+      //   this->say("\t 🌱: Becoming primary again (should be in one-node cluster)");
+      //   this->clear_memory();
+      //   return ;
+      // }
+
       this->say("\t 🌱: Start listening as primary");
       this->clear_and_listen_common_things();
       this->net->listen("/pleaseExecuteThis",
                         bind(&RbftConsensus::handle_execute_for_primary1,this,_1,_2)
                         );
+
+      this->role.store(static_cast<char>(Role::Primary));
     }
 
     void start_listening_as_sub(){
+
+      if (this->role.load() == static_cast<char>(Role::Sub)){
+        this->say("\t 📗️: Becoming sub again.");
+        this->clear_memory();
+        return;
+      }
+
       this->say("\t 🌱: Start listening as sub");
       this->clear_and_listen_common_things();
       this->net->listen("/pleaseExecuteThis",
@@ -582,6 +625,8 @@ public:
       this->net->listen("/pleaseCommitThis",
                         bind(&RbftConsensus::handle_commit_for_sub,this,_1,_2)
                         );
+
+      this->role.store(static_cast<char>(Role::Sub));
     }
 
     /**
@@ -837,7 +882,7 @@ public:
 
         // 🦜 : Here we used atomic, so we don't need to lock it.
         while (this->patience.load() > 0){
-          std::this_thread::sleep_for(std::chrono::seconds(1));
+          std::this_thread::sleep_for(std::chrono::seconds(3));
           if (this->closed.test()){
             this->say("\t 👋 Timer closed");
             return;
@@ -984,7 +1029,7 @@ public:
           this->say(format("\tAdding new record in laid_down_history for epoch " S_GREEN "%d " S_NOR)
                     % o.epoch);
           this->laid_down_history.o.insert({
-              epoch,
+              o.epoch,
               make_shared<
               unordered_map<string,shared_ptr<vector<string>>>
               //            state : votes for state
@@ -1009,7 +1054,7 @@ public:
 
       this->say("3.");
       // 🦜 : This is the list that data (signed msg) will be added in.
-      if (std::contains(to_be_added_list, data)){
+      if (::pure::contains(to_be_added_list, data)){
         this->say(format("🚮️ Ignoring duplicated msg:" S_CYAN "%s" S_NOR)% data);
         return;
       }
@@ -1266,7 +1311,7 @@ public:
       {
         std::unique_lock l(this->all_endpoints.lock);
         auto v = &(this->all_endpoints.o);
-        if (std::contains(this->all_endpoints.o,this->net->listened_endpoint()))
+        if (::pure::contains(this->all_endpoints.o,this->net->listened_endpoint()))
           my_id = lexical_cast<string>(
                                        std::distance(v->begin(),
                                                      ranges::find(*v,this->net->listened_endpoint()))
@@ -1393,7 +1438,16 @@ public:
 
       {
         std::unique_lock l(this->all_endpoints.lock);
-        BOOST_ASSERT_MSG(std::contains(this->all_endpoints.o,this->net->listened_endpoint()),
+
+        /*
+          🦜 : I don't think there will be a lot of newcomers in each round,
+          so I'm just gonna stick to push_back.
+        */
+        for (auto newcomer : newcomers){
+          this->all_endpoints.o.push_back(newcomer);
+        }
+
+        BOOST_ASSERT_MSG(::pure::contains(this->all_endpoints.o,this->net->listened_endpoint()),
                          "What? I am not added by the new primary?");
       } // unlocks
 

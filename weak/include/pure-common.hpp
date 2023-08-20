@@ -118,18 +118,8 @@ namespace pure{
   //   x.store(y,std::memory_order::relaxed);
   // }
 
-} // namespace pure
 
-// This helper function deduces the type and assigns the value with the matching key
-// 🦜 : Defining this allows us to use json::value_to<T>
-#define ADD_FROM_JSON_TAG_INVOKE(T)                           \
-  T tag_invoke(json::value_to_tag<T>, json::value const& v){  \
-    T t;                                                      \
-    if (t.fromJson(v)) return t;                              \
-    return {};                                                \
-  }
-
-namespace std{
+  namespace ranges = std::ranges;
   /**
    * @brief The contain for vector.
    *
@@ -145,7 +135,18 @@ namespace std{
     BOOST_LOG_TRIVIAL(debug) << "Calling contains(ptr<vector<>>)";
     return ranges::find(v->begin(),v->end(),x) != v->end();
   }
-}
+
+} // namespace pure
+
+// This helper function deduces the type and assigns the value with the matching key
+// 🦜 : Defining this allows us to use json::value_to<T>
+#define ADD_FROM_JSON_TAG_INVOKE(T)                           \
+  T tag_invoke(json::value_to_tag<T>, json::value const& v){  \
+    T t;                                                      \
+    if (t.fromJson(v)) return t;                              \
+    return {};                                                \
+  }
+
 
 #define BOOST_ENABLE_ASSERT_HANDLER
 #include <boost/assert.hpp>
