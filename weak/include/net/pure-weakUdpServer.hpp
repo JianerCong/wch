@@ -3,6 +3,7 @@
 #include <boost/format.hpp>
 #include <boost/log/trivial.hpp>
 
+#include <boost/lexical_cast.hpp>
 #include <memory>
 #include <functional>
 #include <unordered_map>
@@ -13,6 +14,7 @@
 #include <string>
 #include <string_view>
 #include <atomic>
+#include <thread>
 
 namespace pure{
   using std::string;
@@ -62,6 +64,7 @@ namespace pure{
 
   using std::tuple;
 
+  using boost::lexical_cast;
   using std::optional;
 
 
@@ -76,9 +79,14 @@ namespace pure{
     std::mutex lock_for_lisn_map;
     std::thread sess;
 
+    vector<std::jthread> * req_handlers;
+
     WeakUdpServer(uint16_t port=7777){
       this->socket = make_unique<udp::socket>(this->ioc, udp::endpoint(udp::v4(), port));
       BOOST_LOG_TRIVIAL(debug) << format("🌐️ Listening on UDP port " S_CYAN "%d" S_NOR) % port;
+
+      this->req_handlers = new vector<std::jthread>();
+
       this->sess = std::thread{std::bind(&WeakUdpServer::do_session, this)};
     }
 
@@ -89,8 +97,12 @@ namespace pure{
     }
 
     void listen(string k, handler_t f) noexcept{
-      std::unique_lock g(this->lock_for_lisn_map);
-      this->lisn_map[k] = f;
+      BOOST_LOG_TRIVIAL(debug) <<  "Adding handler " S_GREEN << k << S_NOR;
+      {
+        std::unique_lock g(this->lock_for_lisn_map);
+        this->lisn_map[k] = f;
+}
+      BOOST_LOG_TRIVIAL(debug) <<  "Handler" S_GREEN << k << S_NOR << " added";
     }
 
     /*
@@ -142,8 +154,9 @@ namespace pure{
 
         🦜 : Do we need to start a new thread for it?
 
-        🐢 : I think there's no need to do that because `do_session()` is already
-        launched in a separate thread.
+        🐢 : I think there's no need to do that because `handle_req()` is already
+        launched in a separate thread? 
+
       */
       f(d);
     }
@@ -154,6 +167,7 @@ namespace pure{
         /*
           🦜 : How do we know the request_size?
         */
+
         while (not this->closed.test() and this->socket->available() == 0){} // blk until we get some
 
         if (this->socket->available() == 0)
@@ -172,10 +186,12 @@ namespace pure{
           % remote_endpoint.port(); // see the data
 
         // handle it
-        std::thread{std::bind(&WeakUdpServer::handle_req, this, move(data))}.detach();
+        this->req_handlers->push_back(std::jthread{std::bind(&WeakUdpServer::handle_req, this, move(data))});
       }
 
-      BOOST_LOG_TRIVIAL(debug) << format("\t Server thread ended.");
+      BOOST_LOG_TRIVIAL(debug) << S_MAGENTA "\t 🕒 Waiting for req handlers to finish." S_NOR;
+      delete this->req_handlers; // delete the req_handlers, all req_handlers will join here.
+      BOOST_LOG_TRIVIAL(debug) << S_MAGENTA "\t 👋 All req handlers ended." S_NOR;
     }
 
     ~WeakUdpServer(){

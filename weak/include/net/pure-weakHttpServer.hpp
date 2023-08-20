@@ -293,9 +293,16 @@ namespace pure {
     getMap_t getLisnMap;
     logger_t lg;
 
+    std::atomic_flag closed = ATOMIC_FLAG_INIT; // false
     // The acceptor receives incoming connections
     boost::asio::io_service ioc;
     tcp::acceptor acceptor{ioc};
+    vector<std::jthread> * all_threads;
+    /*
+      the threads to be waited in d'tor.
+
+      🦜 : We use this, because we should (probably) never use detach...
+     */
 
     void listenToGet(string k, getHandler_t f)noexcept{
       std::unique_lock g(this->lockForGetLisnMap);
@@ -323,6 +330,8 @@ namespace pure {
                    postMap_t pMap = {}, getMap_t gMap = {}
                    ):postLisnMap(pMap), getLisnMap(gMap),lg{l}{
 
+      // start the thread pool
+      this->all_threads = new vector<std::jthread>();
 
       boost::asio::ip::tcp::endpoint endpoint(boost::asio::ip::tcp::v4(), portToListen);
 
@@ -337,23 +346,41 @@ namespace pure {
 
       BOOST_LOG_SEV(this->lg,debug) << format("Starting service thread");
 
-      std::thread{[&](){ioc.run();}}.detach();
-      // Start the dispatcher in another thread
+      this->all_threads->push_back(std::jthread{[&](){ioc.run();}});
 
-      std::thread{[&](){
-        for(;;){
-          BOOST_LOG_SEV(this->lg,debug) << format("❄ Waiting for request");
-          // This will receive the new connection
-          tcp::socket socket{ioc};
-          BOOST_LOG_SEV(this->lg,debug) << format("Start accepting");
-          // Block until we get a connection
-          acceptor.accept(socket);
-          BOOST_LOG_SEV(this->lg,debug) << format("Accepted");
+      /*
+        🦜 : We somewhat have to detach() this until we have mastered the magic of acceptor
+       */
+      std::thread{[&](){while(true){
+            BOOST_LOG_SEV(this->lg,debug) << format("❄ Waiting for request");
+            // This will receive the new connection
+            tcp::socket socket{ioc};
+            BOOST_LOG_SEV(this->lg,debug) << format("Start accepting");
+            // Block until we get a connection
+            acceptor.accept(socket);
 
-          // Launch the session, transferring ownership of the socket
-          // 🦜 : You have to do it this way
-          std::thread{std::bind(&WeakHttpServer::do_session, this, std::move(socket))}.detach();
-        }
+            // 🦜 : doesn't work yet
+            // bool accepted{false};
+            // while ((not this->closed.test()) and (not accepted)){
+            //   acceptor.async_accept(socket,[&accepted](const boost::system::error_code& error){
+            //     if (!error){
+            //         // Accept succeeded.
+            //         accepted = true;
+            //       }
+            //   });
+            // }
+            // if (this->closed.test())
+            //   break;
+
+            BOOST_LOG_SEV(this->lg,debug) << format("Accepted");
+
+            // Launch the session, transferring ownership of the socket
+            // 🦜 : You have to do it this way
+            this->all_threads->push_back(std::jthread{
+                std::bind(&WeakHttpServer::do_session, this, std::move(socket))
+              });
+          }
+          // BOOST_LOG_TRIVIAL(debug) << "TCP acceptor closed";
       }}.detach();
     }
 
@@ -423,6 +450,9 @@ namespace pure {
     ~WeakHttpServer(){
       BOOST_LOG_SEV(this->lg,debug) << format("👋🐸 Server closed");
       ioc.stop();
+      this->closed.test_and_set();
+      delete this->all_threads;
+      BOOST_LOG_SEV(this->lg,debug) << format("👋 All handler closed");
     }
   };
 

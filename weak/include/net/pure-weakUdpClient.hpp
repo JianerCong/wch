@@ -31,7 +31,6 @@ namespace pure{
           udp::socket socket(io_context);
           socket.open(udp::v4());
 
-          string msg = msg;
           boost::system::error_code ignored_error;
           socket.send_to(boost::asio::buffer(msg), receiver_endpoint, 0 /*msg flag*/ ,
                          ignored_error); // send a request
