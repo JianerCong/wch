@@ -53,6 +53,8 @@ namespace weak{
 
     string light_exe{"yes"};
 
+    vector<string> Rbft_node_list;
+
     tuple<options_description,options_description,
           program_options::positional_options_description
           > define_options(){
@@ -80,7 +82,7 @@ namespace weak{
       o2.add_options()
         ("consensus,s",program_options::value<string>(&(this->consensus_name))->default_value("Solo"),
          "The name of consensus to use. Available options are:\n"
-         "  Solo\n"
+         "  Solo, Rbft\n"
          )
         ("port,p",program_options::value<int>(&(this->port))->default_value(7777),
          "The port to listen")
@@ -92,6 +94,15 @@ namespace weak{
          "This will specify the primary node the "
          "node wants to connect to. If not present"
          "    The format should be <host>:<port> e.g. 10.0.0.1:12345."
+         )
+        ("Rbft.node-list", program_options::value<vector<string>>(&(this->Rbft_node_list))->multitoken(),
+         "The list of all nodes in the cluster. This option is ignored if consensus is not Rbft.\n"
+         "For example:\n"
+         "    --Rbft.node-list localhost:7777 10.0.0.2:7777 10.0.0.3:7777 localhost:7778\n"
+         "In particular, if `localhost:<port>` is in this list, then the node is"
+         "considered to be one of the `initial node` in the cluster. Otherwise,"
+         "the node is considered to be a `newcomer` and it will send request to the existing "
+         "to nodes to try to get in."
          )
         ;
 
