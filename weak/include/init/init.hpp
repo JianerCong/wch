@@ -74,7 +74,7 @@
  *
  * 4. Next we start consensus. This has two step:
  *      + start a pure-consensus: this has all the dirty logic of consensus.
- *    
+ *
  *      + start a CnsssBlkChainAsstn: this is like an agent that manage "some"
  *      of the communication between consensus and other modules (mainly RPC and
  *      sealer). This doesn't need anything else from apart from a
@@ -82,16 +82,16 @@
  *
  *    To start a pure-consensus, we need two things: an `exe`
  *    (::pure::IForConsensusExecutable) and an `network`
- *    (::pure::IEndpointBasedNetworkable).
+ *    (::pure::IEndpointBasedNetworkable or ::pure::IAsyncEndpointBasedNetworkable).
  *
  *    4.1 `exe` is kinda like the "computer" of pure-consensus, which should be
  *    complex.(🐢 : Here is also where we can mock a good amount of code.) In
  *    real run, we should start an `ExecutorForCnsss`(cnsss/exeForCnsss.hpp) for Cnsss
  *    here. This will require two things
- *    
+ *
  *       4.1.1 an `IBlkExecutable`: which can be used to execute and commit Blk.
  *       Serious instance is the `BlkExecutor` (execManager.hpp). This will need 2 + 1 things:
- *       
+ *
  *          4.1.1.1 `IWorldChainStateSettable` and `IAcnGettable`, these are the
  *          storage related interface that the `WorldStorage` can provide.
  *
@@ -103,19 +103,61 @@
  *       4.1.2 an `IPoolSettable`: this is where exe can throw `Tx` in. Serious
  *       implementation is Mempool (cnsss/mempool.hpp).
  *
- *    4.2 `net` is the network that cnsss use to communicate with each other.
- *    Serious implementation is `IpBasedHttpNetAsstn`
- *    (net/pure-httpNetAsstn.hpp). This requires a pointer-to-WeakHttpServer
- *    (started in step 1) and a message manager.(🦜 : What is this? 🐢 : This
- *    will "sign" the datagram that you send, this lets the receiver know "Who R
- *    U".) There's `NaiveMsgMgr` in the same file (net/pure-httpNetAsstn.hpp),
- *    this takes care of some msg wrangling before and after sending and
- *    receiving over the network.
+ *    4.2 `net` is the network that cnsss use to communicate with each other (p2p).
+ *
+ *    Here we have two types of network component (we called them `network
+ *    assistant`).
+ *
+ *    1. `IEndpointBasedNetworkable`. This is for cnsss that need response for
+ *    each request, such as Solo and Raft. In this case, we currenly have
+ *    http-based network. Serious implementation is `IPBasedHttpNetAsstn`
+ *    (net/pure-httpNetAsstn.hpp).
+ *
+ *    2. `IAsyncEndpointBasedNetworkable`. This is for cnssses that don't need
+ *    response for each request, such as *BFT. In this case, we have
+ *    `IPBasedUdpNetAsstn` (net/pure-udpNetAsstn.hpp).
+ *
+ *
+ *    `IPBasedHttpNetAsstn` requires a pointer-to-WeakHttpServer (started in
+ *    step 1) and a message manager.(🦜 : What is this? 🐢 : This will "sign"
+ *    the datagram that you send, this lets the receiver know "Who R U".)
+ *    There's `NaiveMsgMgr` in the same file (net/pure-netAsstn.hpp), this takes
+ *    care of some msg wrangling before and after sending and receiving over the
+ *    network.
+ *
+ *    `IPBasedUdpNetAsstn` also requires a message manager, but more
+ *    importantly, it needs a `port` to listen on UDP.
  *
  *    One thing to note that NaiveMsgMgr also need an `id` to start. This `id`
  *    need to be constructed seriously and it will be returned by the
  *    cnsss->listened_endpoint(). (🦜 : Okay, so what's the format of this
- *    string ?)
+ *    string ? 🐢 : This is usually something like
+ *
+ *    ::pure::SignedData::serialize_3_strs("<mock-pk>","10.0.0.2:7777","");
+ *
+ *    ).
+ *
+ *    4.3 Now, we have our `net` and `exe` so we can start our cnsss. Different
+ *    cnsss have different initial conditions. We document them here one by one.
+ *
+ *       4.3.1 Solo. This cnsss needs an `IEndpointBasedNetworkable`,
+ *       `IForConsensusExecutable` and an optional argument `node_to_connect`.
+ *       `node_to_connect` should be an endpoint, if this one is not given, then
+ *       the node is considered to be the primary node. Otherwise, the node is
+ *       considered to be a sub that will ask `node_to_connect`.
+ *
+ *       4.3.2 Rbft. This cnsss needs an `IAsyncEndpointBasedNetworkable`,
+ *       `IForConsensusExecutable` and a list of endpoints. If this endpoint is
+ *       in that list, then this node is considered to be an `initial member` of
+ *       the cluster. All `initial member` must be started (almost) at the same
+ *       time, and all of these `initial member` should have been initialized
+ *       with the same list of endpoints.
+ *
+ *       Otherwise, (and usually we wanna do that for subs) if this endpoint is
+ *       not in that endpoint list, then this node is considered to be a
+ *       `newcomer` and it will try to ask the existing cluster to get in. If
+ *       everything goes well, this node will join the group in the next epoch.
+ *
  *
  *  5. Start the Sealer (cnsss/sealer.hpp). This will need the 1 + 1 + 2 things
  *    5.1 `IForSealerBlkPostable`, the interface exposed by the CnsssBlkChainAsstn.
@@ -126,8 +168,11 @@
  *    obtained before. (🐢: previous_hash will be used to set the parent hash of
  *    the new Blk).
  *
+ *    (🐢 : But, if we have chosen to use light-exe, or we have the option
+ *    `--without_sealer= yes`, then this step can be skipped.)
+ *
  *  6. Finally we start the Rpc (rpc.hpp), which requires four things:
- *  
+ *
  *    6.1 `IForRpcNetworkable`: the network that rpc will use, this seperate RPC
  *    from HTTP. Serious implementation is the HttpRpcAsstn defined in the same file (rpc.hpp).
  *
@@ -143,8 +188,12 @@
 #include "storageManager.hpp"
 #include "rpc.hpp"
 
+// cnsss
 #include "cnsss/pure-listenToOne.hpp"
+#include "cnsss/pure-rbft.hpp"
+
 #include "net/pure-httpNetAsstn.hpp"
+#include "net/pure-udpNetAsstn.hpp"
 
 #include "evmExecutor.hpp"
 #include "execManager.hpp"
@@ -159,16 +208,32 @@
 #include <boost/log/core.hpp>
 #include <boost/log/expressions.hpp>
 
-// #define WEAK_WITH_SEALER
-#undef WEAK_WITH_SEALER
-#define WEAK_IN_RAM
-// #undef WEAK_IN_RAM
-#define WEAK_MOCK_EXE
-// #undef WEAK_MOCK_EXE
-
-
-
 namespace weak{
+
+  /**
+   * @brief Combine the <pk> with each of the host in v.
+   *
+   * @param v : A list of <address:port> such as {"10.0.0.1:80","10.0.0.1:81"}
+   *
+   * 🦜 : This list should be unique. If not, we std::exit(EXIT_FAILURE);
+   *
+   * @return the combined list. (Sorted)
+   */
+  vector<string> prepare_endpoint_list(vector<string> v){
+
+    std::set<string> r;
+    for (const string & s : v){
+      string r0 = ::pure::SignedData::serialize_3_strs("<mock-pk>",o.Solo_node_to_connect,"");
+      if (not r.insert(r0).second){
+        BOOST_LOG_TRIVIAL(error) << S_RED "❌️ The endpoint list is not unique: " +
+          boost::algorithm::join(v,",");
+          + S_NOR;
+        std::exit(EXIT_FAILURE);
+      }
+    }
+    vector<string> o(r.begin(),r.end());
+    return o;
+  }
 
   void sleep_for(int i=1){
     std::this_thread::sleep_for(std::chrono::seconds(i)); // wait until its up
@@ -313,7 +378,8 @@ namespace weak{
 
     {
       ::pure::WeakHttpServer srv{boost::numeric_cast<uint16_t>(o.port)}; // throw bad_cast
-      std::this_thread::sleep_for(std::chrono::seconds(1)); // wait until its up
+      // std::this_thread::sleep_for(std::chrono::seconds(1)); // wait until its up
+      /* 🦜 : I doubt that.^^^ */
       {
         // 2.
 
@@ -441,18 +507,45 @@ namespace weak{
           string endpoint_for_cnsss = ::pure::SignedData::serialize_3_strs("<mock-pk>",endpoint,"");
           ::pure::NaiveMsgMgr msg_mgr{endpoint_for_cnsss}; // the default mgr
 
-          IPBasedHttpNetAsstn net{&srv,dynamic_cast<::pure::IMsgManageable*>(&msg_mgr)};
+          struct {
+            unique_ptr<IPBasedHttpNetAsstn> http;
+            unique_ptr<IPBasedUdpNetAsstn> udp;
 
+            ::pure::IEndpointBasedNetworkable* iEndpointBasedNetworkable;
+            ::pure::IAsyncEndpointBasedNetworkable* iAsyncEndpointBasedNetworkable;
+          } net;
 
-          ICnsssPrimaryBased * cnsss;
-          using ::pure::ListenToOneConsensus;
-          {
+          if (o.consensus_name == "Solo"){
+            BOOST_LOG_TRIVIAL(debug) <<  "\t 🌐️ Using " S_CYAN "http-based " S_NOR " p2p";
+            net.http = make_unique<IPBasedHttpNetAsstn>(&srv,
+                                                        dynamic_cast<::pure::IMsgManageable*>(&msg_mgr)
+                                                        );
+            net.iEndpointBasedNetworkable = dynamic_cast<::pure::IEndpointBasedNetworkable*>(&(*net.http));
+          }else if (o.consensus_name == "Rbft"){
+            BOOST_LOG_TRIVIAL(debug) <<  "\t 🌐️ Using " S_CYAN "udp-based " S_NOR " p2p";
+            net.udp = make_unique<IPBasedUdpNetAsstn>(boost::numeric_cast<uint16_t>(o.port),
+                                                      dynamic_cast<::pure::IMsgManageable*>(&msg_mgr)
+                                                      ); // throw bad_cast
+            net.iAsyncEndpointBasedNetworkable = dynamic_cast<::pure::IAsyncEndpointBasedNetworkable*>(&(*net.udp));
+          }else{
+            BOOST_LOG_TRIVIAL(error) << format("❌️ Unknown consensus method: " S_RED "%s" S_NOR) % o.consensus_name;
+            std::exit(EXIT_FAILURE);
+          }
+
+          // using ::pure::ListenToOneConsensus;
+          // using ::pure::RbftConsensus;
+          struct {
+            ICnsssPrimaryBased * iCnsssPrimaryBased;
+            shared_ptr<::pure::ListenToOneConsensus> listenToOne;
+            shared_ptr<::pure::RbftConsensus> rbft;
             /* 🦜 : Here we should have a series of
                shared_ptr<C1> p_C1;
                shared_ptr<C2> p_C2;
                shared_ptr<C3> p_C3;
             */
-            shared_ptr<ListenToOneConsensus> p_ListenToOneConsensus;
+          } cnsss;
+
+          {
 
 
             if (o.consensus_name == "Solo"){
@@ -466,18 +559,44 @@ namespace weak{
                 BOOST_LOG_TRIVIAL(info) << format("\t⚙️ Starting as Solo primary");
               }
 
-              p_ListenToOneConsensus = ListenToOneConsensus::create(dynamic_cast<::pure::IEndpointBasedNetworkable*>(&net),
-                                                                    exe.iForConsensusExecutable,
-                                                                    endpoint_node_to_connect);
+              cnsss.listenToOne = ::pure::ListenToOneConsensus::create(net.iEndpointBasedNetworkable
+                                                               ,exe.iForConsensusExecutable,
+                                                               endpoint_node_to_connect);
 
+              cnsss.iCnsssPrimaryBased = dynamic_cast<ICnsssPrimaryBased*>(&(*cnsss.listenToOne));
+            }else if (o.consensus_name == "Rbft"){
 
-              cnsss = dynamic_cast<ICnsssPrimaryBased*>(&(*p_ListenToOneConsensus));
-            }else{
+              if (o.Bft_node_list.empty()){
+                BOOST_LOG_TRIVIAL(error) << S_RED "❌️ Empty cluster endpoint list for RBFT" S_NOR;
+                std::exit(EXIT_FAILURE);
+              }
+
+              // 1. translate the node-addr to endpoint format.
+              vector<string> all_endpoints = prepare_endpoint_list(o.Bft_node_list);
+              /*
+                🦜 : Instead of the following:
+
+                ranges::transform(o.Bft_node_list,
+                std::back_inserter(all_endpoints),
+                [](string c) -> string {
+                return ::pure::SignedData::serialize_3_strs("<mock-pk>",c,"");
+                });
+
+                I'm gonna do a dump loop ourselves.
+              */
+
+              // 2. start the cnsss
+              cnsss.rbft = ::pure::RbftConsensus::create(net.iAsyncEndpointBasedNetworkable,
+                                                         exe.iForConsensusExecutable,
+                                                         all_endpoints);
+
+              cnsss.iCnsssPrimaryBased = dynamic_cast<ICnsssPrimaryBased*>(&(*cnsss.rbft));
+            } else{
               BOOST_LOG_TRIVIAL(error) << format("❌️ Unknown consensus method: " S_RED "%s" S_NOR) % o.consensus_name;
               std::exit(EXIT_FAILURE);
             }
 
-            CnsssBlkChainAsstn cnsss_asstn{cnsss};
+            CnsssBlkChainAsstn cnsss_asstn{cnsss.o};
 
             // 5.
             {

@@ -32,7 +32,6 @@
 
 #include <mutex>
 namespace pure{
-  using namespace std::placeholders;  // for _1, _2, _3...
   using boost::format;
   using std::move;
   using std::vector;
@@ -1297,7 +1296,7 @@ public:
     /**
      * @brief Check whether I am primary
      */
-    bool is_primary() const noexcept{
+    bool is_primary() const noexcept override{
       if (this->view_change_state.test())
         return false;
 
