@@ -107,7 +107,7 @@ namespace pure{
         std::unique_lock g(this->lock_for_lisn_map);
         this->lisn_map[k] = f;
 }
-      BOOST_LOG_TRIVIAL(debug) <<  "Handler" S_GREEN << k << S_NOR << " added";
+      // BOOST_LOG_TRIVIAL(debug) <<  "Handler" S_GREEN << k << S_NOR << " added";
     }
 
     /*

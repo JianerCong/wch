@@ -61,7 +61,7 @@ namespace pure{
     }
     void listen(string target,function<void(string,string)> f) noexcept override{
       handler_t h = this->make_handler(f);
-      BOOST_LOG_TRIVIAL(debug) << format("Adding listener %s") % target;
+      // BOOST_LOG_TRIVIAL(debug) << format("Adding listener %s") % target;
       this->serv->listen(target,h);
     }
 
@@ -84,13 +84,19 @@ namespace pure{
           % endpoint;
         return;
       }
-
       string addr_and_port = r.value();
       try{
         auto [addr, port] = NetAsstn::split_addr_port(addr_and_port);
         // BOOST_LOG_TRIVIAL(debug) << format("Sending UDP to %s:%d, target=%s") % addr % port % (target);
         string msg = this->mgr->prepare_msg(move(data));
-        WeakUdpClient::send(addr,lexical_cast<string>(port),msg);
+        BOOST_LOG_TRIVIAL(debug) << format("Sending UDP to %s:%d, msg=%s") % addr % port % msg;
+
+        /*
+          🐢 : ⚠️ : Here we need to prepand the <target>: in the payload. The
+          server side will receive this, and pass the msg to the handler
+          selected by <target>. This is different from the http counterpart.
+         */
+        WeakUdpClient::send(addr,lexical_cast<string>(port), target + ':' + msg);
       }
       catch (const std::exception & e){
         BOOST_LOG_TRIVIAL(error) << S_RED "❌️ Something wrong happened when preparing UDP msg: " << e.what() << S_NOR << " But igore it";
