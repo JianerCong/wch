@@ -3,7 +3,7 @@
 #include <string>
 #include <string_view>
 #include <iostream>
-
+#include <boost/log/trivial.hpp>
 #include <boost/lexical_cast.hpp>
 
 

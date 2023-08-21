@@ -85,11 +85,6 @@ namespace pure{
     virtual string_view get_from(string_view msg) noexcept=0;
   };
 
-  class IAsyncEndpointBasedNetworkable: public virtual IForCnsssNetworkable{
-  public:
-    virtual void listen(string target,function<void(string,string)> f) noexcept=0;
-    virtual void send(string endpoint, string target,string data) noexcept=0;
-  };
 
   template<typename T>
   // 🦜 : Bind the object with a lock.

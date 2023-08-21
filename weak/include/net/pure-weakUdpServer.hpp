@@ -96,6 +96,11 @@ namespace pure{
       return this->lisn_map.erase(k);
     }
 
+    void clear() noexcept{
+      std::unique_lock g(this->lock_for_lisn_map);
+      return this->lisn_map.clear();
+    }
+
     void listen(string k, handler_t f) noexcept{
       BOOST_LOG_TRIVIAL(debug) <<  "Adding handler " S_GREEN << k << S_NOR;
       {

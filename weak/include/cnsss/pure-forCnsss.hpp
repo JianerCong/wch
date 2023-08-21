@@ -87,6 +87,11 @@ namespace pure {
                                   string data)noexcept=0;
   };
 
+  class IAsyncEndpointBasedNetworkable: public virtual IForCnsssNetworkable{
+  public:
+    virtual void listen(string target,function<void(string,string)> f) noexcept=0;
+    virtual void send(string endpoint, string target,string data) noexcept=0;
+  };
   /**
    * @brief The executor for pure consensus to use.
    *

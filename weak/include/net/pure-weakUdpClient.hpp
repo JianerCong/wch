@@ -1,4 +1,5 @@
 #pragma once
+#include "pure-common.hpp"
 #include <boost/format.hpp>
 #include <boost/log/trivial.hpp>
 using boost::format;
@@ -34,11 +35,10 @@ namespace pure{
           boost::system::error_code ignored_error;
           socket.send_to(boost::asio::buffer(msg), receiver_endpoint, 0 /*msg flag*/ ,
                          ignored_error); // send a request
-
         }
       catch (std::exception& e)
         {
-          BOOST_LOG_TRIVIAL(error) << e.what();
+          BOOST_LOG_TRIVIAL(error) << S_MAGENTA "⚠️ Something wrong happened when sending UDP msg: " << e.what()  << S_NOR;
         }
     }
   } // namespace WeakUdpClient
