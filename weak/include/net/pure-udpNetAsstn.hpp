@@ -78,7 +78,7 @@ namespace pure{
         🐢 : Note that, in this function, we ignored the "pk"
       */
 
-      optional<string> r = this->extract_addr_and_port_from_endpoint(endpoint);
+      optional<string> r = NetAsstn::extract_addr_and_port_from_endpoint(endpoint);
       if (not r){
         BOOST_LOG_TRIVIAL(debug) << format("\t❌️ Error parsing endpoint passed from Cnsss: " S_RED "%s" S_NOR )
           % endpoint;

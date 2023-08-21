@@ -84,6 +84,9 @@
  *    (::pure::IForConsensusExecutable) and an `network`
  *    (::pure::IEndpointBasedNetworkable or ::pure::IAsyncEndpointBasedNetworkable).
  *
+ *    Optionally, we also need a signer for those cnsss that needs digital
+ *    signature.
+ *
  *    4.1 `exe` is kinda like the "computer" of pure-consensus, which should be
  *    complex.(🐢 : Here is also where we can mock a good amount of code.) In
  *    real run, we should start an `ExecutorForCnsss`(cnsss/exeForCnsss.hpp) for Cnsss
@@ -136,6 +139,15 @@
  *    ::pure::SignedData::serialize_3_strs("<mock-pk>","10.0.0.2:7777","");
  *
  *    ).
+ *
+ *    4.2e `net` and `exe` are essential to (almost) all cnsss. In addition to
+ *    that, some cnsss requires the magic of digital-signature (most commonly
+ *    *BFT). If that's the case, we will initialize a signer for them. For now,
+ *    only the mocked signer is available: `::pure::mock::Signer` (pure-rbft.hpp).
+ *
+ *    The c'tor of this signer (and probably all signers), requires the endpoint
+ *    of this node. Luckly, we can access that from our msg_mgr. (🐢 : The one
+ *    that do our top level digital signature for our p2p. 🦜 : That is green.)
  *
  *    4.3 Now, we have our `net` and `exe` so we can start our cnsss. Different
  *    cnsss have different initial conditions. We document them here one by one.
@@ -219,16 +231,18 @@ namespace weak{
    *
    * @return the combined list. (Sorted)
    */
-  vector<string> prepare_endpoint_list(vector<string> v){
+  vector<string> prepare_endpoint_list(const vector<string> & v){
 
     std::set<string> r;
     for (const string & s : v){
-      string r0 = ::pure::SignedData::serialize_3_strs("<mock-pk>",o.Solo_node_to_connect,"");
+      string r0 = ::pure::SignedData::serialize_3_strs("<mock-pk>",s,"");
       if (not r.insert(r0).second){
-        BOOST_LOG_TRIVIAL(error) << S_RED "❌️ The endpoint list is not unique: " +
-          boost::algorithm::join(v,",");
-          + S_NOR;
-        std::exit(EXIT_FAILURE);
+          BOOST_THROW_EXCEPTION(std::runtime_error(
+                                                   S_RED "❌️ The endpoint list is not unique: " + 
+                                                   boost::algorithm::join(v,",") + 
+                                                   S_NOR
+                                                   )
+                                );
       }
     }
     vector<string> o(r.begin(),r.end());
@@ -238,8 +252,6 @@ namespace weak{
   void sleep_for(int i=1){
     std::this_thread::sleep_for(std::chrono::seconds(i)); // wait until its up
   }
-  using ::pure::IPBasedHttpNetAsstn;
-  using ::pure::ICnsssPrimaryBased;
   using std::unordered_set;
   /**
    * @brief extract <hash> from "/tx/<hash in hex>"
@@ -440,6 +452,9 @@ namespace weak{
         }
 
         // 4. Start the cnsss
+        using ::pure::IPBasedHttpNetAsstn;
+        using ::pure::IPBasedUdpNetAsstn;
+        using ::pure::ICnsssPrimaryBased;
         BOOST_LOG_TRIVIAL(info) << format("⚙️ starting " S_CYAN "cnsss" S_NOR);
         // 4.1 exe
 
@@ -451,8 +466,7 @@ namespace weak{
         struct {
           unique_ptr<ExeAndPartners> normal;
           unique_ptr<LightExeAndPartners> light;
-          unique_ptr<mock::Executable> mock;
-
+          unique_ptr<::pure::mock::Executable> mock;
           ::pure::IForConsensusExecutable* iForConsensusExecutable;
         } exe;
 
@@ -469,7 +483,7 @@ namespace weak{
             🐢 : Yeah.
           */
           BOOST_LOG_TRIVIAL(info) << format("\t⚙️ Starting " S_MAGENTA "mocked `exe`" S_NOR " for cnsss");
-          exe.mock = make_unique<mock::Executable>(IPBasedHttpNetAsstn::combine_addr_port(o.my_endpoint,o.port));
+          exe.mock = make_unique<::pure::mock::Executable>(IPBasedHttpNetAsstn::combine_addr_port(o.my_endpoint,o.port));
 
           exe.iForConsensusExecutable = dynamic_cast<::pure::IForConsensusExecutable*>(&(*exe.mock));
         }else{
@@ -500,7 +514,6 @@ namespace weak{
         }
 
         // 4.2 net
-
         {
           string endpoint = IPBasedHttpNetAsstn::combine_addr_port(o.my_endpoint,o.port);
           BOOST_LOG_TRIVIAL(info) << format("\t⚙️ using p2p endpoint: " S_CYAN "%s" S_NOR) % endpoint;
@@ -532,20 +545,39 @@ namespace weak{
             std::exit(EXIT_FAILURE);
           }
 
-          // using ::pure::ListenToOneConsensus;
-          // using ::pure::RbftConsensus;
-          struct {
-            ICnsssPrimaryBased * iCnsssPrimaryBased;
-            shared_ptr<::pure::ListenToOneConsensus> listenToOne;
-            shared_ptr<::pure::RbftConsensus> rbft;
-            /* 🦜 : Here we should have a series of
-               shared_ptr<C1> p_C1;
-               shared_ptr<C2> p_C2;
-               shared_ptr<C3> p_C3;
-            */
-          } cnsss;
-
+          // 4.2e signer
           {
+            // Make a signer.
+            struct {
+              unique_ptr<::pure::mock::Signer> o;
+              ::pure::ISignable * iSignable;
+            } signer;
+
+            /*
+              🦜 : if the cnsss needs the power of digital sig, then we initialize
+              a signer. We kinda need to do this beforehand because we want the
+              signer to stay alive before the cnsss is done.
+            */
+
+            if (o.consensus_name == "Rbft"
+                or
+                o.consensus_name == "Nbft"
+                ){
+              signer.o = make_unique<::pure::mock::Signer>(msg_mgr.my_endpoint());
+              signer.iSignable = dynamic_cast<::pure::ISignable *>(&(*signer.o));
+            }
+
+
+            // 4.3 cnsss
+          {
+            // using ::pure::ListenToOneConsensus;
+            // using ::pure::RbftConsensus;
+            struct {
+              ICnsssPrimaryBased * iCnsssPrimaryBased;
+
+              shared_ptr<::pure::ListenToOneConsensus> listenToOne;
+              shared_ptr<::pure::RbftConsensus> rbft;
+            } cnsss;
 
 
             if (o.consensus_name == "Solo"){
@@ -565,7 +597,6 @@ namespace weak{
 
               cnsss.iCnsssPrimaryBased = dynamic_cast<ICnsssPrimaryBased*>(&(*cnsss.listenToOne));
             }else if (o.consensus_name == "Rbft"){
-
               if (o.Bft_node_list.empty()){
                 BOOST_LOG_TRIVIAL(error) << S_RED "❌️ Empty cluster endpoint list for RBFT" S_NOR;
                 std::exit(EXIT_FAILURE);
@@ -588,6 +619,7 @@ namespace weak{
               // 2. start the cnsss
               cnsss.rbft = ::pure::RbftConsensus::create(net.iAsyncEndpointBasedNetworkable,
                                                          exe.iForConsensusExecutable,
+                                                         signer.iSignable,
                                                          all_endpoints);
 
               cnsss.iCnsssPrimaryBased = dynamic_cast<ICnsssPrimaryBased*>(&(*cnsss.rbft));
@@ -596,7 +628,7 @@ namespace weak{
               std::exit(EXIT_FAILURE);
             }
 
-            CnsssBlkChainAsstn cnsss_asstn{cnsss.o};
+            CnsssBlkChainAsstn cnsss_asstn{cnsss.iCnsssPrimaryBased};
 
             // 5.
             {
@@ -661,6 +693,8 @@ namespace weak{
               } // rpc closed
             } // sealer closed
           } // cnsss cleared
+} // signer for cnsss closed
+
         } // net for cnsss closed
         sleep_for(1);           // 🦜 : Give it some time to close the connections.
       } // wrld closed

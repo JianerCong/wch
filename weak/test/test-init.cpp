@@ -92,7 +92,7 @@ namespace mockedChainDBGettable2{
     vector<Tx> txs;
     B(){
       std::tie(b,txs) = prepare_ExecBlk();
-}
+    }
     optional<string> getFromChainDB(const string k) const noexcept override{
       if (k == "/blk/1"){
         return this->b.toString();
@@ -131,14 +131,14 @@ BOOST_AUTO_TEST_CASE(test_get_required_things_from_ChainDB_ok){
     🦜 : How to set this up?
 
     🐢 : We need to
-         1. make a IChainDBGettable2*
+    1. make a IChainDBGettable2*
          
-         2. put the corresponding '/blk/<blk_number>' in it (no need to put the whole chain).
+    2. put the corresponding '/blk/<blk_number>' in it (no need to put the whole chain).
          
-         3. Finally, stores a series of '/tx/<hash>' in it. (🦜 : Oh, in fact,
-         we don't need to actually store these,we just need to let the
-         getKeysStartWith("/tx/") returns a series of '/tx/<hash>'.)
-   */
+    3. Finally, stores a series of '/tx/<hash>' in it. (🦜 : Oh, in fact,
+    we don't need to actually store these,we just need to let the
+    getKeysStartWith("/tx/") returns a series of '/tx/<hash>'.)
+  */
 
   mockedChainDBGettable2::B wh1; // B provides Blk1 only
   IChainDBGettable2 * w1 = dynamic_cast<IChainDBGettable2*>(&wh1);
@@ -168,7 +168,7 @@ BOOST_AUTO_TEST_CASE(test_get_required_things_from_ChainDB_ok_and_get_some_hashe
   mockedChainDBGettable2::C wh1({
       "/tx/" + hs1,
       "/tx/" + hs2
-}); // B provides Blk1 and supplied keys
+    }); // B provides Blk1 and supplied keys
 
   IChainDBGettable2 * w1 = dynamic_cast<IChainDBGettable2*>(&wh1);
   auto [n,h,vh] = get_required_things_from_ChainDB(w1,"1");
@@ -178,7 +178,7 @@ BOOST_AUTO_TEST_CASE(test_get_required_things_from_ChainDB_ok_and_get_some_hashe
       {
         evmc::from_hex<hash256>(hs1).value(),
         evmc::from_hex<hash256>(hs2).value(),
-}
+      }
       );
   BOOST_REQUIRE(not vh->empty());
   BOOST_CHECK_NE(vh->size(),3); // 🦜 : It's just those two right
@@ -194,6 +194,47 @@ BOOST_AUTO_TEST_CASE(test_get_required_things_from_ChainDB_bad){
   IChainDBGettable2 * w1 = dynamic_cast<IChainDBGettable2*>(&wh1);
   BOOST_CHECK_THROW({get_required_things_from_ChainDB(w1,"2");},std::runtime_error);
 
+}
+
+BOOST_AUTO_TEST_CASE(test_prepare_endpoint_list){
+  vector<string> v{"a1:123","a2:456"};
+  vector<string> r = prepare_endpoint_list(v);
+  BOOST_CHECK_EQUAL(r.size(),2);
+
+  // now we can extract the part. They will be sorted.
+  optional<string> r0;
+  for (int i =0; i<v.size() ;i++){
+    r0 = ::pure::NetAsstn::extract_addr_and_port_from_endpoint(r[i]);
+    BOOST_REQUIRE(r0);
+    BOOST_REQUIRE(::pure::contains(v,r0.value()));
+    BOOST_TEST_MESSAGE("Got value: " + r0.value());
+  }
+}
+
+BOOST_AUTO_TEST_CASE(test_prepare_endpoint_list_nonstandard_format){
+  // 🦜 : This function won't check wether each of your item is in the form
+  // "<host>:<port>".
+  vector<string> v{"aaa","bbb"};
+  vector<string> r = prepare_endpoint_list(v);
+  BOOST_CHECK_EQUAL(r.size(),2);
+
+  // now we can extract the part. They will be sorted.
+  optional<string> r0;
+  for (int i =0; i<v.size() ;i++){
+    r0 = ::pure::NetAsstn::extract_addr_and_port_from_endpoint(r[i]);
+    BOOST_REQUIRE(r0);
+    BOOST_REQUIRE(::pure::contains(v,r0.value()));
+    BOOST_TEST_MESSAGE("Got value: " + r0.value());
+  }
+}
+
+BOOST_AUTO_TEST_CASE(test_prepare_endpoint_list_bad_nonunique){
+  vector<string> v{"aaa","bbb","aaa"};
+  BOOST_CHECK_THROW(
+                    {
+                      vector<string> r = prepare_endpoint_list(v);
+                    }
+                    ,std::runtime_error);
 }
 
 BOOST_AUTO_TEST_SUITE_END();

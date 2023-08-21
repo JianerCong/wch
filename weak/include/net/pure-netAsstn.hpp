@@ -248,7 +248,7 @@ namespace pure{
       return make_tuple(r[0],lexical_cast<uint16_t>(r[1]));
     }
 
-    optional<string> extract_addr_and_port_from_endpoint(const string & endpoint){
+    static optional<string> extract_addr_and_port_from_endpoint(const string & endpoint){
       /*
         🦜 : parse the endpoint, which should have the form
         "<pk><addr:port><"">". It should be created from something like:
