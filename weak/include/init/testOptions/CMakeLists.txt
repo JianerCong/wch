@@ -35,6 +35,7 @@ cd ../../../
 pyenv
 
 --------------------------------------------------
+. ./s-options.sh weak/include/init/testOptions weak/include/init
 cmake -S weak/include/init/ -B build-test-options
 cmake --build build-test-options
 Or use: ------------------------------------------

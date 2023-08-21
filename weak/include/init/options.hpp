@@ -4,9 +4,11 @@
 #include <string>
 #include <tuple>
 #include <boost/format.hpp>
-
+#include <vector>
 #include <cstdlib>              // for std::exit
 
+#include <boost/algorithm/string.hpp>
+using boost::split;
 #include <filesystem>
 #include <fstream>
 // #include <iostream>
@@ -15,6 +17,7 @@
 #include <iostream>
 
 namespace weak{
+  using std::vector;
   namespace program_options = boost::program_options;
   using program_options::options_description;
   using std::filesystem::current_path;
@@ -53,7 +56,7 @@ namespace weak{
 
     string light_exe{"yes"};
 
-    vector<string> Rbft_node_list;
+    vector<string> Bft_node_list;
 
     tuple<options_description,options_description,
           program_options::positional_options_description
@@ -95,10 +98,10 @@ namespace weak{
          "node wants to connect to. If not present"
          "    The format should be <host>:<port> e.g. 10.0.0.1:12345."
          )
-        ("Rbft.node-list", program_options::value<vector<string>>(&(this->Rbft_node_list))->multitoken(),
+        ("Bft.node-list", program_options::value<vector<string>>(&(this->Bft_node_list))->multitoken(),
          "The list of all nodes in the cluster. This option is ignored if consensus is not Rbft.\n"
          "For example:\n"
-         "    --Rbft.node-list localhost:7777 10.0.0.2:7777 10.0.0.3:7777 localhost:7778\n"
+         "    --Bft.node-list localhost:7777 10.0.0.2:7777 10.0.0.3:7777 localhost:7778\n"
          "In particular, if `localhost:<port>` is in this list, then the node is"
          "considered to be one of the `initial node` in the cluster. Otherwise,"
          "the node is considered to be a `newcomer` and it will send request to the existing "
@@ -165,7 +168,23 @@ namespace weak{
 
       // 4. --------------------------------------------------
       // Check the values
-
+      this->Bft_node_list = Options::split_space_vector_maybe(this->Bft_node_list);
     }
-  };
-}
+
+    /**
+     * @brief Turn a space seperated string into a vector.
+     *
+     * 🐢 : Inside the config file, we can't parse vector. Instead,space-separated
+     * values are parsed as the first element in the vector. So we kinda have to
+     * split them ourselve.
+     */
+    static vector<string> split_space_vector_maybe(vector<string> s){
+      if (s.size() != 1)
+        return s;
+
+      vector<string> v;
+      boost::split(v,s[0],boost::is_any_of(" "));
+      return v;
+    }
+  };                            // class Options
+} // namespace weak

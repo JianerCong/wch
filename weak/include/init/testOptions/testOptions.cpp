@@ -1,4 +1,6 @@
-#include "options.hpp"
+#include "../options.hpp"
+
+#include <boost/algorithm/string.hpp>
 #include <iostream>
 using std::cout;
 using std::endl;
@@ -22,6 +24,11 @@ int main(int argc, char *argv[]){
   SHOW(port);
   SHOW(data_dir);
   SHOW(Solo_node_to_connect);
+  if (not o.Bft_node_list.empty()){
+    cout <<  "Bft_node_list : " <<
+      boost::algorithm::join(o.Bft_node_list,",")
+         << endl;
+  }
 
   return 0;
 }
