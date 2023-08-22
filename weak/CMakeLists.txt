@@ -50,12 +50,19 @@ target_include_directories(wch PUBLIC ${PROJECT_SOURCE_DIR}/include)
 target_link_libraries(wch PUBLIC deps)
 
 # Copy these tests
-configure_file(helpers.py helpers.py)
-configure_file(test_with_mocked_exe.py test_with_mocked_exe.py)
-configure_file(test_with_normal_exe.py test_with_normal_exe.py)
-configure_file(test_with_light_exe.py test_with_light_exe.py)
-configure_file(test_psstn.py test_psstn.py)
+# configure_file(helpers.py helpers.py)
+# configure_file(test_with_mocked_exe.py test_with_mocked_exe.py)
+# configure_file(test_with_normal_exe.py test_with_normal_exe.py)
+# configure_file(test_with_light_exe.py test_with_light_exe.py)
+# configure_file(test_psstn.py test_psstn.py)
 
+file(GLOB l ${CMAKE_CURRENT_SOURCE_DIR}/*.py)
+message(STATUS "got OOthon files: ${l}")
+foreach(X IN LISTS l)
+  file(RELATIVE_PATH x ${CMAKE_CURRENT_SOURCE_DIR} ${X}) #get the file name
+  message(STATUS "🐸 Copying ${X} to ${CMAKE_CURRENT_BINARY_DIR}/${x}")
+  configure_file(${X} ${CMAKE_CURRENT_BINARY_DIR}/${x})
+endforeach()
 
 # add_custom_target(run ALL pytest -v
 #   -s                            #capture=no

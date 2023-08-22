@@ -30,3 +30,10 @@ txs='[
 ]'
 curl --data $txs $e:7777/add_txs
 curl $e:7777/get_latest_Blk     # latest Blk number=2
+
+clear && pytest -s build-weak/test_with_mocked_exe_bft.py::test_serv_send_basic_node_status
+clear && pytest -s build-weak/test_with_mocked_exe_bft.py::test_serv_send_add_txs
+clear && pytest -s build-weak/test_with_mocked_exe_bft.py::test_serv_two_nodes_add_txs
+clear && pytest -s build-weak/test_with_mocked_exe_bft.py::test_serv_three_nodes_add_txs
+clear && pytest -s build-weak/test_with_mocked_exe_bft.py::
+
