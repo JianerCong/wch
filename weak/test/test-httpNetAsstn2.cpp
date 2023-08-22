@@ -1,5 +1,12 @@
 
+/**
+ * @brief The http-based p2p network.
+ *
+ * 🦜 : Originally, we used WeakHttpServer, but now we are migrating to
+ * WeakAsyncHttpServer.
+ */
 #include "h.hpp"
+#include "net/pure-weakAsyncHttpServer.hpp"
 #include "net/pure-httpNetAsstn.hpp"
 
 using namespace pure;
@@ -15,7 +22,7 @@ BOOST_AUTO_TEST_CASE(test_basic_listen){
   NaiveMsgMgr mh("N0");
   IMsgManageable * m = dynamic_cast<IMsgManageable*>(&mh);
 
-  WeakHttpServer s;             // listen 7777
+  WeakAsyncHttpServer s;             // listen 7777
   {
     IPBasedHttpNetAsstn a{dynamic_cast<IHttpServable*>(&s),m};
     sleep_for(1);                 // wait until server's up
@@ -50,7 +57,7 @@ BOOST_AUTO_TEST_CASE(test_listen_and_send_to_self){
   // Start a server
   NaiveMsgMgr mh("N0");
   IMsgManageable * m = dynamic_cast<IMsgManageable*>(&mh);
-  WeakHttpServer s{7778};             // listen 7777
+  WeakAsyncHttpServer s{7778};             // listen 7777
   sleep_for(1);                 // wait until server's up
   {
     IPBasedHttpNetAsstn a{dynamic_cast<IHttpServable*>(&s),m};
@@ -78,7 +85,7 @@ BOOST_AUTO_TEST_CASE(test_listen2_and_send_to_other, MY_TEST_THIS){
   // Start a server
   NaiveMsgMgr mh("N0"); IMsgManageable * m = dynamic_cast<IMsgManageable*>(&mh);
   NaiveMsgMgr mh1("N1"); IMsgManageable * m1 = dynamic_cast<IMsgManageable*>(&mh1);
-  WeakHttpServer s{7779};             // listen 7777
+  WeakAsyncHttpServer s{7779};             // listen 7777
   sleep_for(1);                 // wait until server's up
 
   {

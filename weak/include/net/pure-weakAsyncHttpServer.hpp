@@ -130,14 +130,15 @@ namespace pure{
       }
     };                            // class session
 
+    //------------------------------------------------------------------------------
+    // Report a failure
+    static void fail(beast::error_code ec, char const* what)
+    {
+      std::cerr << what << ": " << ec.message() << "\n";
+    }
+
     // Accepts incoming connections and launches the sessions
     class listener : public std::enable_shared_from_this<listener>{
-      //------------------------------------------------------------------------------
-      // Report a failure
-      static void fail(beast::error_code ec, char const* what)
-      {
-        std::cerr << what << ": " << ec.message() << "\n";
-      }
       asio::io_context& ioc_;
       tcp::acceptor acceptor_;
       WeakAsyncHttpServer * const srv;
@@ -238,8 +239,5 @@ namespace pure{
       delete this->all_threads;   // join them all
     }
 
-
-
-   
   };                            // class WeakAsyncHttpServer
 }

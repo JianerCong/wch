@@ -1,13 +1,11 @@
 /**
  * @file test-pure-net.cpp
- * @brief Here we tests some helpler functions in the rcp server.
+ * @brief Here we tests the async HTTP server.
  *
- * 🦜 : We test them here, because they don't need to resort to an external
- * server or client. These are usually some static methods;
  */
 
 #include "h.hpp"
-#include "net/pure-weakHttpServer.hpp"
+#include "net/pure-weakAsyncHttpServer.hpp"
 #include "net/pure-weakHttpClient.hpp"
 
 using namespace pure;
@@ -16,7 +14,7 @@ BOOST_AUTO_TEST_CASE(test_one){
   BOOST_CHECK(1==1);
 }
 
-auto parse_query_param = WeakHttpServer::parse_query_param;
+auto parse_query_param = WeakAsyncHttpServer::parse_query_param;
 // grab the function
 
 template<typename T>
@@ -78,40 +76,33 @@ void sleep_for(int i=1){
   std::this_thread::sleep_for(std::chrono::seconds(i)); // wait until its up
 }
 
+
+
 BOOST_AUTO_TEST_SUITE(test_get_handler);
 BOOST_AUTO_TEST_CASE(test_register_a_handler){
-  WeakHttpServer::getMap_t gMap = {
-    {"/aaa",
-     [](string /*from*/
-        ,uint16_t /*port*/
-        ,optional<unordered_map<string,string>> /*qparam*/
-        ) -> tuple<bool,string>{
-       return make_tuple(true,"aaa");
-     }
-    }
-  };
-
-  WeakHttpServer sr{7777,{},{},gMap};
+  WeakAsyncHttpServer sr{7777};
+  sr.listenToGet("/aaa",
+                 [](string /*from*/
+                    ,uint16_t /*port*/
+                    ,optional<unordered_map<string,string>> /*qparam*/
+                    ) -> tuple<bool,string>{
+                   return make_tuple(true,"aaa");
+                 });
   sleep_for(1);
 
   BOOST_CHECK_EQUAL(sr.getLisnMap.size(),1); // the handler is added
   } // server closed here
 
 
-
 BOOST_AUTO_TEST_CASE(test_call_registered_handler){
-  WeakHttpServer::getMap_t gMap = {
-    {"/aaa",
-     [](string /*from*/
-        ,uint16_t /*port*/
-        ,optional<unordered_map<string,string>> /*qparam*/
-        ) -> tuple<bool,string>{
-       return make_tuple(true,"aaa");
-     }
-    }
-  };
-
-  WeakHttpServer sr{7778,{},{},gMap};
+  WeakAsyncHttpServer sr{7778};
+  sr.listenToGet("/aaa",
+                 [](string /*from*/
+                    ,uint16_t /*port*/
+                    ,optional<unordered_map<string,string>> /*qparam*/
+                    ) -> tuple<bool,string>{
+                   return make_tuple(true,"aaa");
+                 });
   sleep_for(1);
 
   auto r = weakHttpClient::get("localhost","/aaa",7778);
@@ -120,33 +111,31 @@ BOOST_AUTO_TEST_CASE(test_call_registered_handler){
 } // server closed here
 
 BOOST_AUTO_TEST_CASE(test_call_registered_handler_with_query_param){
-  WeakHttpServer::getMap_t gMap = {
-    {"/aaa",
-     [](string /*from*/
-        ,uint16_t /*port*/
-        ,optional<unordered_map<string,string>> q
-        ) -> tuple<bool,string>{
-       BOOST_LOG_TRIVIAL(debug) << format("handler called");
+  WeakAsyncHttpServer sr{7779};
+  sr.listenToGet("/aaa",
+                 [](string /*from*/
+                    ,uint16_t /*port*/
+                    ,optional<unordered_map<string,string>> q
+                    ) -> tuple<bool,string>{
+                   BOOST_LOG_TRIVIAL(debug) << format("handler called");
 
-       if (not q)
-         return make_tuple(true,"aaa received no query param");
+                   if (not q)
+                     return make_tuple(true,"aaa received no query param");
 
-       string s;
-       unordered_map<string,string> m = q.value();
+                   string s;
+                   unordered_map<string,string> m = q.value();
 
-       for (const auto &[k,v] : m)
-         s += (format("[%s:%s]") % k % v).str();
-       return make_tuple(true,"aaa received: " + s);
-     }
-    }
-  };
+                   for (const auto &[k,v] : m)
+                     s += (format("[%s:%s]") % k % v).str();
+                   return make_tuple(true,"aaa received: " + s);
+                 });
 
-  WeakHttpServer sr{7779,{},{},gMap};
   sleep_for(1);
 
   auto r = weakHttpClient::get("localhost","/aaa?a=123&b=B",7779);
   BOOST_REQUIRE(r);
   string s = r.value();
+
   BOOST_TEST_MESSAGE((format("recieved :>>%s<<") % s).str());
 
   // 🦜: The order is unsure.
@@ -165,7 +154,7 @@ BOOST_AUTO_TEST_CASE(test_call_dynamically_registered_handler_with_query_param){
 
   // 0. --------------------------------------------------
   // Start server
-  WeakHttpServer sr{PORT};
+  WeakAsyncHttpServer sr{PORT};
   auto f = [](string /*from*/ ,uint16_t /*port*/ ,optional<unordered_map<string,string>> q)
     -> tuple<bool,string>{
     BOOST_LOG_TRIVIAL(debug) << format("handler called");
@@ -197,5 +186,6 @@ BOOST_AUTO_TEST_CASE(test_call_dynamically_registered_handler_with_query_param){
   BOOST_CHECK_NE(s.find("[b:B]"),string::npos); // contains
 
 } // server closed here
+
 
 BOOST_AUTO_TEST_SUITE_END();
