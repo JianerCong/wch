@@ -4,6 +4,8 @@
 #include "execManager.hpp"
 #include "mock.hpp"
 
+#include "net/pure-weakAsyncHttpServer.hpp"
+
 #include <filesystem>
 namespace filesystem = std::filesystem;
 using std::filesystem::path;
@@ -115,7 +117,7 @@ void sleep_for(int i=1){
 
 BOOST_AUTO_TEST_SUITE(test_http_assnt);
 BOOST_AUTO_TEST_CASE(test_handle_get){
-  ::pure::WeakHttpServer srv;   // listen 7777
+  ::pure::WeakAsyncHttpServer srv;   // listen 7777
   sleep_for(1);
   HttpRpcAsstn nh{dynamic_cast<::pure::IHttpServable*>(&srv)};
   IForRpcNetworkable * n = dynamic_cast<IForRpcNetworkable*>(&nh);
@@ -132,7 +134,7 @@ BOOST_AUTO_TEST_CASE(test_handle_get){
 
 BOOST_AUTO_TEST_CASE(test_handle_post){
   constexpr uint16_t PORT = 7778;
-  ::pure::WeakHttpServer srv{PORT};
+  ::pure::WeakAsyncHttpServer srv{PORT};
   sleep_for(1);
   HttpRpcAsstn nh{dynamic_cast<::pure::IHttpServable*>(&srv)};
   IForRpcNetworkable * n = dynamic_cast<IForRpcNetworkable*>(&nh);

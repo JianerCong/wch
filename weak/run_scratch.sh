@@ -116,6 +116,7 @@ clear && pytest -s build-weak/test_with_mocked_exe.py::test_serv_two_nodes_add_t
 clear && pytest -s build-weak/test_with_mocked_exe.py::test_serv_three_nodes_add_txs
 
 
+clear && pytest -s build-weak/test_with_light_exe.py
 clear && pytest -s build-weak/test_with_light_exe.py::test_serv_open_close
 clear && pytest -s build-weak/test_with_light_exe.py::test_single_primary_set_get_123
 clear && pytest -s build-weak/test_with_light_exe.py::test_two_nodes_set_get_123

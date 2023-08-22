@@ -108,6 +108,7 @@ namespace pure {
     template<bool is_post>
     optional<string> get_post_impl(string_view h, string_view t, uint16_t p, string_view b=""){
       optional<http::response<http::string_body>> ro = this->request<is_post>(h,t,p,b);
+
       if (not ro){
         BOOST_LOG_TRIVIAL(error) << format("❌️ Error requesting %s: " S_MAGENTA "%s" S_NOR " to " S_MAGENTA "%s:%d" S_NOR)
           % (is_post ? "POST" : "GET")
@@ -137,7 +138,7 @@ namespace pure {
      */
         template<bool is_post>
         optional<http::response<http::string_body>> request(string_view host, string_view target,
-                                                  uint16_t port, string_view body=""){
+                                                            uint16_t port, string_view body="", bool retry=false){
           string k = GreenHttpClient::combine_addr_port(host,port);
           shared_ptr<tcp_stream> conn;
           bool found{false};
@@ -172,7 +173,29 @@ namespace pure {
             auto r = GreenHttpClient::request_with_conn(conn,move(req));
             return r;
           }catch (const std::exception & e ){
-            BOOST_LOG_TRIVIAL(error) << format("❌️ Error sending request to " S_MAGENTA " %s: " S_NOR "\n%s") % k % e.what();
+
+            if (not retry){
+              BOOST_LOG_TRIVIAL(error) << format("⚠️ [1st try:] Error sending request to " S_MAGENTA " %s: " S_NOR "\n%s\n") % k % e.what();
+              BOOST_LOG_TRIVIAL(debug) << "\t " S_MAGENTA "Maybe the connection is closed, we try it again with a new conn." S_NOR;
+              {
+                // 🦜 : dump the conn (this should make a new one.)
+                std::unique_lock g(this->lock_for_conns);
+
+                BOOST_LOG_TRIVIAL(debug) << format("Closing conn: " S_CYAN "%s" S_NOR) % k;
+                // Gracefully close the socket
+                beast::error_code ec;
+                this->conns.at(k)->socket().shutdown(tcp::socket::shutdown_both, ec);
+                this->conns.erase(k);
+                // not_connected happens sometimes
+                // so don't bother reporting it.
+                if(ec && ec != beast::errc::not_connected){
+                  BOOST_LOG_TRIVIAL(warning) << format("⚠️ Warning: error closing connection with" S_MAGENTA "%s" S_NOR ) % k;
+                }
+              } // unlocks here
+              return request<is_post>(host,target,port,body,true);
+            }
+
+            BOOST_LOG_TRIVIAL(error) << format("❌️ [2nd try:] Error sending request to " S_MAGENTA " %s: " S_NOR "\n%s\n") % k % e.what();
             return {};
           }
     }

@@ -69,7 +69,7 @@ namespace pure{
         req_ = {};
 
         // Set the timeout.
-        stream_.expires_after(std::chrono::seconds(30));
+        stream_.expires_after(std::chrono::seconds(60 * 4)); // 4 minutes.
 
         // Read a request
         http::async_read(stream_, buffer_, req_,
@@ -213,7 +213,11 @@ namespace pure{
     std::shared_ptr<listener> lstn;
 
     WeakAsyncHttpServer(unsigned short port = 7777,
-                        const int threads = 1){
+                        const int threads = 4){
+      /*
+        🦜 : Usually you don't wanna set threads to be 1.... It does block
+        sometimes. And set it to something like 2 usually will work...
+       */
 
       BOOST_LOG_TRIVIAL(debug) <<  "🐸 acceptor start listening on port " << port;
       auto const address = asio::ip::make_address("0.0.0.0");

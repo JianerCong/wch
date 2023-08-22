@@ -36,11 +36,16 @@
  *
  *  🐢 : Next we let the crew in. In particular:
  *
- *  1. We start the ::pure::WeakHttpServer from `pure-weakHttpServer.hpp`. This
+ *  1. We start the ::pure::WeakAsyncHttpServer from `pure-WeakAsyncHttpServer`. This
  *  should be started first, and stopped last. Other part will
  *  register/unregister listeners on it. (🦜 : Which part? 🐢 : I think for now
  *  it's just the Rpc and the httpAsstn, which is for cnsss (P2P). 🦜: Okay...)
- *  
+ *
+ *  We used to use WeakHttpServer, but now we have migrated to use
+ *  WeakAsyncHttpServer. This will let boost::asio to manage threads for our
+ *  handlers. Hopefully this will make it less error-prone when we turn the
+ *  server down.
+ *
  *  2. We start the WorldStorage(data_dir) instance, which will open (create if
  *  not present) rocksDB in two folders `<data_dir>/chainDB` and
  *  `<data_dir>/stateDB`.
@@ -196,7 +201,8 @@
  */
 
 #include "init/options.hpp"
-#include "net/pure-weakHttpServer.hpp"
+// #include "net/pure-weakHttpServer.hpp"
+#include "net/pure-weakAsyncHttpServer.hpp" // 🦜 : We migrated from the above to this [2023.08.22]
 #include "storageManager.hpp"
 #include "rpc.hpp"
 
@@ -389,7 +395,7 @@ namespace weak{
       % o.consensus_name % o.port;
 
     {
-      ::pure::WeakHttpServer srv{boost::numeric_cast<uint16_t>(o.port)}; // throw bad_cast
+      ::pure::WeakAsyncHttpServer srv{boost::numeric_cast<uint16_t>(o.port)}; // throw bad_cast
       // std::this_thread::sleep_for(std::chrono::seconds(1)); // wait until its up
       /* 🦜 : I doubt that.^^^ */
       {

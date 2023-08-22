@@ -12,7 +12,7 @@
   establisk long connections for p2p.
  */
 
-#include "pure-weakHttpServer.hpp"
+#include "pure-httpCommon.hpp"
 #include "pure-netAsstn.hpp"
 
 namespace pure{

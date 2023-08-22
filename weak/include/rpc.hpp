@@ -6,7 +6,7 @@
  */
 
 #include "core.hpp"
-#include "net/pure-weakHttpServer.hpp"
+#include "net/pure-httpCommon.hpp"
 #include "forPostExec.hpp"
 
 
