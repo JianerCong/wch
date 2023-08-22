@@ -31,7 +31,7 @@ txs='[
 ]'
 e=http://localhost
 curl --data $txs $e:7777/add_txs
-deployed_addr="0000000000000000000000000000000064d1bf89"
+deployed_addr="000000000000000000000000ffffffff9b1b73a6"
 
 # [
 #     {
