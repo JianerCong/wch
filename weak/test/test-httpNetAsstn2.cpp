@@ -17,7 +17,7 @@ BOOST_AUTO_TEST_CASE(test_basic_listen){
 
   WeakHttpServer s;             // listen 7777
   {
-    IPBasedHttpNetAsstn a{&s,m};
+    IPBasedHttpNetAsstn a{dynamic_cast<IHttpServable*>(&s),m};
     sleep_for(1);                 // wait until server's up
 
     IEndpointBasedNetworkable * n = dynamic_cast<IEndpointBasedNetworkable*>(&a);
@@ -53,7 +53,7 @@ BOOST_AUTO_TEST_CASE(test_listen_and_send_to_self){
   WeakHttpServer s{7778};             // listen 7777
   sleep_for(1);                 // wait until server's up
   {
-    IPBasedHttpNetAsstn a{&s,m};
+    IPBasedHttpNetAsstn a{dynamic_cast<IHttpServable*>(&s),m};
 
     IEndpointBasedNetworkable * n = dynamic_cast<IEndpointBasedNetworkable*>(&a);
     auto f = [](string endpoint,string data) -> optional<string>{
@@ -83,7 +83,7 @@ BOOST_AUTO_TEST_CASE(test_listen2_and_send_to_other, MY_TEST_THIS){
 
   {
     BOOST_LOG_TRIVIAL(debug) << format("🐸 starting client");
-    IPBasedHttpNetAsstn a{&s,m};
+    IPBasedHttpNetAsstn a{dynamic_cast<IHttpServable*>(&s),m};
     IPBasedHttpNetAsstn a1{nullptr,m1}; // 🦜 sender doesn't need a server up
 
     IEndpointBasedNetworkable * n = dynamic_cast<IEndpointBasedNetworkable*>(&a);

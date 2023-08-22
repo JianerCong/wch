@@ -22,10 +22,18 @@
 #include <numeric>
 #include <vector>
 #include <memory>
+#include <optional>
+#include <tuple>
+#include <unordered_map>
+
 
 namespace pure{
   using std::vector;
   using std::shared_ptr;
+  using std::optional;
+  using std::tuple;
+  using std::unordered_map;
+  
   
   namespace ranges = std::ranges;
   using boost::lexical_cast;
@@ -135,6 +143,7 @@ namespace pure{
     BOOST_LOG_TRIVIAL(debug) << "Calling contains(ptr<vector<>>)";
     return ranges::find(v->begin(),v->end(),x) != v->end();
   }
+
 
 } // namespace pure
 

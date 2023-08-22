@@ -117,7 +117,7 @@ BOOST_AUTO_TEST_SUITE(test_http_assnt);
 BOOST_AUTO_TEST_CASE(test_handle_get){
   ::pure::WeakHttpServer srv;   // listen 7777
   sleep_for(1);
-  HttpRpcAsstn nh{&srv};
+  HttpRpcAsstn nh{dynamic_cast<::pure::IHttpServable*>(&srv)};
   IForRpcNetworkable * n = dynamic_cast<IForRpcNetworkable*>(&nh);
 
   n->listenToGet("/aaa",[](om_t o) -> tuple<bool,string> {
@@ -134,7 +134,7 @@ BOOST_AUTO_TEST_CASE(test_handle_post){
   constexpr uint16_t PORT = 7778;
   ::pure::WeakHttpServer srv{PORT};
   sleep_for(1);
-  HttpRpcAsstn nh{&srv};
+  HttpRpcAsstn nh{dynamic_cast<::pure::IHttpServable*>(&srv)};
   IForRpcNetworkable * n = dynamic_cast<IForRpcNetworkable*>(&nh);
 
   n->listenToPost("/bbb",[](string_view  d) -> tuple<bool,string> {

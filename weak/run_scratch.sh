@@ -1,9 +1,9 @@
 # Start the chain
 
-
 w=./build-weak/wch
 # start quitely 🦜 : But it will only be quite during execution.
-$w --port 7777 --light-exe --verbose no
+# $w --port 7777 --light-exe --verbose no
+$w --port 7777 --light-exe
 $w --port 7778 --light-exe --consensus  Solo --Solo.node-to-connect localhost:7777
 
 $w --port 7777 --mock-exe               # start as Solo-primary at 7777
@@ -31,7 +31,6 @@ txs='[
 ]'
 e=http://localhost
 curl --data $txs $e:7777/add_txs
-# deployed_addr="0000000000000000000000000000000064d0723a"
 deployed_addr="0000000000000000000000000000000064d1bf89"
 
 # [

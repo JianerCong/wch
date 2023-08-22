@@ -588,7 +588,16 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
      * 🐢 : Nope we use XOR + timestamp should be alright.
      */
     static address getContractDeployAddress(const Tx & t) noexcept{
-      return makeAddress(t.nonce  ^ t.timestamp);
+      // return makeAddress(t.nonce  ^ t.timestamp);
+      /*
+        🐢  : Note that (0010,0010) and (0011,00011) got the same address... This
+        is something we wanna avoid (Although it's rare, but not too rare).
+
+        🦜 : How about we flip the timestamp?
+
+        🐢 : Let's see....
+      */
+      return makeAddress(t.nonce  ^ (~t.timestamp));
     };
 
     /**

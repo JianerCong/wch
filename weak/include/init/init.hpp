@@ -530,7 +530,7 @@ namespace weak{
 
           if (o.consensus_name == "Solo"){
             BOOST_LOG_TRIVIAL(debug) <<  "\t 🌐️ Using " S_CYAN "http-based " S_NOR " p2p";
-            net.http = make_unique<IPBasedHttpNetAsstn>(&srv,
+            net.http = make_unique<IPBasedHttpNetAsstn>(dynamic_cast<::pure::IHttpServable*>(&srv),
                                                         dynamic_cast<::pure::IMsgManageable*>(&msg_mgr)
                                                         );
             net.iEndpointBasedNetworkable = dynamic_cast<::pure::IEndpointBasedNetworkable*>(&(*net.http));
@@ -653,7 +653,7 @@ namespace weak{
               {
                 // 6.
                 BOOST_LOG_TRIVIAL(info) << format("⚙️ Starting " S_CYAN "Rpc" S_NOR);
-                HttpRpcAsstn hra{&srv};
+                HttpRpcAsstn hra{dynamic_cast<::pure::IHttpServable*>(&srv)};
                 Rpc rpc{
                   dynamic_cast<IForRpcNetworkable*>(&hra),
                   dynamic_cast<IForRpcTxsAddable*>(&cnsss_asstn),

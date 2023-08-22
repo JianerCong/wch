@@ -39,15 +39,15 @@ target_include_directories(deps INTERFACE
 )
 
 # 🦜 : Enable the following
-option(WITH_TEST "build test" ON)
+option(WITH_TEST "build test" OFF)
 
 if(WITH_TEST)
   add_subdirectory(test)
 endif()
 
-# add_executable(wch main.cpp)
-# target_include_directories(wch PUBLIC ${PROJECT_SOURCE_DIR}/include)
-# target_link_libraries(wch PUBLIC deps)
+add_executable(wch main.cpp)
+target_include_directories(wch PUBLIC ${PROJECT_SOURCE_DIR}/include)
+target_link_libraries(wch PUBLIC deps)
 
 # Copy these tests
 configure_file(helpers.py helpers.py)

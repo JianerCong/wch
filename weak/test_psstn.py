@@ -185,6 +185,7 @@ def test_two(tmp_dirs):
         get_latest_Blk_and_check_receipt(o,url_to_ask=url[1],expected_blk_number=0)
     finally:
         # close the server
+        print('Closing the two')
         stop_and_test(p2)
         stop_and_test(p1)
 

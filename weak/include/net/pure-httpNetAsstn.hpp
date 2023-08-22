@@ -21,8 +21,8 @@ namespace pure{
                               public NetAsstn
   {
   public:
-    using postHandler_t = WeakHttpServer::postHandler_t;
-    WeakHttpServer * const serv;
+    using postHandler_t = IHttpServable::postHandler_t;
+    IHttpServable * const serv;
     GreenHttpClient cln;
     const string PREFIX{"/p2p"};
 
@@ -46,7 +46,7 @@ namespace pure{
      * of a particular host should be remembered, the first argument of handler
      * function should be used.
      */
-    IPBasedHttpNetAsstn(WeakHttpServer * const s,
+    IPBasedHttpNetAsstn(IHttpServable * const s,
                        IMsgManageable * const m): serv(s), NetAsstn(m){}
 
     ~IPBasedHttpNetAsstn(){

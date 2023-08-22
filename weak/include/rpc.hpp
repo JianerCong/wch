@@ -422,8 +422,12 @@ namespace weak{
    */
   class HttpRpcAsstn : public virtual IForRpcNetworkable{
   public:
-    ::pure::WeakHttpServer * const srv;
-    HttpRpcAsstn(::pure::WeakHttpServer * const s): srv(s){}
+    ::pure::IHttpServable * const srv;
+
+    // HttpRpcAsstn(::pure::WeakHttpServer * const s): srv(dynamic_cast<::pure::IHttpServable*>(s)){}
+
+    HttpRpcAsstn(::pure::IHttpServable * const s): srv(s){}
+
     bool listenToPost(string target,postHandler_t h)noexcept override{
       this->srv->listenToPost(target,
                         [h](string /*addr*/, uint16_t /*port*/, string_view data) -> tuple<bool,string> {
