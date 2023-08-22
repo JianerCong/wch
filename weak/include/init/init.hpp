@@ -242,6 +242,7 @@ namespace weak{
     std::set<string> r;
     for (const string & s : v){
       string r0 = ::pure::SignedData::serialize_3_strs("<mock-pk>",s,"");
+      // ::pure::SignedData::serialize_3_strs("<mock-pk>",o.Solo_node_to_connect,"");
       if (not r.insert(r0).second){
           BOOST_THROW_EXCEPTION(std::runtime_error(
                                                    S_RED "❌️ The endpoint list is not unique: " + 

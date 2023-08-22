@@ -1107,7 +1107,7 @@ public:
         // else
         string_view n = this->sig->get_from(sig);
         if (o.insert(string(n)).second) // 🦜 added
-          this->say(format(" Verified node " S_GREEN "%s" S_NOR) % n);
+          this->say(format(" Verified node : " S_GREEN "%s" S_NOR) % n);
       }
       vector<string> r(o.begin(),o.end()); // copy
       return r;
@@ -1566,7 +1566,12 @@ public:
       Signer(string iid): id(iid){}
 
       string sign(string_view s) noexcept override {
-        return this->id + ':'  + string(s);
+        return this->id + ';'  + string(s);
+        /*
+
+          🦜 : Oh, 🙉🙈🙊 Don't use ':' as delimiter. because <from> will
+          usually be "localhost:7777", which contains ':'
+         */
       }
 
       bool verify(string_view /*msg*/) noexcept override{
@@ -1574,17 +1579,17 @@ public:
       }
 
       string_view get_data(string_view msg) noexcept override{
-        auto r = Signer::split_first(msg,':');
+        auto r = Signer::split_first(msg,';');
         string_view s = std::get<1>(r.value());
-        BOOST_LOG_TRIVIAL(debug) << format("⚙️ Got " S_GREEN "data=%s " S_NOR " from " S_GREEN "%s" S_NOR)
+        BOOST_LOG_TRIVIAL(debug) << format("⚙️ Got data=" S_GREEN "%s" S_NOR "from msg=" S_GREEN "%s" S_NOR)
           % s % msg;
         return s;
       }
 
       string_view get_from(string_view msg) noexcept override{
-        auto r = Signer::split_first(msg,':');
+        auto r = Signer::split_first(msg,';');
         string_view s = std::get<0>(r.value());
-        BOOST_LOG_TRIVIAL(debug) << format("⚙️ Got " S_GREEN "from=%s " S_NOR " from " S_GREEN "%s" S_NOR)
+        BOOST_LOG_TRIVIAL(debug) << format("⚙️ Got from=" S_GREEN "%s" S_NOR "from msg=" S_GREEN "%s" S_NOR)
           % s % msg;
         return s;
       }
