@@ -1,5 +1,5 @@
 w=./build-weak/wch
-
+args=(--light-exe --consensus Rbft --Bft.node-list localhost:7777)
 t=$PWD/my-tmp
 dirs=($t/d1 $t/d2 $t/d3 $t/d4)
 
