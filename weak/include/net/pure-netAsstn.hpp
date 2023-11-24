@@ -283,11 +283,10 @@ namespace pure{
    * 🐢 : Yeah , let's just for now keep the PKEY, and when we verify new keys,
    * we parse the key?
    *
-   * 🦜 : Okay, let's just write some and see ? 
+   * 🦜 : Okay, let's just write some and see ?
    */
   class SslMsgMgr: public virtual IMsgManageable{
   public:
-
 
     /**
      * @brief Read secret or public key from a string
@@ -295,7 +294,8 @@ namespace pure{
      * @param s : the content of a PEM file
      * @param is_secret : wether it's secret or public key
      */
-    static optional<UniquePtr<EVP_PKEY>> load_key_from_string(const std::string& s, bool is_secret = true) {
+    static optional<UniquePtr<EVP_PKEY>> load_key_from_string(const std::string& s,
+                                                              bool is_secret = true) {
 
       UniquePtr<BIO> bio(BIO_new_mem_buf(s.c_str(), -1));
       if (not bio.get()){
@@ -339,6 +339,10 @@ namespace pure{
       }
       return sk;
 }
+
+    /**
+     * @brief Convert key to raw byte
+     */
   };                            // class SslMsgMgr
 
   // --------------------------------------------------

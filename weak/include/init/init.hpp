@@ -493,7 +493,7 @@ namespace weak{
             🐢 : Yeah.
           */
           BOOST_LOG_TRIVIAL(info) << format("\t⚙️ Starting " S_MAGENTA "mocked `exe`" S_NOR " for cnsss");
-          exe.mock = make_unique<::pure::mock::Executable>(IPBasedHttpNetAsstn::combine_addr_port(o.my_endpoint,o.port));
+          exe.mock = make_unique<::pure::mock::Executable>(IPBasedHttpNetAsstn::combine_addr_port(o.my_address,o.port));
 
           exe.iForConsensusExecutable = dynamic_cast<::pure::IForConsensusExecutable*>(&(*exe.mock));
         }else{
@@ -525,7 +525,7 @@ namespace weak{
 
         // 4.2 net
         {
-          string endpoint = IPBasedHttpNetAsstn::combine_addr_port(o.my_endpoint,o.port);
+          string endpoint = IPBasedHttpNetAsstn::combine_addr_port(o.my_address,o.port);
           BOOST_LOG_TRIVIAL(info) << format("\t⚙️ using p2p endpoint: " S_CYAN "%s" S_NOR) % endpoint;
           string endpoint_for_cnsss = ::pure::SignedData::serialize_3_strs("<mock-pk>",endpoint,"");
 

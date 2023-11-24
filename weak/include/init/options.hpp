@@ -45,7 +45,7 @@ namespace weak{
     string data_dir;
 
     int txs_per_blk = 10;
-    string my_endpoint;
+    string my_address;
 
     // listenToOne consensus
     string Solo_node_to_connect;
@@ -83,7 +83,7 @@ namespace weak{
       // in config file
       options_description o2("Configuration");
       o2.add_options()
-        ("this-host",program_options::value<string>(&(this->my_endpoint))->default_value("localhost"),
+        ("this-host",program_options::value<string>(&(this->my_address))->default_value("localhost"),
          "The address of this host. In some consensuses, this will be the <host> exposed "
          "to other nodes. Default value: \"localhost\""
          )
