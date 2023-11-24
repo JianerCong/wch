@@ -15,16 +15,16 @@ find_package(Boost 1.75...1.82
 
 add_executable(main pure-testRbft.cpp)
 target_include_directories(main PUBLIC ..)
+target_include_directories(main PUBLIC ../..)
 
 target_link_libraries(main PUBLIC Boost::log Boost::json)
 
 #[=[
 
 cd ../../..
-
-. ./s-options.sh ./weak/include/cnsss/test-rbdt ./weak
+. ./s-options.sh ./weak/include/cnsss/test-rbft ./weak
 cmake -S weak/include/cnsss/test-rbft -B build-testRbft
-cmake --build build-hi
+cmake --build build-testRbft
 ./build-hi/main 2
 ./build-hi/main 3
 #]=]

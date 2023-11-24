@@ -22,10 +22,12 @@ add_subdirectory(pkgs/ethash-1.0.1 ethash)        #brings in ethash
 add_subdirectory(pkgs/evmweak)        #brings in the evmweak
 
 #The core-dependencies (These should be cross-platform). 🦜 : These are the dependencies needed for most tests
+find_package(OpenSSL REQUIRED)
 add_library(core-deps INTERFACE)
 target_link_libraries(core-deps INTERFACE
   Boost::unit_test_framework Boost::log Boost::json Boost::program_options
   evmc::evmc_cpp
+  OpenSSL::Crypto
   # evmc::loader evmc::instructions evmc::tooling
   intx::intx ethash::keccak
 )

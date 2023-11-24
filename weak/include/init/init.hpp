@@ -133,6 +133,13 @@
  *    care of some msg wrangling before and after sending and receiving over the
  *    network.
  *
+ *    🦜 : So message manager will sign the data before sending it? 🐢 : Yes.
+ *
+ *    🦜 : So I guess there's a serious implementation using openssl right?
+ *
+ *    🐢 : Yeah, and it's called `SslMsgMgr` (net/pure-netAsstn.hpp). It's still
+ *    under development....
+ *
  *    `IPBasedUdpNetAsstn` also requires a message manager, but more
  *    importantly, it needs a `port` to listen on UDP.
  *
@@ -147,12 +154,8 @@
  *
  *    4.2e `net` and `exe` are essential to (almost) all cnsss. In addition to
  *    that, some cnsss requires the magic of digital-signature (most commonly
- *    *BFT). If that's the case, we will initialize a signer for them. For now,
- *    only the mocked signer is available: `::pure::mock::Signer` (pure-rbft.hpp).
- *
- *    The c'tor of this signer (and probably all signers), requires the endpoint
- *    of this node. Luckly, we can access that from our msg_mgr. (🐢 : The one
- *    that do our top level digital signature for our p2p. 🦜 : That is green.)
+ *    *BFT). If that's the case, we will reuse our msg_mgr. (🦜 : That's green.
+ *    Smaller footprint, good.)
  *
  *    4.3 Now, we have our `net` and `exe` so we can start our cnsss. Different
  *    cnsss have different initial conditions. We document them here one by one.
@@ -525,7 +528,16 @@ namespace weak{
           string endpoint = IPBasedHttpNetAsstn::combine_addr_port(o.my_endpoint,o.port);
           BOOST_LOG_TRIVIAL(info) << format("\t⚙️ using p2p endpoint: " S_CYAN "%s" S_NOR) % endpoint;
           string endpoint_for_cnsss = ::pure::SignedData::serialize_3_strs("<mock-pk>",endpoint,"");
-          ::pure::NaiveMsgMgr msg_mgr{endpoint_for_cnsss}; // the default mgr
+
+          struct {
+            shared_ptr<::pure::NaiveMsgMgr> naive;
+            shared_ptr<::pure::SslMsgMgr> msg_mgr;
+            ::pure::IMsgManageable * iMsgManageable;
+          } msg_mgr;
+
+          msg_mgr.naive = make_shared<::pure::NaiveMsgMgr>(endpoint_for_cnsss);
+          // the default mgr
+          msg_mgr.iMsgManageable = dynamic_cast<::pure::IMsgManageable*>(&(*msg_mgr.naive));
 
           struct {
             unique_ptr<IPBasedHttpNetAsstn> http;
@@ -538,13 +550,13 @@ namespace weak{
           if (o.consensus_name == "Solo"){
             BOOST_LOG_TRIVIAL(debug) <<  "\t 🌐️ Using " S_CYAN "http-based " S_NOR " p2p";
             net.http = make_unique<IPBasedHttpNetAsstn>(dynamic_cast<::pure::IHttpServable*>(&srv),
-                                                        dynamic_cast<::pure::IMsgManageable*>(&msg_mgr)
+                                                        msg_mgr.iMsgManageable
                                                         );
             net.iEndpointBasedNetworkable = dynamic_cast<::pure::IEndpointBasedNetworkable*>(&(*net.http));
           }else if (o.consensus_name == "Rbft"){
             BOOST_LOG_TRIVIAL(debug) <<  "\t 🌐️ Using " S_CYAN "udp-based " S_NOR " p2p";
             net.udp = make_unique<IPBasedUdpNetAsstn>(boost::numeric_cast<uint16_t>(o.port),
-                                                      dynamic_cast<::pure::IMsgManageable*>(&msg_mgr)
+                                                      msg_mgr.iMsgManageable
                                                       ); // throw bad_cast
             net.iAsyncEndpointBasedNetworkable = dynamic_cast<::pure::IAsyncEndpointBasedNetworkable*>(&(*net.udp));
           }else{
@@ -552,33 +564,8 @@ namespace weak{
             std::exit(EXIT_FAILURE);
           }
 
-          // 4.2e signer
-          {
-            // Make a signer.
-            struct {
-              unique_ptr<::pure::mock::Signer> o;
-              ::pure::ISignable * iSignable;
-            } signer;
-
-            /*
-              🦜 : if the cnsss needs the power of digital sig, then we initialize
-              a signer. We kinda need to do this beforehand because we want the
-              signer to stay alive before the cnsss is done.
-            */
-
-            if (o.consensus_name == "Rbft"
-                or
-                o.consensus_name == "Nbft"
-                ){
-              signer.o = make_unique<::pure::mock::Signer>(msg_mgr.my_endpoint());
-              signer.iSignable = dynamic_cast<::pure::ISignable *>(&(*signer.o));
-            }
-
-
             // 4.3 cnsss
           {
-            // using ::pure::ListenToOneConsensus;
-            // using ::pure::RbftConsensus;
             struct {
               ICnsssPrimaryBased * iCnsssPrimaryBased;
 
@@ -626,7 +613,7 @@ namespace weak{
               // 2. start the cnsss
               cnsss.rbft = ::pure::RbftConsensus::create(net.iAsyncEndpointBasedNetworkable,
                                                          exe.iForConsensusExecutable,
-                                                         signer.iSignable,
+                                                         msg_mgr.iMsgManageable,
                                                          all_endpoints);
 
               cnsss.iCnsssPrimaryBased = dynamic_cast<ICnsssPrimaryBased*>(&(*cnsss.rbft));
@@ -700,7 +687,6 @@ namespace weak{
               } // rpc closed
             } // sealer closed
           } // cnsss cleared
-} // signer for cnsss closed
 
         } // net for cnsss closed
         sleep_for(1);           // 🦜 : Give it some time to close the connections.

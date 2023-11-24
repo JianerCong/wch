@@ -1,3 +1,4 @@
 {
-    "cmake.sourceDirectory": "/home/me/repo/wrack-chain/.pre/boost_1_82_0/boost/safe_numerics"
+    "cmake.sourceDirectory": "/home/me/repo/wrack-chain/.pre/boost_1_82_0/boost/safe_numerics",
+    "C_Cpp.default.compilerPath": "/usr/bin/gcc-12"
 }

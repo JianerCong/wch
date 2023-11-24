@@ -1,6 +1,7 @@
 #include "h.hpp"
 #include "net/pure-httpNetAsstn.hpp"
 
+#include <fstream>      // std::ofstream
 
 using namespace pure;
 
@@ -204,6 +205,57 @@ BOOST_AUTO_TEST_CASE(test_make_post_bad_handler){
   BOOST_CHECK(res.starts_with("Error executing handler")); // okay
 }
 
+BOOST_AUTO_TEST_SUITE(test_SslMsgMgr);
+
+BOOST_AUTO_TEST_CASE(test_load_keys_from_string){
+  string s = "-----BEGIN PRIVATE KEY-----\n"
+    "MC4CAQAwBQYDK2VwBCIEIDdCupRSMP7AqAT50TZwDzlYIfrgDpLL+km+0usqrWpB\n"
+    "-----END PRIVATE KEY-----\n";
+
+  string p = "-----BEGIN PUBLIC KEY-----\n"
+    "MCowBQYDK2VwAyEAag4tsjNQHNpXrWkEfTEygtwjjXZKXZJJ2/09srM0RDs=\n"
+    "-----END PUBLIC KEY-----\n";
+
+  auto r = SslMsgMgr::load_key_from_string(s,true /*is_secret*/);
+  auto r1 = SslMsgMgr::load_key_from_string(p,false /*is_secret*/);
+  auto r2 = SslMsgMgr::load_key_from_string("123",false /*is_secret*/);
+
+  BOOST_REQUIRE(r.value());
+  BOOST_REQUIRE(r1.value());
+  BOOST_REQUIRE(not r2);
+  // UniquePtr<EVP_PKEY> sk = r.value();
+  BOOST_CHECK_EQUAL(EVP_PKEY_get0_type_name(r.value().get()),"ED25519");
+  BOOST_CHECK_EQUAL(EVP_PKEY_get0_type_name(r1.value().get()),"ED25519");
+}
+
+BOOST_AUTO_TEST_CASE(test_load_keys_from_file){
+  string s = "-----BEGIN PRIVATE KEY-----\n"
+    "MC4CAQAwBQYDK2VwBCIEIDdCupRSMP7AqAT50TZwDzlYIfrgDpLL+km+0usqrWpB\n"
+    "-----END PRIVATE KEY-----\n";
+
+  string p = "-----BEGIN PUBLIC KEY-----\n"
+    "MCowBQYDK2VwAyEAag4tsjNQHNpXrWkEfTEygtwjjXZKXZJJ2/09srM0RDs=\n"
+    "-----END PUBLIC KEY-----\n";
+
+  // write to tmpdir
+  path f = filesystem::temp_directory_path() / "secret.pem";
+  path f1 = filesystem::temp_directory_path() / "public.pem";
+
+  (std::ofstream(f.c_str()) << s).close();
+  (std::ofstream(f1.c_str()) << p).close();
+
+  auto r = SslMsgMgr::load_key_from_file(f.string(),true /*is_secret*/);
+  auto r1 = SslMsgMgr::load_key_from_file(f1.string(),false /*is_secret*/);
+  auto r2 = SslMsgMgr::load_key_from_file("/tmp/no-such-file.txt");
+
+  BOOST_REQUIRE(r.value());
+  BOOST_REQUIRE(r1.value());
+  BOOST_REQUIRE(not r2);
+  BOOST_CHECK_EQUAL(EVP_PKEY_get0_type_name(r.value().get()),"ED25519");
+  BOOST_CHECK_EQUAL(EVP_PKEY_get0_type_name(r1.value().get()),"ED25519");
+  }
+
+BOOST_AUTO_TEST_SUITE_END(); //test_SslMsgMgr
 
 BOOST_AUTO_TEST_SUITE_END();
 

@@ -10,10 +10,18 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/lockfree/spsc_queue.hpp>
 #include <vector>
-
 #include <bit>
-
 #include <tuple>
+#include <filesystem>
+
+
+// 🦜 : We don't need backwards compatibility
+#define OPENSSL_API_COMPAT 30000 // use 3.0.0 API
+#define OPENSSL_NO_DEPRECATED 1
+#include <openssl/evp.h>
+#include <openssl/param_build.h>
+#include <openssl/pem.h>
+#include <openssl/bio.h>
 namespace pure{
   using std::bit_cast;
   using std::tuple;
@@ -22,7 +30,8 @@ namespace pure{
   using boost::lexical_cast;
   using boost::algorithm::split;
   using boost::lockfree::spsc_queue;
-
+  namespace filesystem = std::filesystem;
+  using std::filesystem::path;
 
   /**
    * @brief Interface for a message manager.
@@ -43,8 +52,20 @@ namespace pure{
      * The returned string is supposed to be passed to the remote host's
      * `tear_msg_open()` function.
      *
-     * 🦜 : Note that in order to prepare the data, the implementer should knows
+     * 🐢 : Note that in order to prepare the data, the implementer should knows
      * "Who am I" (i.e. the identity of `this host`, usually the public key of this node)
+     *
+     * 🦜 : What does an endpoint usually look like ?
+     *
+     * 🐢 : It's usually have the form
+     * "<pk><addr:port><"">". It should be created from something like:
+
+        string pk,e, endpoint;
+        pk = my_public_key();
+        e = IPBasedHttpNetAsstn::combine_addr_port("10.0.0.1",1234);
+        endpoint = SignedData.serialize_3_strs(pk,e,"");
+
+
      */
     virtual string prepare_msg(string && data)const noexcept =0;
     /**
@@ -221,7 +242,82 @@ namespace pure{
     string my_endpoint()const noexcept override{
       return this->id;
     }
+
   };                            // class NaiveMsgMgr
+
+  // --------------------------------------------------
+  // the openssl_helper
+  template<class T> struct DeleterOf;
+  template<> struct DeleterOf<BIO> { void operator()(BIO *p) const { BIO_free_all(p); }};
+  template<> struct DeleterOf<EVP_PKEY> {void operator()(EVP_PKEY *p) const { EVP_PKEY_free(p); }};
+  template<class OpenSSLType>
+  using UniquePtr = std::unique_ptr<OpenSSLType, DeleterOf<OpenSSLType>>;
+
+  /**
+   * @brief The message manager that signs the data.
+   *
+   * 🐢 : This is the serious one. It depends on the `crypto` module from
+   * OpenSSL. This should probably include all the code dependent on the OpenSSL
+   * library.
+   */
+  class SslMsgMgr: public virtual IMsgManageable{
+  public:
+
+    /**
+     * @brief Read secret or public key from a string
+     *
+     * @param s : the content of a PEM file
+     * @param is_secret : wether it's secret or public key
+     */
+    static optional<UniquePtr<EVP_PKEY>> load_key_from_string(const std::string& s, bool is_secret = true) {
+
+      UniquePtr<BIO> bio(BIO_new_mem_buf(s.c_str(), -1));
+      if (not bio.get()){
+        BOOST_LOG_TRIVIAL(error) << S_RED "❌ Error reading bio from string" S_NOR;
+        return {};
+      }
+
+      UniquePtr<EVP_PKEY> sk;
+      if (is_secret){
+        sk = UniquePtr<EVP_PKEY>(PEM_read_bio_PrivateKey(bio.get(), nullptr, nullptr, nullptr));
+      }else{
+        sk = UniquePtr<EVP_PKEY>(PEM_read_bio_PUBKEY(bio.get(), nullptr, nullptr, nullptr));
+      }
+      if (not sk.get()){
+        BOOST_LOG_TRIVIAL(error) << S_RED "❌️ Error reading secret key" S_NOR;
+        return {};
+      }
+      return sk;
+    }
+
+    /**
+     * @brief Read secret or public key from a string.
+     */
+    static optional<UniquePtr<EVP_PKEY>> load_key_from_file(path p, bool is_secret = true){
+      FILE * fp = fopen(p.c_str(),"rb");
+      UniquePtr<EVP_PKEY> sk;
+
+      if (not fp){
+        BOOST_LOG_TRIVIAL(error) << S_RED "❌️ Error reading file " << p << S_NOR;
+        return {};
+      }
+
+      if (is_secret){
+        sk = UniquePtr<EVP_PKEY>(PEM_read_PrivateKey(fp, nullptr, nullptr, nullptr));
+      }else{
+        sk = UniquePtr<EVP_PKEY>(PEM_read_PUBKEY(fp, nullptr, nullptr, nullptr));
+      }
+      if (not sk.get()){
+        BOOST_LOG_TRIVIAL(error) << S_RED "❌️ Error reading secret key" S_NOR;
+        return {};
+      }
+      return sk;
+}
+  };                            // class SslMsgMgr
+
+  // --------------------------------------------------
+
+
 
   /**
    * @brief The base class for network Asstn.
@@ -278,7 +374,6 @@ namespace pure{
       🦜 : It looks like this function is unused?
 
       🐢 : Or I think it should be used on the client side...
-
      */
     static string combine_addr_port(string addr,uint16_t port){
       return addr + ':' + boost::lexical_cast<std::string>(port);
