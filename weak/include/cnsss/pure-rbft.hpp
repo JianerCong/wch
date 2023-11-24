@@ -26,6 +26,12 @@
 #include <boost/format.hpp>
 #include <boost/log/trivial.hpp>
 #include "pure-forCnsss.hpp"
+#include "../net/pure-netAsstn.hpp"
+/*
+  🦜 : Because *bft relies on digital signature, so we need to import
+  IMsgManageable
+ */
+
 #include <set>
 #include <thread>
 
@@ -66,23 +72,23 @@ namespace pure{
     🐢 : A signer.
   */
 
-  class ISignable{
-  public:
-    virtual string sign(string_view s) noexcept=0;
+  // class IMsgManageable{
+  // public:
+  //   virtual string sign(string_view s) noexcept=0;
 
-    virtual bool verify(string_view msg) noexcept=0;
+  //   virtual bool verify(string_view msg) noexcept=0;
 
-    /**
-     * @brief Extract the data in msg.
-     *
-     * @param msg The signed data.
-     *
-     * 🦜 : It is assumed that the `msg` has been verified using verify().
-     * Otherwise, this and get_from() will return rabbish.
-     */
-    virtual string_view get_data(string_view msg) noexcept=0;
-    virtual string_view get_from(string_view msg) noexcept=0;
-  };
+  //   /**
+  //    * @brief Extract the data in msg.
+  //    *
+  //    * @param msg The signed data.
+  //    *
+  //    * 🦜 : It is assumed that the `msg` has been verified using verify().
+  //    * Otherwise, this and get_from() will return rabbish.
+  //    */
+  //   virtual string_view get_data(string_view msg) noexcept=0;
+  //   virtual string_view get_from(string_view msg) noexcept=0;
+  // };
 
 
   template<typename T>
@@ -262,7 +268,7 @@ namespace pure{
 private:
   RbftConsensus(IAsyncEndpointBasedNetworkable * const n,
                 IForConsensusExecutable * const e,
-                ISignable * const s,
+                IMsgManageable * const s,
                 vector<string> all_endpoints):
     exe(e), sig(s), net(n)
     {
@@ -292,7 +298,7 @@ public:
     // shared_from_this() return nullptr. (🦜 this is recommanded code from c++ official website)
     [[nodiscard]] static shared_ptr<RbftConsensus> create(IAsyncEndpointBasedNetworkable * const n,
                                                                  IForConsensusExecutable * const e,
-                                                                 ISignable * const s,
+                                                                 IMsgManageable * const s,
                                                           vector<string> all_endpoints){
       // Not using std::make_shared<B> because the c'tor is private.
       return shared_ptr<RbftConsensus>(new RbftConsensus(n,e,s,all_endpoints));
@@ -372,7 +378,7 @@ public:
 
     IAsyncEndpointBasedNetworkable * const net;
     IForConsensusExecutable * const exe;
-    ISignable * const sig;
+    IMsgManageable * const sig;
 
     LockedObject<vector<string>> all_endpoints;
 
@@ -515,17 +521,19 @@ public:
 
         */
         string s = l[0];
-        BOOST_ASSERT_MSG(this->sig->verify(s),
+        optional<tuple<string,string>> sr = this->sig->tear_msg_open(s);
+
+        BOOST_ASSERT_MSG(sr,
                          (format("Even the first signature = %s is wrong") % s).str().c_str()
                          );
 
         // 🦜 : Boost assert can only accept cstring.. so we kinda have to make an extra c_str()
         LaidDownMsg msg0;
-        BOOST_ASSERT_MSG(msg0.fromString(this->sig->get_data(s)),
+        BOOST_ASSERT_MSG(msg0.fromString(std::get<1>(sr.value())),
                          "Failed to form LaidDownMsg from string");
 
         this->say("Start inserting into valid_host");
-        valid_host.insert(string(this->sig->get_from(s)));
+        valid_host.insert(std::get<0>(sr.value()));
 
         if (not for_newcomer)
           BOOST_ASSERT_MSG(
@@ -535,10 +543,11 @@ public:
 
         for (auto it = l.begin()+1;it < l.end();it++){
 
-          BOOST_ASSERT(this->sig->verify(*it));
+          auto o = this->sig->tear_msg_open(*it);
+          BOOST_ASSERT(o);
           LaidDownMsg msg;
-          BOOST_ASSERT(msg.fromString(this->sig->get_data(*it)));
-          valid_host.insert(string(this->sig->get_from(*it)));
+          BOOST_ASSERT(msg.fromString(std::get<1>(o.value())));
+          valid_host.insert(std::get<0>(o.value()));
 
           if (for_newcomer){
             BOOST_ASSERT(msg.state == msg0.state);
@@ -560,7 +569,7 @@ public:
           🐢 : Every correct node sends this, so there should be N - f
         */
 
-        int x = this->N() - this->f();
+        size_t x = this->N() - this->f();
         BOOST_ASSERT_MSG(valid_host.size() >= x,
                          (
                           format("Requires %d LaidDownMsg%s, but got %d")
@@ -582,7 +591,7 @@ public:
       /*
         🦜 : Okay, I feel like the following is not very likely. Let's ignore it.
 
-        🐢 : Yeah... But becoming Sub again. I think it's common enough to do something 
+        🐢 : Yeah... But becoming Sub again. I think it's common enough to do something
        */
 
       // if (this->role.load() == static_cast<char>(Role::Primary)){
@@ -655,7 +664,7 @@ public:
       return RbftConsensus::cmds_to_state(this->command_history.o);
     }
     string get_signed_state(){
-      return this->sig->sign(this->get_state());
+      return this->sig->prepare_msg(this->get_state());
     }
 
     /**
@@ -925,7 +934,7 @@ public:
         this->get_state()
       };
 
-      string data = this->sig->sign(msg.toString());
+      string data = this->sig->prepare_msg(msg.toString());
 
       // Send to next_primary my state
       if (next_primary == this->net->listened_endpoint()){
@@ -963,15 +972,18 @@ public:
     void  handle_laid_down(string endpoint, string data){
       try {
         this->say("Handling laid_down");
-        BOOST_VERIFY(this->sig->verify(data));
+        auto o = this->sig->tear_msg_open(data);
+        BOOST_VERIFY(o);
         LaidDownMsg msg;
-        BOOST_VERIFY(msg.fromString(this->sig->get_data(data)));
+
+        BOOST_VERIFY(msg.fromString(std::get<1>(o.value())));
 
         if (msg.epoch < this->epoch.load()){
           this->say(format("🚮️ Ignoring lower epoch laid-down msg: epoch=%d")
                     % msg.epoch);
           return ;
         }
+
         /*
           🦜 : I feel like we should only use BOOST_VERIFY if it's something
           important.... Bucause they will be painted in red.
@@ -1008,7 +1020,7 @@ public:
      * if enough laid-down msg is collected, then be the primary.
 
      * @param data `data` should be the signed form of `o`:
-     *         data = this->sig->sign(o.fromString())
+     *         data = this->sig->prepare_msg(o.fromString())
      *
      * @param o the newly added LaidDownMsg
      */
@@ -1101,12 +1113,13 @@ public:
     vector<string> get_newcommers(const vector<string> & sigs) const {
       std::set<string> o;
       for (const string & sig : sigs ){
-        if (not this->sig->verify(sig))
+        auto r = this->sig->tear_msg_open(sig);
+        if (not r)
           continue;
 
         // else
-        string_view n = this->sig->get_from(sig);
-        if (o.insert(string(n)).second) // 🦜 added
+        string n = std::get<0>(r.value());
+        if (o.insert(n).second) // 🦜 added
           this->say(format(" Verified node : " S_GREEN "%s" S_NOR) % n);
       }
       vector<string> r(o.begin(),o.end()); // copy
@@ -1376,7 +1389,7 @@ public:
         node is not in `self.all_endpoints` yet, so it will in fact boardcast
         to the whole group.
       */
-      this->boardcast_to_others("/pleaseAddMeNoBoardcast", this->sig->sign("Hi, please let me in."));
+      this->boardcast_to_others("/pleaseAddMeNoBoardcast", this->sig->prepare_msg("Hi, please let me in."));
       this->net->listen("/IamThePrimaryForNewcomer",
                         bind(&RbftConsensus::handle_new_primary_for_newcomer,this,_1,_2)
                         );
@@ -1556,66 +1569,6 @@ public:
       addition to that, we need a signer which will do digital signtature.
 
      */
-
-    /**
-     * @brief A mocked signer
-     */
-    class Signer: public virtual ISignable{
-    public:
-      string id;
-      Signer(string iid): id(iid){}
-
-      string sign(string_view s) noexcept override {
-        return this->id + ';'  + string(s);
-        /*
-
-          🦜 : Oh, 🙉🙈🙊 Don't use ':' as delimiter. because <from> will
-          usually be "localhost:7777", which contains ':'
-         */
-      }
-
-      bool verify(string_view /*msg*/) noexcept override{
-        return true;
-      }
-
-      string_view get_data(string_view msg) noexcept override{
-        auto r = Signer::split_first(msg,';');
-        string_view s = std::get<1>(r.value());
-        BOOST_LOG_TRIVIAL(debug) << format("⚙️ Got data=" S_GREEN "%s" S_NOR "from msg=" S_GREEN "%s" S_NOR)
-          % s % msg;
-        return s;
-      }
-
-      string_view get_from(string_view msg) noexcept override{
-        auto r = Signer::split_first(msg,';');
-        string_view s = std::get<0>(r.value());
-        BOOST_LOG_TRIVIAL(debug) << format("⚙️ Got from=" S_GREEN "%s" S_NOR "from msg=" S_GREEN "%s" S_NOR)
-          % s % msg;
-        return s;
-      }
-
-      virtual ~Signer(){};
-
-
-      /**
-       * @brief Split the string into two.
-       *
-       * @param s The string to split
-       */
-      static 
-      optional<tuple<string_view,string_view>> split_first(string_view s, char c = ':'){
-        string::size_type pos = s.find_first_of(c);
-        if (pos == string::npos)
-          return {};
-
-        return make_tuple(string_view(s.begin(),s.begin()+pos),
-                          string_view(s.begin()+pos+1,s.end()));
-      }
-      static 
-      optional<tuple<string_view,string_view>> split_first(const string & s, char c = ':'){
-        return split_first(string_view(s));
-      }
-    };                          // class Signer
 
 } // namespace mock
 

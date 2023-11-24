@@ -30,7 +30,7 @@ struct BftAndColleague{
    */
 
   mock::Executable * e;
-  mock::Signer * s;
+  NaiveMsgMgr * s;
   mock::AsyncEndpointNetworkNode * n;
 
   shared_ptr<RbftConsensus> nd;
@@ -40,14 +40,14 @@ struct BftAndColleague{
                   /*pass by value (important)*/
                   ): id(s){
     this->e = new mock::Executable(s);
-    this->s = new mock::Signer(s);
+    this->s = new NaiveMsgMgr(s);
     this->n = new mock::AsyncEndpointNetworkNode(s);
 
 
     this->nd = RbftConsensus::create(
                                      dynamic_cast<IAsyncEndpointBasedNetworkable *>(this->n),
                                      dynamic_cast<IForConsensusExecutable*>(this->e),
-                                     dynamic_cast<ISignable *>(this->s),
+                                     dynamic_cast<IMsgManageable *>(this->s),
                                      all_endpoints
                                      );
   }
