@@ -259,9 +259,35 @@ namespace pure{
    * 🐢 : This is the serious one. It depends on the `crypto` module from
    * OpenSSL. This should probably include all the code dependent on the OpenSSL
    * library.
+   *
+   * 🦜 : Okay, so what does this class contain ?
+   *
+   * 🐢 : I think this should accept the following:
+   *
+   *    1. The public key of CA.
+   *
+   *    2. The pair (<this-endpoint>, <secret-key>)
+   *
+   *    3. A map : {<e1> : <pk1> , <e2> : <pk2> , ...} that contains all the
+   *    public keys of other nodes (peers).
+   *
+   *
+   * 🦜 : Okay, but how do we store it in the RAM?
+   *
+   * 🐢 : I think it makes sense to store it as the UniquePtr<EVP_PKEY>, the
+   * (wrapped) native OpenSSL key.
+   *
+   * 🦜 : But sometimes the incomming msg can contain the PKEY that we don't
+   * know, i.e. the PKEY of the newcomer.
+   *
+   * 🐢 : Yeah , let's just for now keep the PKEY, and when we verify new keys,
+   * we parse the key?
+   *
+   * 🦜 : Okay, let's just write some and see ? 
    */
   class SslMsgMgr: public virtual IMsgManageable{
   public:
+
 
     /**
      * @brief Read secret or public key from a string
