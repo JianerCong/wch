@@ -255,6 +255,82 @@ BOOST_AUTO_TEST_CASE(test_load_keys_from_file){
   BOOST_CHECK_EQUAL(EVP_PKEY_get0_type_name(r1.value().get()),"ED25519");
   }
 
+BOOST_AUTO_TEST_CASE(test_key_to_raw){
+  UniquePtr<EVP_PKEY> p(EVP_PKEY_Q_keygen(NULL, NULL, "ED25519"));
+  auto raw = SslMsgMgr::key_to_raw(p.get(), true /*is_secret*/);
+  BOOST_REQUIRE(raw);
+  BOOST_CHECK_EQUAL(raw.value().size(),32);
+
+  UniquePtr<EVP_PKEY> p2 = SslMsgMgr::raw_to_key(raw.value(), true /*is_secret*/);
+  auto raw2 = SslMsgMgr::key_to_raw(p2.get(), true /*is_secret*/);
+  BOOST_REQUIRE(raw2);
+  BOOST_CHECK_EQUAL(raw2.value().size(),32);
+
+  BOOST_CHECK_EQUAL(raw2.value(),raw.value());
+
+  /*
+    🦜 : You can also get the raw public key from the secret key, but not the other way around.
+   */
+  auto raw3 = SslMsgMgr::key_to_raw(p.get(), false /*is_secret*/);
+  BOOST_REQUIRE(raw3);
+  BOOST_CHECK_EQUAL(raw3.value().size(),32);
+  BOOST_CHECK_NE(raw3.value(),raw.value());
+
+  // 🦜 : Try to get the secret key from the raw public key
+  UniquePtr<EVP_PKEY> p3 = SslMsgMgr::raw_to_key(raw3.value(), true /*is_secret*/);
+  // 🦜 : You "can" get something, but that's not the secret key you want.
+  BOOST_CHECK_NE(SslMsgMgr::key_to_raw(p3.get(), true /*is_secret*/).value(),raw.value());
+  }
+
+/**
+ * @brief Test the public key to raw
+ *
+ * 🦜 : Here we do a :
+ *   PEM -> EVP_PKEY -> raw -> EVP_PKEY -> raw
+ */
+BOOST_AUTO_TEST_CASE(test_public_key_to_raw){
+  string p = "-----BEGIN PUBLIC KEY-----\n"
+    "MCowBQYDK2VwAyEAag4tsjNQHNpXrWkEfTEygtwjjXZKXZJJ2/09srM0RDs=\n"
+    "-----END PUBLIC KEY-----\n";
+  auto r1 = SslMsgMgr::load_key_from_string(p,false /*is_secret*/);
+
+  auto raw1 = SslMsgMgr::key_to_raw(r1.value().get(), false /*is_secret*/);
+  BOOST_REQUIRE(raw1);
+  BOOST_CHECK_EQUAL(raw1.value().size(),32);
+  BOOST_TEST_MESSAGE( EVP_PKEY_get0_description(r1.value().get()));
+  EVP_PKEY_print_public_fp(stdout, r1.value().get(), 2, NULL); // print public key
+  // EVP_PKEY_print_private_fp(stdout, r1.value().get(), 2, NULL); // print nothing, because it's public
+
+  UniquePtr<EVP_PKEY> p2 = SslMsgMgr::raw_to_key(raw1.value(), false /*is_secret*/);
+  BOOST_REQUIRE(p2.get());                                           // parsed successfully
+  auto raw2 = SslMsgMgr::key_to_raw(p2.get(), false /*is_secret*/);
+  BOOST_REQUIRE(raw2);
+  BOOST_CHECK_EQUAL(raw2.value().size(),32);
+
+  BOOST_CHECK_EQUAL(raw2.value(),raw1.value());
+  }
+
+BOOST_AUTO_TEST_CASE(test_secret_key_to_raw){
+  string s = "-----BEGIN PRIVATE KEY-----\n"
+    "MC4CAQAwBQYDK2VwBCIEIDdCupRSMP7AqAT50TZwDzlYIfrgDpLL+km+0usqrWpB\n"
+    "-----END PRIVATE KEY-----\n";
+
+  auto r = SslMsgMgr::load_key_from_string(s,true /*is_secret*/);
+  BOOST_TEST_MESSAGE( EVP_PKEY_get0_description(r.value().get()));
+  EVP_PKEY_print_private_fp(stdout, r.value().get(), 2, NULL); // print both pub and priv
+
+  auto raw = SslMsgMgr::key_to_raw(r.value().get(), true /*is_secret*/);
+  BOOST_REQUIRE(raw);
+
+  UniquePtr<EVP_PKEY> p2 = SslMsgMgr::raw_to_key(raw.value(), true /*is_secret*/);
+  BOOST_REQUIRE(p2.get());                                           // parsed successfully
+  auto raw2 = SslMsgMgr::key_to_raw(p2.get(), true /*is_secret*/);
+  BOOST_REQUIRE(raw2);
+  BOOST_CHECK_EQUAL(raw2.value().size(),32);
+
+  BOOST_CHECK_EQUAL(raw2.value(),raw.value());
+  }
+
 BOOST_AUTO_TEST_SUITE_END(); //test_SslMsgMgr
 
 BOOST_AUTO_TEST_SUITE_END();

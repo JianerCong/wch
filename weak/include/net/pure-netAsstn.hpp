@@ -224,11 +224,16 @@ namespace pure{
    */
   class NaiveMsgMgr: public virtual IMsgManageable{
   public:
-    const string id;
+    const string ep;
 
-    NaiveMsgMgr(string iid): id(iid){}
+    /**
+     * @brief Construct a new Naive Msg Mgr object
+     *
+     * @param eep The endpoint of this node. It should be a string that can be parsed into a <public key> and <addr:port> pair.
+     */
+    NaiveMsgMgr(string eep): ep(eep){}
     string prepare_msg(string && data)const noexcept override{
-      return SignedData(this->id,"",data).toString();
+      return SignedData(this->ep,"",data).toString();
     }
 
     optional<tuple<string,string>> tear_msg_open(string_view msg)const noexcept override {
@@ -240,7 +245,7 @@ namespace pure{
     }
 
     string my_endpoint()const noexcept override{
-      return this->id;
+      return this->ep;
     }
 
   };                            // class NaiveMsgMgr
@@ -287,6 +292,47 @@ namespace pure{
    */
   class SslMsgMgr: public virtual IMsgManageable{
   public:
+
+    UniquePtr<EVP_PKEY> ca_public_key;
+
+    UniquePtr<EVP_PKEY> my_secret_key;
+    UniquePtr<EVP_PKEY> my_public_key;
+
+    string my_addr_port;
+
+    // the public keys of peers, k = <addr:port>, v = <public key>
+    unordered_map<string,UniquePtr<EVP_PKEY>> peers_public_keys;
+
+    SslMsgMgr(string ca_pk_str,
+              string my_sk_str,
+              string my_addr_port_str,
+              unordered_map<string,string> peers_pk_strs):
+      my_addr_port(my_addr_port_str){
+
+      auto r = load_key_from_string(ca_pk_str,false);
+      if (not r){
+        BOOST_LOG_TRIVIAL(error) << S_RED "❌ Error reading CA public key:\n" + ca_pk_str +  S_NOR;
+        exit(1);
+      }
+      this->ca_public_key = std::move(r.value());
+
+      r = load_key_from_string(my_sk_str,true);
+      if (not r){
+        BOOST_LOG_TRIVIAL(error) <<  S_RED "❌ Error reading my secret key:\n" + my_sk_str + S_NOR;
+        exit(1);
+      }
+      this->my_secret_key = std::move(r.value());
+
+      for (auto [k,v]: peers_pk_strs){
+        r = load_key_from_string(v,false);
+        if (not r){
+          BOOST_LOG_TRIVIAL(error) << S_RED "❌ Error reading peer public key of " + k +  ":\n" + v  + S_NOR;
+          exit(1);
+        }
+        this->peers_public_keys[k] = std::move(r.value());
+      }
+
+    }
 
     /**
      * @brief Read secret or public key from a string
@@ -341,8 +387,95 @@ namespace pure{
 }
 
     /**
-     * @brief Convert key to raw byte
+     * @brief Get raw public or secret key in bytes
      */
+    static optional<string> key_to_raw(const EVP_PKEY *  const p, bool is_secret=false){
+      char raw_key[40];
+      // resize to 32 bytes
+
+      // get the raw is_secretate key
+      size_t L{40};                 // 🦜 : In fact, 32 bytes is just enough.
+      // L = the size of the buffer when calling the function, the the function will
+      // change it to the number of bytes written after the call.
+      int r;
+      if (is_secret){
+        r = EVP_PKEY_get_raw_private_key(p, (unsigned char*)raw_key, &L);
+      }else{
+        r = EVP_PKEY_get_raw_public_key(p, (unsigned char*)raw_key, &L);
+      }
+      if (r != 1 or L != 32){
+        return {};
+      }
+
+      return string(raw_key, L);
+    }
+
+    /**
+     * @brief Convert raw bytes to public or secret key
+     *
+     * @return A non NULL UniquePtr<EVP_PKEY> if successful, else pt.get() == NULL
+     */
+    static UniquePtr<EVP_PKEY>
+    raw_to_key(const string_view raw_key, bool is_secret=false){
+      if (is_secret){
+        return UniquePtr<EVP_PKEY>(EVP_PKEY_new_raw_private_key(EVP_PKEY_ED25519, NULL,
+                                                                   reinterpret_cast<const unsigned char*>(raw_key.data()),
+                                                                   raw_key.size()));
+      }else{
+        // return P(EVP_PKEY_new_raw_public_key(EVP_PKEY_ED25519, NULL, data, len),f);
+        return UniquePtr<EVP_PKEY>(EVP_PKEY_new_raw_public_key(EVP_PKEY_ED25519, NULL,
+                                                                  reinterpret_cast<const unsigned char*>(raw_key.data()),
+                                                                  raw_key.size()));
+      }
+    }
+
+
+  /**
+   ,* @brief Sign a message with a key (ED25519).
+   ,* 🦜 : This function is copied from the Doc.
+   ,*/
+  static string do_sign(EVP_PKEY *ed_key, unsigned char *msg, size_t msg_len){
+    size_t sig_len;
+    unsigned char *sig = NULL;
+
+    EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
+
+    EVP_DigestSignInit(md_ctx, NULL, NULL, NULL, ed_key);
+    /* Calculate the requires size for the signature by passing a NULL buffer */
+    EVP_DigestSign(md_ctx, NULL, &sig_len, msg, msg_len);
+    sig = (unsigned char*) OPENSSL_zalloc(sig_len);
+    EVP_DigestSign(md_ctx, sig, &sig_len, msg, msg_len);
+
+
+    string sig_str((char*)sig, sig_len);
+
+    OPENSSL_free(sig);
+    EVP_MD_CTX_free(md_ctx);
+
+    return sig_str;
+  }
+
+  static string do_sign(EVP_PKEY *ed_key, string msg){
+    return do_sign(ed_key, (unsigned char*)msg.c_str(), msg.size());
+  }
+
+  static bool do_verify(EVP_PKEY *ed_key,string msg, string sig){
+    // 🐢 : Use EVP_DigestVerify
+    // init the contex
+    EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
+    if (EVP_DigestVerifyInit(md_ctx, NULL, NULL, NULL, ed_key) != 1){
+      BOOST_LOG_TRIVIAL(debug) << "❌️ EVP_DigestVerifyInit failed";
+      return false;
+    }
+
+    int r = EVP_DigestVerify(md_ctx, (unsigned char*)sig.c_str(), sig.size(),
+                             (unsigned char*)msg.c_str(), msg.size());
+    // free the context
+    EVP_MD_CTX_free(md_ctx);
+
+    return r == 1;
+  }
+
   };                            // class SslMsgMgr
 
   // --------------------------------------------------
