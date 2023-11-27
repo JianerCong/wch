@@ -303,35 +303,138 @@ namespace pure{
     // the public keys of peers, k = <addr:port>, v = <public key>
     unordered_map<string,UniquePtr<EVP_PKEY>> peers_public_keys;
 
-    SslMsgMgr(string ca_pk_str,
-              string my_sk_str,
+
+    /**
+     * @brief Construct a new SslMsgMgr object
+     *
+     * @param my_sk_str The secret key of this node, in PEM format.
+     * @param my_addr_port_str The endpoint of this node, in the form of <addr>:<port>
+     * @param peers_pk_strs The public keys of peers, in the form of <addr>:<port> ⇒ <public key>
+     *
+     * @param peers_cert_strs Optional, the certificates of peers, in the form
+     * of <addr>:<port> ⇒ <cert>, this is used to verify whether the peer is
+     * trusted. If this is provided, `ca_public_key` should also be provided.
+     * The certifcate should be issued by the provided CA (whose public key is
+     * in ca_pk_str). The certificate is in raw bytes, which is just CA's signature
+     * of the public key.
+     *
+     * 🐢 : Note that this will not be stored in the RAM, it's just used to test
+     * whether we can safely add a peer into our `peers_public_keys`.
+     *
+     * @param ca_pk_str The public key of the CA, in PEM format. This and
+     * `peers_cert_strs` should be provided (or left empty) at the same time. If
+     * not provided, all public keys are trusted. (so everyone can join)
+     *
+     */
+    explicit SslMsgMgr(string my_sk_str,
               string my_addr_port_str,
-              unordered_map<string,string> peers_pk_strs):
+              unordered_map<string,string> peers_pk_strs,
+              unordered_map<string,string> peers_cert_strs = {},
+              string ca_pk_str = ""
+              ):
       my_addr_port(my_addr_port_str){
 
-      auto r = load_key_from_string(ca_pk_str,false);
-      if (not r){
-        BOOST_LOG_TRIVIAL(error) << S_RED "❌ Error reading CA public key:\n" + ca_pk_str +  S_NOR;
-        exit(1);
+      if (not ca_pk_str.empty()){
+        auto r = load_key_from_string(ca_pk_str,false);
+        if (not r){
+          BOOST_THROW_EXCEPTION(std::runtime_error("❌ Error reading CA public key:\n" + ca_pk_str));
+        }
+        this->ca_public_key = std::move(r.value());
+      }else{
+        BOOST_LOG_TRIVIAL(info) <<  S_MAGENTA "⚠️ No CA public key provided, all public keys are trusted." S_NOR;
+        this->ca_public_key = nullptr;
       }
-      this->ca_public_key = std::move(r.value());
 
-      r = load_key_from_string(my_sk_str,true);
+      auto r = load_key_from_string(my_sk_str,true);
       if (not r){
-        BOOST_LOG_TRIVIAL(error) <<  S_RED "❌ Error reading my secret key:\n" + my_sk_str + S_NOR;
-        exit(1);
+        // BOOST_LOG_TRIVIAL(error) <<  S_RED "❌ Error reading my secret key:\n" + my_sk_str + S_NOR;
+        // exit(1);
+        BOOST_THROW_EXCEPTION(std::runtime_error("❌ Error reading my secret key:\n" + my_sk_str));
       }
       this->my_secret_key = std::move(r.value());
 
       for (auto [k,v]: peers_pk_strs){
         r = load_key_from_string(v,false);
         if (not r){
-          BOOST_LOG_TRIVIAL(error) << S_RED "❌ Error reading peer public key of " + k +  ":\n" + v  + S_NOR;
-          exit(1);
+          BOOST_THROW_EXCEPTION(std::runtime_error("❌ Error reading peer public key of " + k +  ":\n" + v));
         }
-        this->peers_public_keys[k] = std::move(r.value());
+
+        if (we_check_cert()){
+          // 🐢 : We check the certificate of the peer.
+          if (not peers_cert_strs.contains(k)){
+            BOOST_THROW_EXCEPTION(std::runtime_error("❌️ No certificate provided for peer " + k));
+          }
+
+          string cert = peers_cert_strs[k];
+          /*
+            🦜 : What is our certificate?
+
+            🐢 : The certificate is simply the signature of the public key by the CA. Usually generated using
+
+            openssl pkeyutl -sign -rawin -in peer-pubkey.pem -inkey ca-secret.pem -out hi.sig
+
+            🦜 : But that signature will be in binary format, right? Bit of a
+            pain to provide it in the command line.
+
+            🐢 : Yeah, but for now let's just use the binary format in this
+            ctor, and let's perhaps later provide some way to read the binary
+            format from a file...
+           */
+          if (not do_verify(this->ca_public_key.get(),v,cert)){
+            BOOST_THROW_EXCEPTION(std::runtime_error("❌️ Certificate verification failed for peer " + k));
+          }
+
+        }else{                  // 🦜 : we don't check the certificate of the peer. (everyone can join)
+          this->peers_public_keys[k] = std::move(r.value());
+       }
+      }
+    }
+
+    /**
+     * @brief Determine whether we check the certificate of the peer.
+     */
+    bool we_check_cert() const noexcept{
+      return this->ca_public_key.get() != nullptr;
+    }
+
+    bool try_add_trusted_peer(string addr_port, string pk_str, string cert_str = ""){
+      auto r = load_key_from_string(pk_str,false);
+      if (not r){
+        BOOST_LOG_TRIVIAL(error) <<  S_RED "❌ Error reading peer public key of " + addr_port +  ":\n" + pk_str + S_NOR;
+        return false;
       }
 
+      if (we_check_cert()){
+        // 🐢 : We check the certificate of the peer.
+        if (cert_str.empty()){
+          BOOST_LOG_TRIVIAL(error) <<  S_RED "❌️ No certificate provided for peer " + addr_port + S_NOR;
+          return false;
+        }
+
+        string cert = cert_str;
+        /*
+          🦜 : What is our certificate?
+
+          🐢 : The certificate is simply the signature of the public key by the CA. Usually generated using
+
+          openssl pkeyutl -sign -rawin -in peer-pubkey.pem -inkey ca-secret.pem -out hi.sig
+
+          🦜 : But that signature will be in binary format, right? Bit of a
+          pain to provide it in the command line.
+
+          🐢 : Yeah, but for now let's just use the binary format in this
+          ctor, and let's perhaps later provide some way to read the binary
+          format from a file...
+         */
+        if (not do_verify(this->ca_public_key.get(),pk_str,cert)){
+          BOOST_LOG_TRIVIAL(error) <<  S_RED "❌️ Certificate verification failed for peer " + addr_port + S_NOR;
+          return false;
+        }
+
+      }else{                    // 🦜 : we don't check the certificate of the peer. (everyone can join)
+        this->peers_public_keys[addr_port] = std::move(r.value());
+      }
+      return true;
     }
 
     /**
@@ -385,50 +488,6 @@ namespace pure{
       }
       return sk;
 }
-
-    /**
-     * @brief Get raw public or secret key in bytes
-     */
-    static optional<string> key_to_raw(const EVP_PKEY *  const p, bool is_secret=false){
-      char raw_key[40];
-      // resize to 32 bytes
-
-      // get the raw is_secretate key
-      size_t L{40};                 // 🦜 : In fact, 32 bytes is just enough.
-      // L = the size of the buffer when calling the function, the the function will
-      // change it to the number of bytes written after the call.
-      int r;
-      if (is_secret){
-        r = EVP_PKEY_get_raw_private_key(p, (unsigned char*)raw_key, &L);
-      }else{
-        r = EVP_PKEY_get_raw_public_key(p, (unsigned char*)raw_key, &L);
-      }
-      if (r != 1 or L != 32){
-        return {};
-      }
-
-      return string(raw_key, L);
-    }
-
-    /**
-     * @brief Convert raw bytes to public or secret key
-     *
-     * @return A non NULL UniquePtr<EVP_PKEY> if successful, else pt.get() == NULL
-     */
-    static UniquePtr<EVP_PKEY>
-    raw_to_key(const string_view raw_key, bool is_secret=false){
-      if (is_secret){
-        return UniquePtr<EVP_PKEY>(EVP_PKEY_new_raw_private_key(EVP_PKEY_ED25519, NULL,
-                                                                   reinterpret_cast<const unsigned char*>(raw_key.data()),
-                                                                   raw_key.size()));
-      }else{
-        // return P(EVP_PKEY_new_raw_public_key(EVP_PKEY_ED25519, NULL, data, len),f);
-        return UniquePtr<EVP_PKEY>(EVP_PKEY_new_raw_public_key(EVP_PKEY_ED25519, NULL,
-                                                                  reinterpret_cast<const unsigned char*>(raw_key.data()),
-                                                                  raw_key.size()));
-      }
-    }
-
 
   /**
    ,* @brief Sign a message with a key (ED25519).
