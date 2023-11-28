@@ -60,13 +60,13 @@ namespace pure{
      * 🐢 : It's usually have the form
      * "<pk><addr:port><"">". It should be created from something like:
 
-        string pk,e, endpoint;
-        pk = my_public_key();
-        e = IPBasedHttpNetAsstn::combine_addr_port("10.0.0.1",1234);
-        endpoint = SignedData.serialize_3_strs(pk,e,"");
+     string pk,e, endpoint;
+     pk = my_public_key();
+     e = IPBasedHttpNetAsstn::combine_addr_port("10.0.0.1",1234);
+     endpoint = SignedData.serialize_3_strs(pk,e,"");
 
 
-     */
+    */
     virtual string prepare_msg(string && data)const noexcept =0;
     /**
      * @brief Tear a msg open.
@@ -325,19 +325,29 @@ namespace pure{
      * `peers_cert_strs` should be provided (or left empty) at the same time. If
      * not provided, all public keys are trusted. (so everyone can join)
      *
+     * 🦜 : It's always a tough decision to decide whether we should load things
+     * from file or from string.
+     *
+     * 🐢 : Let's layout some principles:
+     *
+     *          All non-static methods of this class doesn't use the
+     *          <filesystem> module. In another word, it doesn't read from file,
+     *          and always use string(or raw bytes in string).
+     *
      */
-    explicit SslMsgMgr(string my_sk_str,
-              string my_addr_port_str,
-              unordered_map<string,string> peers_pk_strs,
-              unordered_map<string,string> peers_cert_strs = {},
-              string ca_pk_str = ""
-              ):
+    explicit SslMsgMgr(string my_sk_pem,
+                       string my_addr_port_str,
+                       unordered_map<string,string> peers_pk_pems,
+                       unordered_map<string,string> peers_cert_strs = {},
+                       string ca_pk_pem = ""
+                       ):
       my_addr_port(my_addr_port_str){
 
-      if (not ca_pk_str.empty()){
-        auto r = load_key_from_string(ca_pk_str,false);
+      // 1. init the ca_public_key is provided
+      if (not ca_pk_pem.empty()){
+        auto r = load_key_from_pem(ca_pk_pem,false);
         if (not r){
-          BOOST_THROW_EXCEPTION(std::runtime_error("❌ Error reading CA public key:\n" + ca_pk_str));
+          BOOST_THROW_EXCEPTION(std::runtime_error("❌ Error reading CA public key:\n" + ca_pk_pem));
         }
         this->ca_public_key = std::move(r.value());
       }else{
@@ -345,48 +355,22 @@ namespace pure{
         this->ca_public_key = nullptr;
       }
 
-      auto r = load_key_from_string(my_sk_str,true);
+      // 2. init our secret key
+      auto r = load_key_from_pem(my_sk_pem,true);
       if (not r){
-        // BOOST_LOG_TRIVIAL(error) <<  S_RED "❌ Error reading my secret key:\n" + my_sk_str + S_NOR;
+        // BOOST_LOG_TRIVIAL(error) <<  S_RED "❌ Error reading my secret key:\n" + my_sk_pem + S_NOR;
         // exit(1);
-        BOOST_THROW_EXCEPTION(std::runtime_error("❌ Error reading my secret key:\n" + my_sk_str));
+        BOOST_THROW_EXCEPTION(std::runtime_error("❌ Error reading my secret key:\n" + my_sk_pem));
       }
       this->my_secret_key = std::move(r.value());
 
-      for (auto [k,v]: peers_pk_strs){
-        r = load_key_from_string(v,false);
-        if (not r){
-          BOOST_THROW_EXCEPTION(std::runtime_error("❌ Error reading peer public key of " + k +  ":\n" + v));
+      // 3. for each key in peers_pk_pems, load it and verify it.
+      for (auto [k,v]: peers_pk_pems){
+        if (not peers_cert_strs.contains(k))
+          BOOST_THROW_EXCEPTION(std::runtime_error("certificate not found for peer pkey :\n" + v + "\nfrom " + k));
+        if (not try_add_trusted_peer(k, v, peers_pk_pems[k])){
+          BOOST_THROW_EXCEPTION(std::runtime_error("Failed to add peer key:\n" + v));
         }
-
-        if (we_check_cert()){
-          // 🐢 : We check the certificate of the peer.
-          if (not peers_cert_strs.contains(k)){
-            BOOST_THROW_EXCEPTION(std::runtime_error("❌️ No certificate provided for peer " + k));
-          }
-
-          string cert = peers_cert_strs[k];
-          /*
-            🦜 : What is our certificate?
-
-            🐢 : The certificate is simply the signature of the public key by the CA. Usually generated using
-
-            openssl pkeyutl -sign -rawin -in peer-pubkey.pem -inkey ca-secret.pem -out hi.sig
-
-            🦜 : But that signature will be in binary format, right? Bit of a
-            pain to provide it in the command line.
-
-            🐢 : Yeah, but for now let's just use the binary format in this
-            ctor, and let's perhaps later provide some way to read the binary
-            format from a file...
-           */
-          if (not do_verify(this->ca_public_key.get(),v,cert)){
-            BOOST_THROW_EXCEPTION(std::runtime_error("❌️ Certificate verification failed for peer " + k));
-          }
-
-        }else{                  // 🦜 : we don't check the certificate of the peer. (everyone can join)
-          this->peers_public_keys[k] = std::move(r.value());
-       }
       }
     }
 
@@ -397,43 +381,27 @@ namespace pure{
       return this->ca_public_key.get() != nullptr;
     }
 
-    bool try_add_trusted_peer(string addr_port, string pk_str, string cert_str = ""){
-      auto r = load_key_from_string(pk_str,false);
+    bool try_add_trusted_peer(string addr_port, string pk_pem, string cert) noexcept {
+
+      if (we_check_cert()){
+        // 1. verify that the cert = CA.sign(pk_pem)
+        if (not this->do_verify(this->ca_public_key.get(), pk_pem, cert)){
+          BOOST_LOG_TRIVIAL(error) <<  S_RED "❌️ Key verification failed: " << pk_pem  << S_NOR;
+          return false;
+        }
+      }
+
+      /*
+        2. add that pk to peers_public_keys (🦜 : It turns out this can also be
+        used to update pkey...).
+       */
+      auto r = load_key_from_pem(pk_pem, false);
       if (not r){
-        BOOST_LOG_TRIVIAL(error) <<  S_RED "❌ Error reading peer public key of " + addr_port +  ":\n" + pk_str + S_NOR;
+        BOOST_LOG_TRIVIAL(error) <<  S_RED "❌️ Error load key from pem: " << pk_pem << S_NOR;
         return false;
       }
 
-      if (we_check_cert()){
-        // 🐢 : We check the certificate of the peer.
-        if (cert_str.empty()){
-          BOOST_LOG_TRIVIAL(error) <<  S_RED "❌️ No certificate provided for peer " + addr_port + S_NOR;
-          return false;
-        }
-
-        string cert = cert_str;
-        /*
-          🦜 : What is our certificate?
-
-          🐢 : The certificate is simply the signature of the public key by the CA. Usually generated using
-
-          openssl pkeyutl -sign -rawin -in peer-pubkey.pem -inkey ca-secret.pem -out hi.sig
-
-          🦜 : But that signature will be in binary format, right? Bit of a
-          pain to provide it in the command line.
-
-          🐢 : Yeah, but for now let's just use the binary format in this
-          ctor, and let's perhaps later provide some way to read the binary
-          format from a file...
-         */
-        if (not do_verify(this->ca_public_key.get(),pk_str,cert)){
-          BOOST_LOG_TRIVIAL(error) <<  S_RED "❌️ Certificate verification failed for peer " + addr_port + S_NOR;
-          return false;
-        }
-
-      }else{                    // 🦜 : we don't check the certificate of the peer. (everyone can join)
-        this->peers_public_keys[addr_port] = std::move(r.value());
-      }
+      this->peers_public_keys[addr_port] = std::move(r.value());
       return true;
     }
 
@@ -443,8 +411,8 @@ namespace pure{
      * @param s : the content of a PEM file
      * @param is_secret : wether it's secret or public key
      */
-    static optional<UniquePtr<EVP_PKEY>> load_key_from_string(const std::string& s,
-                                                              bool is_secret = true) {
+    static optional<UniquePtr<EVP_PKEY>> load_key_from_pem(const std::string& s,
+                                                           bool is_secret = true) {
 
       UniquePtr<BIO> bio(BIO_new_mem_buf(s.c_str(), -1));
       if (not bio.get()){
@@ -464,6 +432,22 @@ namespace pure{
       }
       return sk;
     }
+
+    /**
+     * @brief dump the key to a pem string
+     */
+    static string dump_key_to_pem(EVP_PKEY *key, bool is_secret = true){
+      UniquePtr<BIO> bio(BIO_new(BIO_s_mem()));
+      if (is_secret){
+        PEM_write_bio_PrivateKey(bio.get(), key, nullptr, nullptr, 0, nullptr, nullptr);
+      }else{
+        PEM_write_bio_PUBKEY(bio.get(), key);
+      }
+      char *pem_data;
+      long pem_size = BIO_get_mem_data(bio.get(), &pem_data);
+      return string(pem_data, pem_size);
+    }
+
 
     /**
      * @brief Read secret or public key from a string.
@@ -487,53 +471,107 @@ namespace pure{
         return {};
       }
       return sk;
-}
-
-  /**
-   ,* @brief Sign a message with a key (ED25519).
-   ,* 🦜 : This function is copied from the Doc.
-   ,*/
-  static string do_sign(EVP_PKEY *ed_key, unsigned char *msg, size_t msg_len){
-    size_t sig_len;
-    unsigned char *sig = NULL;
-
-    EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
-
-    EVP_DigestSignInit(md_ctx, NULL, NULL, NULL, ed_key);
-    /* Calculate the requires size for the signature by passing a NULL buffer */
-    EVP_DigestSign(md_ctx, NULL, &sig_len, msg, msg_len);
-    sig = (unsigned char*) OPENSSL_zalloc(sig_len);
-    EVP_DigestSign(md_ctx, sig, &sig_len, msg, msg_len);
-
-
-    string sig_str((char*)sig, sig_len);
-
-    OPENSSL_free(sig);
-    EVP_MD_CTX_free(md_ctx);
-
-    return sig_str;
-  }
-
-  static string do_sign(EVP_PKEY *ed_key, string msg){
-    return do_sign(ed_key, (unsigned char*)msg.c_str(), msg.size());
-  }
-
-  static bool do_verify(EVP_PKEY *ed_key,string msg, string sig){
-    // 🐢 : Use EVP_DigestVerify
-    // init the contex
-    EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
-    if (EVP_DigestVerifyInit(md_ctx, NULL, NULL, NULL, ed_key) != 1){
-      BOOST_LOG_TRIVIAL(debug) << "❌️ EVP_DigestVerifyInit failed";
-      return false;
     }
 
-    int r = EVP_DigestVerify(md_ctx, (unsigned char*)sig.c_str(), sig.size(),
-                             (unsigned char*)msg.c_str(), msg.size());
-    // free the context
-    EVP_MD_CTX_free(md_ctx);
+    /**
+       ,* @brief Sign a message with a key (ED25519).
+       ,* 🦜 : This function is copied from the Doc.
+       ,*/
+    static string do_sign(EVP_PKEY *ed_key, unsigned char *msg, size_t msg_len){
+      size_t sig_len;
+      unsigned char *sig = NULL;
 
-    return r == 1;
-  }
+      EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
+
+      EVP_DigestSignInit(md_ctx, NULL, NULL, NULL, ed_key);
+      /* Calculate the requires size for the signature by passing a NULL buffer */
+      EVP_DigestSign(md_ctx, NULL, &sig_len, msg, msg_len);
+      sig = (unsigned char*) OPENSSL_zalloc(sig_len);
+      EVP_DigestSign(md_ctx, sig, &sig_len, msg, msg_len);
+
+
+      string sig_str((char*)sig, sig_len);
+
+      OPENSSL_free(sig);
+      EVP_MD_CTX_free(md_ctx);
+
+      return sig_str;
+    }
+
+    static string do_sign(EVP_PKEY *ed_key, string msg){
+      return do_sign(ed_key, (unsigned char*)msg.c_str(), msg.size());
+    }
+
+    static bool do_verify(EVP_PKEY *ed_key,string msg, string sig){
+      // 🐢 : Use EVP_DigestVerify
+      // init the contex
+      EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
+      if (EVP_DigestVerifyInit(md_ctx, NULL, NULL, NULL, ed_key) != 1){
+        BOOST_LOG_TRIVIAL(debug) << "❌️ EVP_DigestVerifyInit failed";
+        return false;
+      }
+
+      int r = EVP_DigestVerify(md_ctx, (unsigned char*)sig.c_str(), sig.size(),
+                               (unsigned char*)msg.c_str(), msg.size());
+      // free the context
+      EVP_MD_CTX_free(md_ctx);
+
+      return r == 1;
+    }
+
+
+    /**
+     * @brief Get raw public or secret key in bytes
+     */
+    static optional<string> key_to_raw(const EVP_PKEY *  const p, bool is_secret=false) noexcept{
+      char raw_key[40];
+      // resize to 32 bytes
+
+      // get the raw is_secretate key
+      size_t L{40};                 // 🦜 : In fact, 32 bytes is just enough.
+      // L = the size of the buffer when calling the function, the the function will
+      // change it to the number of bytes written after the call.
+      int r;
+      if (is_secret){
+        r = EVP_PKEY_get_raw_private_key(p, (unsigned char*)raw_key, &L);
+      }else{
+        r = EVP_PKEY_get_raw_public_key(p, (unsigned char*)raw_key, &L);
+      }
+      if (r != 1 or L != 32){
+        return {};
+      }
+
+      return string(raw_key, L);
+    }
+
+    static UniquePtr<EVP_PKEY> raw_to_key(const string_view raw_key, bool is_secret=false) noexcept {
+
+      if (is_secret){
+        return UniquePtr<EVP_PKEY>(EVP_PKEY_new_raw_private_key(EVP_PKEY_ED25519, NULL,
+                                                                reinterpret_cast<const unsigned char*>(raw_key.data()),
+                                                                raw_key.size()));
+      }else{
+        // return P(EVP_PKEY_new_raw_public_key(EVP_PKEY_ED25519, NULL, data, len),f);
+        return UniquePtr<EVP_PKEY>(EVP_PKEY_new_raw_public_key(EVP_PKEY_ED25519, NULL,
+                                                               reinterpret_cast<const unsigned char*>(raw_key.data()),
+                                                               raw_key.size()));
+      }
+    }
+
+    static UniquePtr<EVP_PKEY> extract_public_key(EVP_PKEY *sk) noexcept{
+      // get raw public key
+      auto r = key_to_raw(sk,false /*is_secret*/);
+      if (not r) return {};
+      string raw_key = r.value();
+      return raw_to_key(raw_key,false /*is_secret*/);
+    }
+
+    static void print_key(EVP_PKEY *p,bool is_secret=false) noexcept {
+      if (is_secret)
+        EVP_PKEY_print_private_fp(stdout, p, 2, NULL); // print both pub and secret
+      else
+        EVP_PKEY_print_public_fp(stdout, p, 2, NULL); // print pub
+    }
 
   };                            // class SslMsgMgr
 
@@ -590,13 +628,13 @@ namespace pure{
                std::ignore /*should be empty*/) = r.value();
 
       return addr_and_port;
-}
+    }
 
     /*
       🦜 : It looks like this function is unused?
 
       🐢 : Or I think it should be used on the client side...
-     */
+    */
     static string combine_addr_port(string addr,uint16_t port){
       return addr + ':' + boost::lexical_cast<std::string>(port);
       // return (format("%s:%d") % addr % port).str();

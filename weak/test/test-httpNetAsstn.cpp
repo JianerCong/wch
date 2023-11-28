@@ -207,7 +207,7 @@ BOOST_AUTO_TEST_CASE(test_make_post_bad_handler){
 
 BOOST_AUTO_TEST_SUITE(test_SslMsgMgr);
 
-BOOST_AUTO_TEST_CASE(test_load_keys_from_string){
+BOOST_AUTO_TEST_CASE(test_load_keys_from_pem){
   string s = "-----BEGIN PRIVATE KEY-----\n"
     "MC4CAQAwBQYDK2VwBCIEIDdCupRSMP7AqAT50TZwDzlYIfrgDpLL+km+0usqrWpB\n"
     "-----END PRIVATE KEY-----\n";
@@ -216,9 +216,9 @@ BOOST_AUTO_TEST_CASE(test_load_keys_from_string){
     "MCowBQYDK2VwAyEAag4tsjNQHNpXrWkEfTEygtwjjXZKXZJJ2/09srM0RDs=\n"
     "-----END PUBLIC KEY-----\n";
 
-  auto r = SslMsgMgr::load_key_from_string(s,true /*is_secret*/);
-  auto r1 = SslMsgMgr::load_key_from_string(p,false /*is_secret*/);
-  auto r2 = SslMsgMgr::load_key_from_string("123",false /*is_secret*/);
+  auto r = SslMsgMgr::load_key_from_pem(s,true /*is_secret*/);
+  auto r1 = SslMsgMgr::load_key_from_pem(p,false /*is_secret*/);
+  auto r2 = SslMsgMgr::load_key_from_pem("123",false /*is_secret*/);
 
   BOOST_REQUIRE(r.value());
   BOOST_REQUIRE(r1.value());
@@ -228,10 +228,43 @@ BOOST_AUTO_TEST_CASE(test_load_keys_from_string){
   BOOST_CHECK_EQUAL(EVP_PKEY_get0_type_name(r1.value().get()),"ED25519");
 }
 
+
+BOOST_AUTO_TEST_CASE(test_dump_key_to_pem){
+  UniquePtr<EVP_PKEY> sk1(EVP_PKEY_Q_keygen(NULL, NULL, "ED25519"));
+  UniquePtr<EVP_PKEY> pk1 = SslMsgMgr::extract_public_key(sk1.get());
+  
+  string pem = SslMsgMgr::dump_key_to_pem(sk1.get(), true /*is_secret*/);
+  string pem1 = SslMsgMgr::dump_key_to_pem(pk1.get(), false /*is_secret*/);
+  BOOST_TEST_MESSAGE( "dumped sec key: " + pem );
+  BOOST_TEST_MESSAGE( "dumped pub key: " + pem1 );
+
+  auto r = SslMsgMgr::load_key_from_pem(pem,true /*is_secret*/);
+  BOOST_REQUIRE(r);
+  BOOST_REQUIRE(pem.starts_with("-----BEGIN PRIVATE KEY-----"));
+  BOOST_REQUIRE(pem1.starts_with("-----BEGIN PUBLIC KEY-----"));
+  BOOST_CHECK_EQUAL(EVP_PKEY_get0_type_name(r.value().get()),"ED25519");
+}
+
+BOOST_AUTO_TEST_CASE(test_extract_public_key){
+
+  UniquePtr<EVP_PKEY> sk1(EVP_PKEY_Q_keygen(NULL, NULL, "ED25519"));
+  BOOST_TEST_MESSAGE("Both Parts:");
+
+  SslMsgMgr::print_key(sk1.get(), true /* sk*/);
+  auto pk1 = SslMsgMgr::extract_public_key(sk1.get());
+  BOOST_REQUIRE(pk1);
+  BOOST_TEST_MESSAGE("Public Part:");
+  SslMsgMgr::print_key(pk1.get(), false /* is_secret*/);
+}
+
 BOOST_AUTO_TEST_CASE(test_load_keys_from_file){
   string s = "-----BEGIN PRIVATE KEY-----\n"
     "MC4CAQAwBQYDK2VwBCIEIDdCupRSMP7AqAT50TZwDzlYIfrgDpLL+km+0usqrWpB\n"
     "-----END PRIVATE KEY-----\n";
+  /*
+    🦜 : Do not delete a single '-' in this string, otherwise the following will
+    cause segmentation fault.
+   */
 
   string p = "-----BEGIN PUBLIC KEY-----\n"
     "MCowBQYDK2VwAyEAag4tsjNQHNpXrWkEfTEygtwjjXZKXZJJ2/09srM0RDs=\n"
@@ -240,15 +273,19 @@ BOOST_AUTO_TEST_CASE(test_load_keys_from_file){
   // write to tmpdir
   path f = filesystem::temp_directory_path() / "secret.pem";
   path f1 = filesystem::temp_directory_path() / "public.pem";
+  // remove the file if it exists
+  if (filesystem::exists(f)) filesystem::remove(f);
+  if (filesystem::exists(f1)) filesystem::remove(f1);
 
   (std::ofstream(f.c_str()) << s).close();
   (std::ofstream(f1.c_str()) << p).close();
 
-  auto r = SslMsgMgr::load_key_from_file(f.string(),true /*is_secret*/);
-  auto r1 = SslMsgMgr::load_key_from_file(f1.string(),false /*is_secret*/);
+  optional<UniquePtr<EVP_PKEY>> r = SslMsgMgr::load_key_from_file(f,true /*is_secret*/);
+  auto r1 = SslMsgMgr::load_key_from_file(f1,false /*is_secret*/);
   auto r2 = SslMsgMgr::load_key_from_file("/tmp/no-such-file.txt");
 
-  BOOST_REQUIRE(r.value());
+
+  BOOST_REQUIRE(r);
   BOOST_REQUIRE(r1.value());
   BOOST_REQUIRE(not r2);
   BOOST_CHECK_EQUAL(EVP_PKEY_get0_type_name(r.value().get()),"ED25519");
@@ -259,13 +296,13 @@ BOOST_AUTO_TEST_CASE(test_sign){
   string s = "-----BEGIN PRIVATE KEY-----\n"
     "MC4CAQAwBQYDK2VwBCIEIDdCupRSMP7AqAT50TZwDzlYIfrgDpLL+km+0usqrWpB\n"
     "-----END PRIVATE KEY-----\n";
-  auto r = SslMsgMgr::load_key_from_string(s,true /*is_secret*/);
+  auto r = SslMsgMgr::load_key_from_pem(s,true /*is_secret*/);
   UniquePtr<EVP_PKEY> sk = std::move(r.value());
 
   string p = "-----BEGIN PUBLIC KEY-----\n"
     "MCowBQYDK2VwAyEAag4tsjNQHNpXrWkEfTEygtwjjXZKXZJJ2/09srM0RDs=\n"
     "-----END PUBLIC KEY-----\n";
-  r = SslMsgMgr::load_key_from_string(p,false /*is_secret*/);
+  r = SslMsgMgr::load_key_from_pem(p,false /*is_secret*/);
   UniquePtr<EVP_PKEY> pk = std::move(r.value());
 
   // 🦜 : sign with the secret key
