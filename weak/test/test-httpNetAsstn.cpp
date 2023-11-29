@@ -321,9 +321,20 @@ BOOST_AUTO_TEST_CASE(test_sign){
   // SslMsgMgr::do_sign(pk.get(),msg)
   }
 
-BOOST_AUTO_TEST_CASE(test_ctor_ok){
+/**
+ * @brief Prepare the keys for testing
+ *
+ * @return (ca_sk,ca_sk_pem,node_sks, node_certs)
+ */
+tuple<UniquePtr<EVP_PKEY>,
+      string,
+      unordered_map<string,UniquePtr<EVP_PKEY>>,
+      unordered_map<string,string>
+      > prepare_keys(vector<string> nodes = {"localhost:7777",
+                                             "localhost:7778",
+                                             "localhost:7779"}
+                     ){
   /*
-
     🐢 : To initialize a valid SslMsgMgr, we need to prepare something. Namely:
 
     1. a key pair for CA (ca_sk,ca_pk)
@@ -337,14 +348,12 @@ BOOST_AUTO_TEST_CASE(test_ctor_ok){
 
   // 1. generate the key pair for CA
   UniquePtr<EVP_PKEY> ca_sk(EVP_PKEY_Q_keygen(NULL, NULL, "ED25519"));
-  // UniquePtr<EVP_PKEY> ca_pk = SslMsgMgr::extract_public_key(ca_sk.get());
+  string ca_pk_pem = SslMsgMgr::dump_key_to_pem(ca_sk.get(),false /* is_secret*/);
 
   // 2. generate the key pair for each node and sign
   unordered_map<string,UniquePtr<EVP_PKEY>> node_sks;
   unordered_map<string,string> node_certs;
-  for (string s : {"localhost:7777",
-                   "localhost:7778",
-                   "localhost:7779"}){
+  for (string s : nodes){
     UniquePtr<EVP_PKEY> sk(EVP_PKEY_Q_keygen(NULL, NULL, "ED25519"));
     string pk_pem = SslMsgMgr::dump_key_to_pem(sk.get(), false /*is_secret*/);
     string sig = SslMsgMgr::do_sign(ca_sk.get(),pk_pem);       // sign the pk pem
@@ -353,58 +362,59 @@ BOOST_AUTO_TEST_CASE(test_ctor_ok){
     node_sks[s] = std::move(sk); // save the secret key
   }
 
+  return make_tuple(std::move(ca_sk), ca_pk_pem,std::move(node_sks), node_certs);
+}
 
+BOOST_AUTO_TEST_CASE(test_ctor_ok){
+  auto [ca_sk, ca_pk_pem, node_sks, node_certs] = prepare_keys();
+  // Now we can initialize the SslMsgMgr
   /*
-    3.
 
-    🦜 : Now suppose we are node N0 (localhost:7777), what do we need?
-
-    🐢 : We need to know the following:
-
-       1. CA's public key (ca_pk)
-       2. N0's key pair (n0_sk, n0_pk)
-       3. peer's public key (n1_pk, n2_pk, ...)
-       4. peer's cert (n1_sig, n2_sig, ...)
-
-
-    Also note that, SslMsgMgr only accepts string(and maps of strings), so we
-    might need to do some conversion for the keys and certs.
-
-    🦜 : Okay...so what conversion do we need to do? `node_certs` doesn't need
-    any.
-
-       1. ca_pk -> ca_pk_pem
-       2. n0_sk -> n0_sk_pem
-       3. for each peer, pk -> pk_pem
-
-   */
-
-  string ca_pk_pem = SslMsgMgr::dump_key_to_pem(ca_sk.get(), false /*is_secret*/);
-  string my_sk_pem = SslMsgMgr::dump_key_to_pem(node_sks["localhost:7777"].get(), true /*is_secret*/);
-  unordered_map<string,string> peer_pks_pem;
-  for (const auto & [k,v] : node_sks){
-    peer_pks_pem[k] = SslMsgMgr::dump_key_to_pem(v.get(), false /*is_secret*/);
-  }
-
-  // 4. Now we can initialize the SslMsgMgr
-  /*
     explicit SslMsgMgr(string my_sk_pem,
-    string my_addr_port_str,
-    unordered_map<string,string> peers_pk_pems,
-    unordered_map<string,string> peers_cert_strs = {},
-    string ca_pk_pem = ""
-                       )
+                string my_addr_port_str,
+                string mmy_cert = "",
+                string ca_pk_pem = "")
+
    */
 
-  // SslMsgMgr m(my_sk_pem,
-  //             "localhost:7777",
-  //             peer_pks_pem,
-  //             node_certs,
-  //             ca_pk_pem);
+  string my_sk_pem = SslMsgMgr::dump_key_to_pem(node_sks.at("localhost:7777").get(), true /*is_secret*/);
+  SslMsgMgr m(my_sk_pem, "localhost:7777", node_certs["localhost:7777"], ca_pk_pem);
+  BOOST_REQUIRE(m.we_check_cert());
+}
 
-  // BOOST_REQUIRE(m.we_check_cert());
+BOOST_AUTO_TEST_CASE(test_ssl_msgMgr_basic){
+  vector<string> nodes = {"localhost:7777", "localhost:7778", "localhost:7779"};
+  auto [ca_sk, ca_pk_pem, node_sks, node_certs] = prepare_keys(nodes);
 
-  }
+  // Initialize N0
+  string my_sk_pem = SslMsgMgr::dump_key_to_pem(node_sks.at(nodes[0]).get(), true /*is_secret*/);
+  SslMsgMgr m0(my_sk_pem, nodes[0], node_certs[nodes[0]], ca_pk_pem);
+
+  // Init N1
+  my_sk_pem = SslMsgMgr::dump_key_to_pem(node_sks.at(nodes[1]).get(), true /*is_secret*/);
+  SslMsgMgr m1(my_sk_pem, nodes[1], node_certs[nodes[1]], ca_pk_pem);
+
+
+  // --------------------------------------------------
+  // N0 signs and N1 verifies
+  string msg = "abc";
+  string data = m0.prepare_msg(std::move(msg));
+  auto r = m1.tear_msg_open(data);
+  BOOST_REQUIRE(r);
+
+  auto [from, msg1] = r.value();
+  BOOST_CHECK_EQUAL(from,m0.my_endpoint());
+  BOOST_CHECK_EQUAL(msg1,"abc");
+
+  // N0 should also be able th unpack it
+  r = m0.tear_msg_open(data);
+  BOOST_REQUIRE(r);
+
+  // 🦜 : If you fiddle with the data, the verification will fail
+  data = data + "123";
+  r = m1.tear_msg_open(data);
+  BOOST_CHECK(not r);
+}
 
 BOOST_AUTO_TEST_SUITE_END(); //test_SslMsgMgr
 

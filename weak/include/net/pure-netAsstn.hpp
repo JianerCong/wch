@@ -318,6 +318,8 @@ namespace pure{
      * my_addr_port_str The endpoint of this node, in the form of <addr>:<port>
      * @param ca_pk_str The public key of the CA, in PEM format.If not provided,
      * all public keys are trusted. (so everyone can join)
+     * 
+     * @param mmy_cert The certificate of this endpoint, should be issued by the CA.
      *
      * 🦜 : It's always a tough decision to decide whether we should load things
      * from file or from string.
@@ -337,7 +339,7 @@ namespace pure{
       my_addr_port(my_addr_port_str),
       my_cert(mmy_cert)
     {
-
+      BOOST_LOG_TRIVIAL(trace) <<  "🌱 Initializing " S_CYAN "SslMsgMgr" S_NOR;
       // 1. init the ca_public_key is provided
       if (not ca_pk_pem.empty()){
         auto r = load_key_from_pem(ca_pk_pem,false);
@@ -418,7 +420,7 @@ namespace pure{
        */
       auto [from_pk_pem, from_addr_port, from_cert] = r.value();
       if (not test_trusted_peer(from_pk_pem, from_cert)){
-        BOOST_LOG_TRIVIAL(warning) <<  "⚠️ Untrusted peer: " << from_pk_pem;
+        BOOST_LOG_TRIVIAL(warning) <<  S_MAGENTA "⚠️ Untrusted peer: " << from_pk_pem << S_NOR;
         return {};
       }
 
@@ -426,9 +428,8 @@ namespace pure{
       /*
         3. finally, verify the signature
        */
-
       if (not SslMsgMgr::do_verify(from_pk_pem,d.data,d.sig)){
-        BOOST_LOG_TRIVIAL(warning) <<  "⚠️ Signature verification failed";
+        BOOST_LOG_TRIVIAL(warning) <<  S_MAGENTA "⚠️ Signature verification failed" S_NOR;
         return {};
       }
 
@@ -653,12 +654,13 @@ namespace pure{
     static optional<string> extract_addr_and_port_from_endpoint(const string & endpoint){
       /*
         🦜 : parse the endpoint, which should have the form
-        "<pk><addr:port><"">". It should be created from something like:
+        "<pk><addr:port><crt-of-pk>". It should be created from something like:
 
-        string pk,e, endpoint;
+        string pk,e, endpoint,crt;
         pk = my_public_key();
+        crt = my_cert();
         e = IPBasedHttpNetAsstn::combine_addr_port("my_endpoint",1234);
-        endpoint = SignedData.serialize_3_strs(pk,e,"");
+        endpoint = SignedData.serialize_3_strs(pk,e,crt);
 
         🐢 : Note that, in this function, we ignored the "pk"
       */
@@ -671,7 +673,7 @@ namespace pure{
       string addr_and_port;
       std::tie(std::ignore, /*pk is ignored*/
                addr_and_port,/*<addr>:<port>*/
-               std::ignore /*should be empty*/) = r.value();
+               std::ignore /*crt is ignored*/) = r.value();
 
       return addr_and_port;
     }
