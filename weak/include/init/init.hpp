@@ -525,9 +525,9 @@ namespace weak{
 
         // 4.2 net
         {
-          string endpoint = IPBasedHttpNetAsstn::combine_addr_port(o.my_address,o.port);
-          BOOST_LOG_TRIVIAL(info) << format("\t⚙️ using p2p endpoint: " S_CYAN "%s" S_NOR) % endpoint;
-          string endpoint_for_cnsss = ::pure::SignedData::serialize_3_strs("<mock-pk>",endpoint,"");
+          string my_addr_port = IPBasedHttpNetAsstn::combine_addr_port(o.my_address,o.port);
+          BOOST_LOG_TRIVIAL(info) << format("\t⚙️ using p2p addr_port: " S_CYAN "%s" S_NOR) % my_addr_port;
+          string endpoint_for_cnsss = ::pure::SignedData::serialize_3_strs("<mock-pk>",my_addr_port,"");
 
           struct {
             shared_ptr<::pure::NaiveMsgMgr> naive;

@@ -6,6 +6,8 @@
 #pragma once
 #include "cnsss/pure-forCnsss.hpp"
 
+#include <string>
+#include <vector>
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/lockfree/spsc_queue.hpp>
@@ -251,7 +253,17 @@ namespace pure{
   };                            // class NaiveMsgMgr
 
   // --------------------------------------------------
-  // the openssl_helper
+  /*
+    the openssl_helper
+
+    🦜 : These are the helper class that helps us manage the openssl stuff.
+
+    🐢 : Where did you learn this?
+
+    🦜 : An online tutorial, which I find quite useful, it tought how to use c++
+    style smart pointers to manage the openssl stuff.
+
+   */
   template<class T> struct DeleterOf;
   template<> struct DeleterOf<BIO> { void operator()(BIO *p) const { BIO_free_all(p); }};
   template<> struct DeleterOf<EVP_PKEY> {void operator()(EVP_PKEY *p) const { EVP_PKEY_free(p); }};
@@ -296,34 +308,16 @@ namespace pure{
     UniquePtr<EVP_PKEY> ca_public_key;
 
     UniquePtr<EVP_PKEY> my_secret_key;
-    UniquePtr<EVP_PKEY> my_public_key;
-
     string my_addr_port;
-
-    // the public keys of peers, k = <addr:port>, v = <public key>
-    unordered_map<string,UniquePtr<EVP_PKEY>> peers_public_keys;
-
+    string my_cert;
 
     /**
      * @brief Construct a new SslMsgMgr object
      *
-     * @param my_sk_str The secret key of this node, in PEM format.
-     * @param my_addr_port_str The endpoint of this node, in the form of <addr>:<port>
-     * @param peers_pk_strs The public keys of peers, in the form of <addr>:<port> ⇒ <public key>
-     *
-     * @param peers_cert_strs Optional, the certificates of peers, in the form
-     * of <addr>:<port> ⇒ <cert>, this is used to verify whether the peer is
-     * trusted. If this is provided, `ca_public_key` should also be provided.
-     * The certifcate should be issued by the provided CA (whose public key is
-     * in ca_pk_str). The certificate is in raw bytes, which is just CA's signature
-     * of the public key.
-     *
-     * 🐢 : Note that this will not be stored in the RAM, it's just used to test
-     * whether we can safely add a peer into our `peers_public_keys`.
-     *
-     * @param ca_pk_str The public key of the CA, in PEM format. This and
-     * `peers_cert_strs` should be provided (or left empty) at the same time. If
-     * not provided, all public keys are trusted. (so everyone can join)
+     * @param my_sk_str The secret key of this node, in PEM format. @param
+     * my_addr_port_str The endpoint of this node, in the form of <addr>:<port>
+     * @param ca_pk_str The public key of the CA, in PEM format.If not provided,
+     * all public keys are trusted. (so everyone can join)
      *
      * 🦜 : It's always a tough decision to decide whether we should load things
      * from file or from string.
@@ -337,11 +331,12 @@ namespace pure{
      */
     explicit SslMsgMgr(string my_sk_pem,
                        string my_addr_port_str,
-                       unordered_map<string,string> peers_pk_pems,
-                       unordered_map<string,string> peers_cert_strs = {},
+                       string mmy_cert = "",
                        string ca_pk_pem = ""
                        ):
-      my_addr_port(my_addr_port_str){
+      my_addr_port(my_addr_port_str),
+      my_cert(mmy_cert)
+    {
 
       // 1. init the ca_public_key is provided
       if (not ca_pk_pem.empty()){
@@ -363,15 +358,6 @@ namespace pure{
         BOOST_THROW_EXCEPTION(std::runtime_error("❌ Error reading my secret key:\n" + my_sk_pem));
       }
       this->my_secret_key = std::move(r.value());
-
-      // 3. for each key in peers_pk_pems, load it and verify it.
-      for (auto [k,v]: peers_pk_pems){
-        if (not peers_cert_strs.contains(k))
-          BOOST_THROW_EXCEPTION(std::runtime_error("certificate not found for peer pkey :\n" + v + "\nfrom " + k));
-        if (not try_add_trusted_peer(k, v, peers_pk_pems[k])){
-          BOOST_THROW_EXCEPTION(std::runtime_error("Failed to add peer key:\n" + v));
-        }
-      }
     }
 
     /**
@@ -381,7 +367,7 @@ namespace pure{
       return this->ca_public_key.get() != nullptr;
     }
 
-    bool try_add_trusted_peer(string addr_port, string pk_pem, string cert) noexcept {
+    bool test_trusted_peer(string pk_pem, string cert) const noexcept {
 
       if (we_check_cert()){
         // 1. verify that the cert = CA.sign(pk_pem)
@@ -390,19 +376,69 @@ namespace pure{
           return false;
         }
       }
+      return true;
+    }
 
-      /*
-        2. add that pk to peers_public_keys (🦜 : It turns out this can also be
-        used to update pkey...).
-       */
-      auto r = load_key_from_pem(pk_pem, false);
+    /**
+     * @brief Package the data
+     *
+     * 🦜 : This should pass the SignedData (ep, sig_of_data, data)
+     * the endpoint tells the public key and the address usually formed as:
+     *
+     * string endpoint = ::pure::SignedData::serialize_3_strs("<my-pk-pem>","localhost:1234","<my-cert>");
+     */
+    string prepare_msg(string && data)const noexcept override{
+      string sig = SslMsgMgr::do_sign(this->my_secret_key.get(),data);
+
+      return SignedData(this->my_endpoint(),sig,data).toString();
+    }
+
+    optional<tuple<string,string>> tear_msg_open(string_view msg)const noexcept override {
+      // BOOST_LOG_TRIVIAL(debug) << format("tearing msg open");
+      SignedData d;
+      if (not d.fromString(msg))
+        return {};              // failed to parse data
+
+      // --------------------------------------------------
+      // get the from <endpoint>
+      auto r = ::pure::SignedData::parse_3_strs(d.from);
       if (not r){
-        BOOST_LOG_TRIVIAL(error) <<  S_RED "❌️ Error load key from pem: " << pk_pem << S_NOR;
-        return false;
+        BOOST_LOG_TRIVIAL(warning) <<  "⚠️ Wrong format for <endpoint>";
+        return {};
       }
 
-      this->peers_public_keys[addr_port] = std::move(r.value());
-      return true;
+      // --------------------------------------------------
+      /*
+        2. verify the peer
+
+        🐢 : Yeah.. It seems so, because we can't actually verify that the pk
+        here is valid or not, because that requires a special signiture just for
+        that. wait, why don't we just encode the sig in the endpoint?
+
+       */
+      auto [from_pk_pem, from_addr_port, from_cert] = r.value();
+      if (not test_trusted_peer(from_pk_pem, from_cert)){
+        BOOST_LOG_TRIVIAL(warning) <<  "⚠️ Untrusted peer: " << from_pk_pem;
+        return {};
+      }
+
+      // --------------------------------------------------
+      /*
+        3. finally, verify the signature
+       */
+
+      if (not SslMsgMgr::do_verify(from_pk_pem,d.data,d.sig)){
+        BOOST_LOG_TRIVIAL(warning) <<  "⚠️ Signature verification failed";
+        return {};
+      }
+
+      return make_tuple(d.from,d.data);
+    }
+
+    string my_endpoint()const noexcept override{
+      static string my_pk_pem = dump_key_to_pem(this->my_secret_key.get(), false /*is_secret*/);
+      static string ep = ::pure::SignedData::serialize_3_strs(my_pk_pem, this->my_addr_port,this->my_cert);
+      return ep;
     }
 
     /**
@@ -518,6 +554,16 @@ namespace pure{
 
       return r == 1;
     }
+
+    static bool do_verify(string ed_key_pem, string msg, string sig){
+      auto r = load_key_from_pem(ed_key_pem,false);
+      if (not r){
+        BOOST_LOG_TRIVIAL(error) << S_RED "❌️ Error reading public key" S_NOR;
+        return false;
+      }
+      return do_verify(r.value().get(),msg,sig);
+    }
+
 
 
     /**
