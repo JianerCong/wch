@@ -13,6 +13,58 @@
 
 namespace pure{
 
+  /**
+   * @brief The ticket to send to the newcomer:
+   */
+  class YouAreInTicket: virtual public IJsonizable, virtual public ISerializable {
+  public:
+    string msg;
+    vector<string> command_history;
+
+    YouAreInTicket() = default;
+    YouAreInTicket(string m, vector<string> c): msg(m), command_history(c){};
+
+    string toString() const noexcept override {
+      return IJsonizable::toJsonString();
+    }
+
+    bool fromString(string_view s) noexcept override{
+      BOOST_LOG_TRIVIAL(debug) <<  "Forming YouAreInTicket from string.";
+      return IJsonizable::fromJsonString(s);
+    }
+
+    json::value toJson() const noexcept override {
+      return json::value_from(*this);
+    }
+
+    bool fromJson(const json::value &v) noexcept override {
+      BOOST_LOG_TRIVIAL(debug) << format("Forming LaidDownMsg from Json");
+      try {
+        this->msg = value_to<string>(v.at("msg"));
+        this->command_history = value_to<vector<string>>(v.at("command_history"));
+      }catch (std::exception &e){
+        BOOST_LOG_TRIVIAL(error) << format("❌️ error parsing json:" S_RED " %s" S_NOR) % e.what();
+        return false;
+      }
+      BOOST_LOG_TRIVIAL(trace) << "YouAreInTicket formed.";
+      return true;
+    }
+  };
+
+  // json functions for LaidDownMsg
+  // 🦜 : Defining this method allows us to use json::serialize(value_from(t))
+  void tag_invoke(json::value_from_tag, json::value& jv, YouAreInTicket const& c ){
+    jv = {
+      {"msg", c.msg},
+      {"command_history", json::value_from(c.command_history)}
+    };
+  }
+
+
+  // This helper function deduces the type and assigns the value with the matching key
+  // 🦜 : Defining this allows us to use json::value_to<A>
+  ADD_FROM_JSON_TAG_INVOKE(YouAreInTicket);
+
   class ListenToOneConsensus:
     public virtual ICnsssPrimaryBased,
     public std::enable_shared_from_this<ListenToOneConsensus> // define shared_from_this()
@@ -97,22 +149,16 @@ namespace pure{
     optional<string> handle_add_new_node(string endpoint, string data){
       // BOOST_LOG_TRIVIAL(trace) << format("🐸 Adding new node");
       this->known_subs.push_back(string(endpoint));
-      json::object o;
-      // BOOST_LOG_TRIVIAL(trace) << format("🐸 Adding msg");
-      string msg = (format("Dear %s, you're in. %s") % endpoint % this->net->listened_endpoint()).str();
-      // BOOST_LOG_TRIVIAL(trace) << format("msg = %s") % msg;
-      o.emplace("msg",msg);
 
-      // BOOST_LOG_TRIVIAL(trace) << format("🐸 Adding cmds");
-      o.emplace("command_history",
-                json::value_from(this->command_history));
-      // boost::json knows about vector
-      return json::serialize(o);                // produces "[1,2,3]"
+      // 🦜 : Send the newcomer a ticket
+      string msg = (format("Dear %s, you're in. %s") % endpoint % this->net->listened_endpoint()).str();
+      YouAreInTicket t(msg,this->command_history);
+      return t.toString();
     };
 
     optional<string> handle_execute_for_primary(string endpoint,
                                                 string data) override{
-      
+
       this->exe->execute(data); // This may modify the `data`
       this->command_history.push_back(string(data));
 
@@ -152,12 +198,12 @@ namespace pure{
       if (not r)
         throw std::runtime_error("Failed to join the group");
 
-      json::error_code ec;
-      json::value jv = json::parse(r.value(), ec);
-      if (ec)
-        throw std::runtime_error("Wrong answer from the primary.");
+      // Get the ticket
+      YouAreInTicket t;
+      if (not t.fromString(r.value()))
+        throw std::runtime_error("Failed to parse the ticket from primary");
 
-      vector<string> cmds = json::value_to<vector<string>>(jv.as_object().at("command_history"));
+      vector<string> cmds = t.command_history;
 
       for (string & cmd : cmds){
         this->exe->execute(cmd);
@@ -204,7 +250,6 @@ namespace pure{
 
 
 namespace mock{
-
   using namespace pure;
   unordered_map<string,
                 function<optional<string>(string,string)>

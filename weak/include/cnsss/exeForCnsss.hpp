@@ -182,7 +182,7 @@ namespace weak {
    * In LightExecutorForCnsss, we embed the sealer into ADD_TXS(). So every time
    * the primary receives the ADD_TXS():
    *
-   *    1. It verifies which of the received Txs are valid bu dropping then into
+   *    1. It verifies which of the received Txs are valid by dropping then into
    *    the pool, and poping them (some of them) out of the pool.
    *
    *    2. It then seals a Blk for these valid Txs.(🦜 : Oh, then this Executor

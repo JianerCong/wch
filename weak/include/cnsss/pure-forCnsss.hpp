@@ -23,6 +23,14 @@
 
 #include "../pure-common.hpp"
 
+// colors
+#define S_RED     "\x1b[31m"
+#define S_GREEN   "\x1b[32m"
+#define S_YELLOW  "\x1b[33m"
+#define S_BLUE    "\x1b[34m"
+#define S_MAGENTA "\x1b[35m"
+#define S_CYAN    "\x1b[36m"
+#define S_NOR "\x1b[0m"
 
 namespace pure {
 
@@ -126,31 +134,20 @@ namespace pure {
   public:
     virtual string execute(string & cmd)noexcept =0;
   };
+} // namespace pure
 
-
-  // colors
-#define S_RED     "\x1b[31m"
-#define S_GREEN   "\x1b[32m"
-#define S_YELLOW  "\x1b[33m"
-#define S_BLUE    "\x1b[34m"
-#define S_MAGENTA "\x1b[35m"
-#define S_CYAN    "\x1b[36m"
-#define S_NOR "\x1b[0m"
-
-  namespace mock{
-    using namespace pure;
-    class Executable: public virtual IForConsensusExecutable{
-    public:
-      string id;
-      Executable(string i):id(i){};
-      string execute(string & cmd) noexcept override{
-        BOOST_LOG_TRIVIAL(debug) << format(S_RED "🦜 [%s] Exec: %s" S_NOR)
-          % this->id % cmd;
-        return "OK";
-      };
-
-      virtual ~Executable(){};
+namespace mock{
+  using namespace pure;
+  class Executable: public virtual IForConsensusExecutable{
+  public:
+    string id;
+    Executable(string i):id(i){};
+    string execute(string & cmd) noexcept override{
+      BOOST_LOG_TRIVIAL(debug) << format(S_RED "🦜 [%s] Exec: %s" S_NOR)
+        % this->id % cmd;
+      return "OK";
     };
-}
 
+    virtual ~Executable(){};
+  };
 } // namespace pure
