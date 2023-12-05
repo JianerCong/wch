@@ -13,6 +13,7 @@ using std::vector;
 using namespace pure;
 
 #define TRY_REAL_SSL
+// #define WITH_PROTOBUF
 
 #if defined (TRY_REAL_SSL) && defined (WITH_PROTOBUF)
 /*
@@ -34,18 +35,19 @@ struct BftAndColleague{
 
     Therefore, we can get what we need from this endpoint:
    */
-  BftAndColleague(string  s,
+  BftAndColleague(string  mmy_endpoint,
                   vector<string> all_endpoints,
                   /*pass by value (important)*/
+                  string my_sk_pem,
                   string ca_pk_pem = ""
-                  ): my_endpoint(s){
+                  ): my_endpoint(mmy_endpoint){
 
-    auto r = SignedData::parse_3_strs(s);
+    auto r = SignedData::parse_3_strs(mmy_endpoint);
     BOOST_ASSERT(r);
-    auto [my_sk_pem, my_addr_port_str, mmy_cert] = r.value();
+    auto [my_pk_pem, my_addr_port_str, mmy_cert] = r.value();
 
-    this->e = new mock::Executable(s);
-    this->n = new mock::AsyncEndpointNetworkNode(s);
+    this->e = new mock::Executable(mmy_endpoint);
+    this->n = new mock::AsyncEndpointNetworkNode(mmy_endpoint);
     this->s = new SslMsgMgr(my_sk_pem, my_addr_port_str, mmy_cert, ca_pk_pem);
 
     this->nd = RbftConsensus::create(
@@ -65,28 +67,89 @@ struct BftAndColleague{
     delete this->s;
     delete this->n;
   }
-}
+};
 
   struct NodeFactory {
     unordered_map<string,shared_ptr<BftAndColleague>> nodes;
     vector<string> all_endpoints;
     int N;
     // the CA's key
-    UniquePtr<EVP_PKEY> ca;
+    const UniquePtr<EVP_PKEY> ca_sk;
+    string ca_pk_pem() {
+      return SslMsgMgr::dump_key_to_pem(ca_sk.get(), false /*is_secret*/);
+    }
+    /**
+     * @brief Initiaze the cluster with n nodes
+     * @param n the number of nodes
+     *
+     * 🦜 : If there's a function called `make_node()`, then why don't we just
+     * call that function `n` times?
+     *
+     * 🐢 : I think because it's kinda necessary to have a `initial cluster`
+     * first, that is, some nodes be started at the same time, and they all know
+     * each other's endpoints.
+     *
+     * 🦜 : Okay, so what do we need to do in this ctor?
+     *
+     * 🐢 : I think we need to
+     *   1. init the ca key pair.
+     *   2. init the endpoints of n nodes, this includes
+     *      2.1 generate the key pair for each node
+     *      2.2 generate the cert for each node (sign the pk pem of new pair using ca's sk).
+     *      2.3 generate the endpoint string for each node (using the new pk pem and the new cert)
+     */
+    NodeFactory(int n = 2): N(n),
+                            // 1. generate the CA
+                            ca_sk(UniquePtr<EVP_PKEY>(EVP_PKEY_Q_keygen(NULL, NULL, "ED25519")))
+    {
 
-    NodeFactory(int n = 2): N(n){
       BOOST_LOG_TRIVIAL(debug) << "🌱 \tInitial cluster size: " S_CYAN << n << S_NOR ;
+      unordered_map<string,string> ep_to_sk_pem;
+      // first, prepare the endpoints (this is usually filled in a config file)
       for (int i = 0;i<n;i++){
-        this->all_endpoints.push_back((format("N%d") % i).str());
+        // this->all_endpoints.push_back((format("N%d") % i).str());
+        auto [sk_pem,ep] = this->prepare_node();
+        this->all_endpoints.push_back(ep);
+        ep_to_sk_pem[ep] = sk_pem;
       }
 
-      for (const string & s : this->all_endpoints){
-        BOOST_LOG_TRIVIAL(debug) << "\tStarting node" S_CYAN << s << S_NOR;
-        this->nodes[s] = make_shared<BftAndColleague>(s,this->all_endpoints);
+      for (const string & ep : this->all_endpoints){
+        BOOST_LOG_TRIVIAL(debug) << "\tStarting node" S_CYAN << ep.substr(0,4) << S_NOR;
+        this->nodes[ep] = make_shared<BftAndColleague>(ep,this->all_endpoints,
+                                                       ep_to_sk_pem[ep],
+                                                       this->ca_pk_pem()
+                                                       );
       }
 
-      // generate the CA
-      ca = UniquePtr<EVP_PKEY>(EVP_PKEY_Q_keygen(NULL, NULL, "ED25519"));
+    }
+
+    /**
+     * @brief Prepare the key and endpoint for a new node
+     * @return a tuple of <sk_pem, endpoint>
+     *
+     * 🐢: In this method, we:
+     *
+     *    1. generate a new key pair
+     *    2. generate a new certificate (sign the pk pem of new pair using ca's sk).
+     *    3. generate a new endpoint string (using the new pk pem and the new cert)
+     */
+    tuple<string,string> prepare_node(){
+      // 1.
+      UniquePtr<EVP_PKEY> sk(EVP_PKEY_Q_keygen(NULL, NULL, "ED25519"));
+
+      // 2.
+      string pk_pem = SslMsgMgr::dump_key_to_pem(sk.get(), false /*is_secret*/);
+      string sk_pem = SslMsgMgr::dump_key_to_pem(sk.get(), true /*is_secret*/);
+      string cert = SslMsgMgr::do_sign(ca_sk.get(),pk_pem);
+
+      // 3.
+      /*
+        🦜 : I think a mocked <addr:port> here should be fine, be each endpoint
+        only needs to be unique, and the random <pk_pem> should be enough.
+      */
+      string ep = ::pure::SignedData::serialize_3_strs(pk_pem,"<mk>",cert);
+
+      return make_tuple(sk_pem,ep);
     }
 
     /**
@@ -95,31 +158,27 @@ struct BftAndColleague{
      * 🦜 : What do we need to make a new node?
      *
      * 🐢 : We need to
-     *    1. generate a new key pair
-     *    2. generate a new certificate (sign the pk pem of new pair using ca's sk).
-     *    3. generate a new endpoint string (using the new pk pem and the new cert)
-     *    4. make a new BftAndColleague
+     *    1. call prepare_node() to get the sk_pem and the endpoint
+     *    2. make a new BftAndColleague
      * and that's it ?
-     *
-     * 🦜 : Okay, can the sk of this node be safely thrown away?
-     *
-     * 🐢 : I think so, after we passed the sk_pem to the SslMsgMgr, we don't need
-     * it anymore.
      */
     void make_node(){
-      string s = (format("N%d") % this->N).str();
       this->N++;
+      BOOST_LOG_TRIVIAL(debug) <<  "\tAdding node no." S_GREEN <<  this->N << S_NOR;
 
-      BOOST_LOG_TRIVIAL(debug) <<  "\tAdding node " S_GREEN + s + S_NOR;
+      // 1.
+      auto [sk_pem,ep] = this->prepare_node();
+      // 2.
 
       // 🦜 Update the current all_endpoints
       {
         std::unique_lock l(this->nodes.begin()->second->nd->all_endpoints.lock);
         this->all_endpoints = this->nodes.begin()->second->nd->all_endpoints.o;
-      }
 
+      }
       // make the node
-      this->nodes[s] = make_shared<BftAndColleague>(s, this->all_endpoints);
+      this->nodes[ep] = make_shared<BftAndColleague>(ep, this->all_endpoints,
+                                                     sk_pem, this->ca_pk_pem());
     }
 }
 
