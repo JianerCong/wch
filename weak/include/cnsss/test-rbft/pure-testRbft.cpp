@@ -180,7 +180,22 @@ struct BftAndColleague{
       this->nodes[ep] = make_shared<BftAndColleague>(ep, this->all_endpoints,
                                                      sk_pem, this->ca_pk_pem());
     }
-}
+
+    /**
+     * @brief kick the ith node
+     * @param i the index of the node to be kicked
+     */
+    void kick(int i){
+      if (i >= this->all_endpoints.size()){
+        BOOST_LOG_TRIVIAL(debug) << "Trying to kick " S_RED + lexical_cast<string>(i) + S_NOR ", but it doesn't exists. ";
+        return ;
+      }
+
+      string ep = this->all_endpoints[i];
+      this->nodes.erase(ep);
+      BOOST_LOG_TRIVIAL(info) <<  "🚮️ kick " S_RED + ep.substr(0,4) + S_NOR;
+    }
+  };
 
 #else
 struct BftAndColleague{
@@ -299,7 +314,7 @@ void start_cluster(int n){
     }
 
     if (reply == "kick"){
-      string nodeToKick;
+      int nodeToKick;
       cin >> nodeToKick;
       cout << S_MAGENTA << "Kicking node " << nodeToKick
            << "\n" << S_NOR;

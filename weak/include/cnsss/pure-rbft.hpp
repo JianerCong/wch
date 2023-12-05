@@ -943,7 +943,9 @@ public:
           // this->say("down?");
           this->patience--;
           this->say(format(" patience >> " S_MAGENTA "%d " S_NOR ", 🐢: Pr : " S_CYAN "%s" S_NOR)
-                    % this->patience.load() % this->primary());
+                    % this->patience.load() %
+                    RbftConsensus::make_endpoint_human_readable(this->primary())
+                    );
         }
 
         // here the patience is run off
@@ -1393,6 +1395,24 @@ public:
         << cmds
         << " " S_BLUE "<" << this->epoch.load() << ">: " S_NOR
         << s;
+    }
+
+    /**
+     * @brief Make the endpoint string human-readable in case SSL is used.
+     * @param ep The endpoint string. 
+     */
+    static string make_endpoint_human_readable(string ep){
+      // if ep is smaller than 4 bytes, return
+      if (ep.size() < 4)
+        return ep;
+
+      // start from the second char, find the first '\n'
+      auto it = std::find(ep.begin() + 1, ep.end(), '\n');
+      // find the next '\n'
+      auto it2 = std::find(it + 1, ep.end(), '\n');
+
+      // return the four bytes before the second '\n'
+      return string(it2 - 4, it2);
     }
 
     /**

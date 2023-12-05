@@ -44,18 +44,21 @@ if(ENABLE_PROTOBUF)
 
   add_executable(main pure-testRbft.cpp)
 
+  find_package(OpenSSL REQUIRED)
   target_compile_definitions(main PUBLIC WITH_PROTOBUF)
   target_link_libraries(main PUBLIC
     Boost::json
     Boost::log
     protobuf::libprotobuf
     hi_pb
+    OpenSSL::Crypto
   )
 
 
 else()
   add_executable(main pure-testRbft.cpp)
-  target_link_libraries(main PUBLIC Boost::log Boost::json)
+  target_link_libraries(main PUBLIC Boost::log Boost::json
+  )
 endif()
 
 target_include_directories(main PUBLIC ${CMAKE_CURRENT_LIST_DIR}/..)    #include/cnsss
@@ -67,6 +70,7 @@ cd ../../..
 ./build-hi/main 3
 
 # 🦜 : Or manually build
+
 cmake -S weak/include/cnsss/test-rbft -B build-testRbft
 cmake --build build-testRbft
 ./build-testRbft/main 2

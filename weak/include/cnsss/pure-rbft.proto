@@ -1,14 +1,17 @@
 syntax = "proto3";
 package hiPb;
 
+/*
+  🦜 : Because the <endpoint> is binary, msg must be binary too.
+ */
 message LaidDownMsg {
-  string msg = 1;
+  bytes msg = 1;
   int32 epoch = 2;
   string state = 3;
 }
 
 message NewViewCertificate{
-  string msg = 1;
+  bytes msg = 1;
   int32 epoch = 2;
   repeated bytes new_view_certificate = 3;
   /*
