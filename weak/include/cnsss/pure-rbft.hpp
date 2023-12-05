@@ -176,6 +176,9 @@ namespace pure{
    */
   class NewViewCertificate:
     virtual public IJsonizable,
+#ifdef WITH_PROTOBUF
+    virtual public ISerializableInPb,
+#endif
     virtual public ISerializable
   {
   public:
@@ -215,19 +218,9 @@ namespace pure{
       cmds(ccmds)
     {}
 
-    string toString() const noexcept override {
-      return IJsonizable::toJsonString();
-    }
-
-    bool fromString(string_view s) noexcept override{
-      BOOST_LOG_TRIVIAL(debug) <<  "Forming NewViewCertificate from string.";
-      return IJsonizable::fromJsonString(s);
-    }
-
     json::value toJson() const noexcept override {
       return json::value_from(*this);
     };
-
     bool fromJson(const json::value &v) noexcept override {
       BOOST_LOG_TRIVIAL(debug) << format("Forming NewViewCertificate from Json");
 
@@ -245,6 +238,51 @@ namespace pure{
       }
       return true;
     }
+
+    ADD_TO_FROM_STR_WITH_JSON_OR_PB // defines the to/fromString() methods
+
+#ifdef WITH_PROTOBUF
+    /*
+      🦜 : If we have protobuf, we can use that to serialize the object.
+    */
+    bool fromPbString(string_view s) noexcept override {
+      hiPb::NewViewCertificate o;
+      bool ok = o.ParseFromString(string(s));
+      if (not ok){
+        BOOST_LOG_TRIVIAL(error) << "Failed to parse NewViewCertificate from string";
+        return false;
+      }
+      this->msg = o.msg();
+      this->epoch = o.epoch();
+
+      // copy
+      this->new_view_certificate = vector<string>(o.new_view_certificate().begin(),
+                                                  o.new_view_certificate().end());
+      this->sig_of_nodes_to_be_added = vector<string>(o.sig_of_nodes_to_be_added().begin(),
+                                                      o.sig_of_nodes_to_be_added().end());
+      this->cmds = vector<string>(o.cmds().begin(),
+                                  o.cmds().end());
+    }
+
+    string toPbString() const override {
+      hiPb::NewViewCertificate o;
+      o.set_msg(this->msg);
+      o.set_epoch(this->epoch);
+
+      // copy
+      for (auto s : this->new_view_certificate)
+        o.add_new_view_certificate(s);
+
+      for (auto s : this->sig_of_nodes_to_be_added)
+        o.add_sig_of_nodes_to_be_added(s);
+
+      for (auto s : this->cmds)
+        o.add_cmds(s);
+
+      return o.SerializeAsString();
+    }
+#endif
+
   };                          // class New_view_certificate
 
   // json functions for NewViewCertificate

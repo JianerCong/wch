@@ -134,9 +134,8 @@ namespace pure {
   public:
     virtual string execute(string & cmd)noexcept =0;
   };
-} // namespace pure
 
-namespace mock{
+  namespace mock{
   using namespace pure;
   class Executable: public virtual IForConsensusExecutable{
   public:
@@ -150,4 +149,7 @@ namespace mock{
 
     virtual ~Executable(){};
   };
+} // namespace mock
 } // namespace pure
+
+
