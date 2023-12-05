@@ -23,6 +23,7 @@ if(ENABLE_PROTOBUF)
   find_package(Protobuf CONFIG REQUIRED)
 
   add_library(hi_pb "${CMAKE_CURRENT_LIST_DIR}/../pure-rbft.proto")
+
   set(o "${CMAKE_CURRENT_LIST_DIR}/../.generated_pb")
   # mkdir first
   file(MAKE_DIRECTORY "${o}")
@@ -38,9 +39,10 @@ if(ENABLE_PROTOBUF)
     # generated files = ${PROTOC_OUT_DIR}/hi/hi.pb.h|cc
     PROTOC_OUT_DIR "${o}"
   )
+  target_link_libraries(hi_pb PUBLIC protobuf::libprotobuf)
+  message("🐸 HI_PB_SRC: ${HI_PB_SRC}")
 
   add_executable(main pure-testRbft.cpp)
-  target_include_directories(main PUBLIC ..)
 
   target_compile_definitions(main PUBLIC WITH_PROTOBUF)
   target_link_libraries(main PUBLIC
@@ -50,19 +52,24 @@ if(ENABLE_PROTOBUF)
     hi_pb
   )
 
+
 else()
   add_executable(main pure-testRbft.cpp)
-  target_include_directories(main PUBLIC ${CMAKE_CURRENT_LIST_DIR}/..)
-  target_include_directories(main PUBLIC ${CMAKE_CURRENT_LIST_DIR}/../..)
   target_link_libraries(main PUBLIC Boost::log Boost::json)
 endif()
 
+target_include_directories(main PUBLIC ${CMAKE_CURRENT_LIST_DIR}/..)    #include/cnsss
+target_include_directories(main PUBLIC ${CMAKE_CURRENT_LIST_DIR}/../..) #include/
 #[=[
 
 cd ../../..
 . ./s-options.sh ./weak/include/cnsss/test-rbft ./weak
+./build-hi/main 3
+
+# 🦜 : Or manually build
 cmake -S weak/include/cnsss/test-rbft -B build-testRbft
 cmake --build build-testRbft
-./build-hi/main 2
-./build-hi/main 3
+./build-testRbft/main 2
+./build-testRbft/main 3
+
 #]=]

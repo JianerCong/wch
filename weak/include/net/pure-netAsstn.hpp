@@ -84,6 +84,8 @@ namespace pure{
     virtual optional<tuple<string,string>> tear_msg_open(string_view msg /*throw a string in */
                                                          )const noexcept =0;
     virtual string my_endpoint()const noexcept=0;
+
+    virtual ~IMsgManageable() = default; // 🦜 : This is a virtual d'tor, we kinda need it for the linter..
   };                              // class IMsgManageable
 
   /**
@@ -249,7 +251,6 @@ namespace pure{
     string my_endpoint()const noexcept override{
       return this->ep;
     }
-
   };                            // class NaiveMsgMgr
 
   // --------------------------------------------------

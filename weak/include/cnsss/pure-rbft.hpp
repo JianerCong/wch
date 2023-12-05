@@ -140,6 +140,7 @@ namespace pure{
       this->msg = o.msg();
       this->epoch = o.epoch();
       this->state = o.state();
+      return true;
     }
 
     string toPbString() const override {
@@ -262,6 +263,7 @@ namespace pure{
                                                       o.sig_of_nodes_to_be_added().end());
       this->cmds = vector<string>(o.cmds().begin(),
                                   o.cmds().end());
+      return true;
     }
 
     string toPbString() const override {

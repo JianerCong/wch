@@ -140,7 +140,12 @@ namespace pure {
   class Executable: public virtual IForConsensusExecutable{
   public:
     string id;
-    Executable(string i):id(i){};
+    Executable(string i){
+      if (i.size() > 4)
+        this->id = i.substr(0,4);
+      else
+        this->id = i;
+    };
     string execute(string & cmd) noexcept override{
       BOOST_LOG_TRIVIAL(debug) << format(S_RED "🦜 [%s] Exec: %s" S_NOR)
         % this->id % cmd;
