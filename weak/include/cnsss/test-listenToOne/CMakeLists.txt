@@ -55,14 +55,13 @@ if(ENABLE_PROTOBUF)
   add_executable(main pure-testListenToOne.cpp)
   target_include_directories(main PUBLIC ..)
 
+  target_compile_definitions(main PUBLIC WITH_PROTOBUF)
   target_link_libraries(main PUBLIC
     Boost::json
     Boost::log
     protobuf::libprotobuf
     hi_pb
   )
-
-  target_compile_definitions(main PUBLIC WITH_PROTOBUF)
 
 else()
   add_executable(main pure-testListenToOne.cpp)
@@ -75,8 +74,8 @@ endif()
 #[=[
 
 cd ../../..
+rm -rf build-testListenToOneConsensus
 cmake -S weak/include/cnsss/test-listenToOne -B build-testListenToOneConsensus
 cmake --build build-testListenToOneConsensus
-rm -rf build-testListenToOneConsensus
 ./build-testListenToOneConsensus/main
 #]=]

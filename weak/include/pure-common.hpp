@@ -26,10 +26,6 @@
 #include <tuple>
 #include <unordered_map>
 
-#ifdef WITH_PROTOBUF
-#include <google/protobuf/message.h>
-#endif
-
 namespace pure{
   using std::vector;
   using std::shared_ptr;
@@ -91,11 +87,12 @@ namespace pure{
   };
 
   class ISerializable{
+  public:
     virtual bool fromString(string_view s) noexcept =0;
     virtual string toString() const noexcept =0;
   };
 
-  #ifdef WITH_PROTOBUF
+#ifdef WITH_PROTOBUF
   /**
    * @brief The interface for serializing to and from protobuf.
    *
@@ -106,26 +103,14 @@ namespace pure{
    * Then it will get a method toPbString(). (for free.)
    */
   class ISerializableInPb{
+  public:
     virtual bool fromPbString(string_view s) noexcept =0;
-    virtual google::protobuf::Message toPb() const noexcept =0;
-    string toPbString() const {
-      string s;
-      bool ok = this->toPb().SerializeToString(&s);
-      BOOST_ASSERT(ok);
-      return s;
-    }
-
-    // 🦜 : In fact, we can teach ostream how to display an ISerializableInPb
-    friend std::ostream& operator<<(std::ostream& os, const ISerializableInPb& I){
-      os << I.toPb().DebugString();
-      return os;
-    };
+    virtual string toPbString() const = 0;
   };
-  #endif
+#endif
 
   namespace json = boost::json;
   using json::value_to;
-
 
 
 
@@ -197,7 +182,7 @@ public:
 void boost::assertion_failed_msg(char const * expr, char const * function,
                                  char const * msg, char const * file, long line){
   std::string s = (format("❌️ [%s]\n\tassertion %s has failed. (func=%s,file=%s,line=%ld)")
-              % msg % expr % function % file % line).str();
+                   % msg % expr % function % file % line).str();
   BOOST_THROW_EXCEPTION(my_assertion_error(s));
 }
 
@@ -208,3 +193,39 @@ void boost::assertion_failed(char const * expr, char const * function,
                    % expr % function % file % line).str();
   BOOST_THROW_EXCEPTION(my_assertion_error(s));
 }
+
+/**
+ * @brief ADD_FROM_STR_WITH_JSON_OR_PB
+ *
+ *   🐢 : This pattern is common enough that we think it's worth a macro.
+ *
+ *   🦜 : What does this macro do?
+ *
+ *   🐢 : It defines two methods: toString() and fromString(). It uses protobuf
+ *   if WITH_PROTOBUF is defined, otherwise it uses json.
+ */
+#ifdef WITH_PROTOBUF
+/*
+  🦜 : Why we can't write ISerializableInPb::fromPbString() just like in
+  Json?
+
+  🐢 : Because ::toJsonString() is a concrete method (although it calls the
+  virtual method ::toPbString()). But ::fromPbString() is a virtual method,
+  so the loader ld will complain...
+*/
+#define ADD_TO_FROM_STR_WITH_JSON_OR_PB             \
+  string toString() const noexcept override {       \
+    return this->toPbString();                      \
+  }                                                 \
+  bool fromString(string_view s) noexcept override{ \
+    return this->fromPbString(s);                   \
+  }
+#else
+#define ADD_TO_FROM_STR_WITH_JSON_OR_PB             \
+  string toString() const noexcept override {       \
+    return IJsonizable::toJsonString();             \
+  }                                                 \
+  bool fromString(string_view s) noexcept override{ \
+    return IJsonizable::fromJsonString(s);          \
+  }
+#endif

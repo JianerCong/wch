@@ -1,7 +1,7 @@
 #pragma once
 
+// #define WITH_PROTOBUF
 #include "pure-forCnsss.hpp"
-#include "./.generated_pb/pure-listenToOne.pb.h"
 // colors
 #define S_RED     "\x1b[31m"
 #define S_GREEN   "\x1b[32m"
@@ -11,13 +11,22 @@
 #define S_CYAN    "\x1b[36m"
 #define S_NOR "\x1b[0m"
 
+
+#ifdef WITH_PROTOBUF
+#include "./.generated_pb/pure-listenToOne.pb.h"
+#include <google/protobuf/message.h>
+#endif
+
 namespace pure{
 
   /**
    * @brief The ticket to send to the newcomer:
    */
   class YouAreInTicket: virtual public IJsonizable,
-                        virtual public ISerializable,
+                        #ifdef WITH_PROTOBUF
+                        virtual public ISerializableInPb,
+                        #endif
+                        virtual public ISerializable
   {
   public:
     string msg;
@@ -26,14 +35,35 @@ namespace pure{
     YouAreInTicket() = default;
     YouAreInTicket(string m, vector<string> c): msg(m), command_history(c){};
 
-    string toString() const noexcept override {
-      return IJsonizable::toJsonString();
+    ADD_TO_FROM_STR_WITH_JSON_OR_PB // defines the to/fromString() methods
+
+    #ifdef WITH_PROTOBUF
+    /*
+      🦜 : If we have protobuf, we can use that to serialize the object.
+     */
+    bool fromPbString(string_view s) noexcept override {
+      hiPb::YouAreInTicket pb;
+      bool ok = pb.ParseFromString(string(s));
+      if (not ok)
+        return false;
+      this->msg = pb.msg();
+      this->command_history.clear();
+      this->command_history = vector<string>(pb.command_history().begin(),
+                                             pb.command_history().end()); // copy
+      return true;
     }
 
-    bool fromString(string_view s) noexcept override{
-      // BOOST_LOG_TRIVIAL(debug) <<  "🌱 Forming YouAreInTicket from string.";
-      return IJsonizable::fromJsonString(s);
+    string toPbString() const override {
+      hiPb::YouAreInTicket pb;
+      pb.set_msg(this->msg);
+      for (const string & s : this->command_history){
+        pb.add_command_history(s);
+      }
+      return pb.SerializeAsString();
     }
+
+    #endif
+
 
     json::value toJson() const noexcept override {
       return json::value_from(*this);
