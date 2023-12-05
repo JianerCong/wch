@@ -26,6 +26,9 @@
 #include <tuple>
 #include <unordered_map>
 
+#ifdef WITH_PROTOBUF
+#include <google/protobuf/message.h>
+#endif
 
 namespace pure{
   using std::vector;
@@ -33,8 +36,7 @@ namespace pure{
   using std::optional;
   using std::tuple;
   using std::unordered_map;
-  
-  
+
   namespace ranges = std::ranges;
   using boost::lexical_cast;
   using std::function;
@@ -93,11 +95,33 @@ namespace pure{
     virtual string toString() const noexcept =0;
   };
 
-
+  #ifdef WITH_PROTOBUF
+  /**
+   * @brief The interface for serializing to and from protobuf.
+   *
+   * 🦜 : The implementer just need to implement two methods:
+   *
+   * + fromPbString() and toPb().
+   *
+   * Then it will get a method toPbString(). (for free.)
+   */
   class ISerializableInPb{
     virtual bool fromPbString(string_view s) noexcept =0;
-    virtual string toPbString() const noexcept =0;
+    virtual google::protobuf::Message toPb() const noexcept =0;
+    string toPbString() const {
+      string s;
+      bool ok = this->toPb().SerializeToString(&s);
+      BOOST_ASSERT(ok);
+      return s;
+    }
+
+    // 🦜 : In fact, we can teach ostream how to display an ISerializableInPb
+    friend std::ostream& operator<<(std::ostream& os, const ISerializableInPb& I){
+      os << I.toPb().DebugString();
+      return os;
+    };
   };
+  #endif
 
   namespace json = boost::json;
   using json::value_to;

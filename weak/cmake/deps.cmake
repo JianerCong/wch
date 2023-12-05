@@ -1,4 +1,3 @@
-
 # 🦜 : USE_STATIC_LIBS is important, because by default, the loader cannot load
 # dynamic library from non-default locations.
 set(Boost_USE_STATIC_LIBS ON)
@@ -21,6 +20,13 @@ set(RocksDB_DIR "${PROJECT_SOURCE_DIR}/../.pre/installed-rocksdb/lib/x86_64-linu
 include(${RocksDB_DIR}/modules/Finduring.cmake)
 find_package(RocksDB CONFIG REQUIRED)
 
+if (WITH_PROTOBUF)
+  set(x "${PROJECT_SOURCE_DIR}/../.pre/installed-protobuf")
+  set(utf8_range_DIR "${x}/lib/cmake/utf8_range")
+  set(absl_DIR "${x}/lib/cmake/absl")
+  set(Protobuf_DIR "${x}/lib/cmake/protobuf")
+  find_package(Protobuf CONFIG REQUIRED)
+endif()
 
 # include(CMakePrintHelpers)
 # cmake_print_properties(TARGETS Boost::log PROPERTIES

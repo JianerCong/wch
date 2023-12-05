@@ -61,6 +61,7 @@ int main(int argc, char *argv[]){
   };
 
   while (true){
+
     string reply;
     cout << "Enter: ";
     cin >> reply;
@@ -95,3 +96,12 @@ int main(int argc, char *argv[]){
 }
   return 0;
 }
+
+/*
+
+  stop : stop the program
+  append : append a node
+  kick <node> : kick a node
+  <node> <cmd> : send a command to a node
+
+ */

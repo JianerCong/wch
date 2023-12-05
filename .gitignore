@@ -354,3 +354,6 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+# 🦜 : Ignore our generated pb file
+.generated_pb

@@ -1,6 +1,7 @@
 # Here we document how to build wrack-chain
 #
 
+# --------------------------------------------------
 # 1. Install Boost>=1.75
 rm .pre -rfv
 mkdir .pre -v
@@ -22,11 +23,11 @@ sudo apt install libpython3-all-dev
 # - thread - timer - type_erasure - url - wave
 
 ./b2 --with-json --with-program_options --with-test --with-headers --with-log link=static
-
 echo "🐸 Boost installed"
-
-# 2.Install rocksdb
 cd ..
+
+# --------------------------------------------------
+# 2.Install rocksdb [in .pre/ folder]
 # 2.1 install the dependencies for rocksdb
 sudo apt install libgflags-dev \
      libsnappy-dev zlib1g-dev libbz2-dev \
@@ -38,10 +39,23 @@ wget https://github.com/facebook/rocksdb/archive/refs/tags/v8.3.2.tar.gz
 tar zxf v8.3.2.tar.gz
 cmake -S rocksdb-8.3.2/ -B build-rocksdb/ -DWITH_JEMALLOC=1 -DWITH_LIBURING=1 \
       -DWITH_SNAPPY=1 -DWITH_LZ4=1 -DWITH_ZLIB=1 -DWITH_ZSTD=1 -DCMAKE_BUILD_TYPE=Release
-
 cmake --build build-rocksdb
 cmake --install build-rocksdb --prefix installed-rocksdb
 
+
+# --------------------------------------------------
+# 3. (Optional ) add protobuf [in .pre/ folder]
+git clone -b v25.1 https://github.com/protocolbuffers/protobuf.git
+cd protobuf
+git submodule update --init --recursive
+cd ..
+cmake -S protobuf -B build-pb -DABSL_PROPAGATE_CXX_STD=ON
+cmake --build build-pb
+# 🦜 : It looks like you need to install the third party libraries that protobuf depends on.
+cmake --install build-pb --prefix installed-pb
+# ln -s ~/repo/installed-pb/ .pre/installed-pb
+
+# --------------------------------------------------
 # Finally we build the chain
 cmake -S weak -B build-weak
 cmake --build build-weak/

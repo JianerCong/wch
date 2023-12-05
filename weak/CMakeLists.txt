@@ -15,6 +15,11 @@ project(hi VERSION 1.1)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# 🦜 : Enable the following
+option(WITH_TEST "build test" OFF)
+option(WITH_PROTOBUF "build protobuf" ON)
+
 include("cmake/deps.cmake")
 
 add_subdirectory(pkgs/intx-0.10.0 intx)        #brings in the intx
@@ -40,14 +45,19 @@ target_include_directories(deps INTERFACE
   ${PROJECT_SOURCE_DIR}/pkgs/
 )
 
-# 🦜 : Enable the following
-option(WITH_TEST "build test" OFF)
+if (WITH_PROTOBUF)
+  # 🦜 : Add that definitions
+  target_compile_definitions(wch PUBLIC WITH_PROTOBUF)
+  tartget_link_libraries(deps INTERFACE protobuf::libprotobuf)
+endif()
 
 if(WITH_TEST)
   add_subdirectory(test)
 endif()
 
 add_executable(wch main.cpp)
+
+
 target_include_directories(wch PUBLIC ${PROJECT_SOURCE_DIR}/include)
 target_link_libraries(wch PUBLIC deps)
 

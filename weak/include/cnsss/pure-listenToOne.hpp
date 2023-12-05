@@ -1,7 +1,7 @@
 #pragma once
 
 #include "pure-forCnsss.hpp"
-
+#include "./.generated_pb/pure-listenToOne.pb.h"
 // colors
 #define S_RED     "\x1b[31m"
 #define S_GREEN   "\x1b[32m"
@@ -16,7 +16,9 @@ namespace pure{
   /**
    * @brief The ticket to send to the newcomer:
    */
-  class YouAreInTicket: virtual public IJsonizable, virtual public ISerializable {
+  class YouAreInTicket: virtual public IJsonizable,
+                        virtual public ISerializable,
+  {
   public:
     string msg;
     vector<string> command_history;
@@ -29,7 +31,7 @@ namespace pure{
     }
 
     bool fromString(string_view s) noexcept override{
-      BOOST_LOG_TRIVIAL(debug) <<  "Forming YouAreInTicket from string.";
+      // BOOST_LOG_TRIVIAL(debug) <<  "🌱 Forming YouAreInTicket from string.";
       return IJsonizable::fromJsonString(s);
     }
 
@@ -38,7 +40,7 @@ namespace pure{
     }
 
     bool fromJson(const json::value &v) noexcept override {
-      BOOST_LOG_TRIVIAL(debug) << format("Forming LaidDownMsg from Json");
+      // BOOST_LOG_TRIVIAL(debug) << format("Forming LaidDownMsg from Json");
       try {
         this->msg = value_to<string>(v.at("msg"));
         this->command_history = value_to<vector<string>>(v.at("command_history"));
@@ -46,7 +48,7 @@ namespace pure{
         BOOST_LOG_TRIVIAL(error) << format("❌️ error parsing json:" S_RED " %s" S_NOR) % e.what();
         return false;
       }
-      BOOST_LOG_TRIVIAL(trace) << "YouAreInTicket formed.";
+      // BOOST_LOG_TRIVIAL(trace) << "YouAreInTicket formed.";
       return true;
     }
   };
@@ -176,18 +178,18 @@ namespace pure{
 
       using boost::algorithm::join;
       string s_members = join(this->known_subs,",");
-      return (format("Dear Client \n"
-                     "\tyour request has been carried out by our group.\n"
-                     "\tMembers: %s\n"
-                     "\t\tSincerely\n"
-                     "\t\t%s,The primary\n"
+      return (format("Dear Client,"
+                     "your request has been carried out by our group."
+                     "\tMembers: %s;"
+                     "\tSincerely;"
+                     "\t%s,The primary;"
                      ) % s_members % this->net->listened_endpoint()
               ).str();
     };
 
     void ask_primary_for_entry(){
-      string msg = (format("Hi primary %s\n"
-                           "\tplease add me in the group\n"
+      string msg = (format("Hi primary " S_CYAN "%s;" S_NOR
+                           "\tplease add me in the group;"
                            "\tRegards %s"
                            ) % this->primary
                     % this->net->listened_endpoint()).str();
@@ -228,8 +230,8 @@ namespace pure{
                   );
 
         this->exe->execute(data);
-        return (format("Dear boss %s\n"
-                       "\tMission[%s] is accomplished\n"
+        return (format("Dear boss %s;"
+                       "\tMission[%s] is accomplished;"
                        "\tRegards\t%s"
                        ) % this->primary % data % this->net->listened_endpoint()).str();
       }
@@ -239,8 +241,8 @@ namespace pure{
                 "\t" S_MAGENTA "Execution " S_NOR " from others 🌘"
                 );
       // forward
-      auto r = this->net->send(this->primary,
-                               "/pleaseExecuteThis", data);
+      auto r = this->net->send(this->primary, "/pleaseExecuteThis", data);
+
       if (not r)
         BOOST_THROW_EXCEPTION(std::runtime_error(format("Failed to forward msg to primary").str()));
       return r;
