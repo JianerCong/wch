@@ -1,0 +1,26 @@
+syntax = "proto3";
+package hiPb;
+
+message LaidDownMsg {
+  string msg = 1;
+  int32 epoch = 2;
+  string state = 3;
+}
+
+message NewViewCertificate{
+  string msg = 1;
+  int32 epoch = 2;
+  repeated bytes new_view_certificate = 3;
+  /*
+    The collected signed LaidDownMsg (list[LaidDownMsg]) forms a
+    new_view_certificate
+   */
+  repeated bytes sig_of_nodes_to_be_added = 4;
+  /*
+    The signature of the new nodes to be added in the turn.
+  */
+  repeated bytes cmds = 5;
+  /*
+    The command history so far. These should only be sent to the new nodes.
+   */
+}

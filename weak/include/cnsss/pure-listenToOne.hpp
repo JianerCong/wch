@@ -14,7 +14,6 @@
 
 #ifdef WITH_PROTOBUF
 #include "./.generated_pb/pure-listenToOne.pb.h"
-#include <google/protobuf/message.h>
 #endif
 
 namespace pure{

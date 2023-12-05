@@ -35,6 +35,9 @@
 #include <set>
 #include <thread>
 
+#ifdef WITH_PROTOBUF
+#include "./.generated_pb/pure-rbft.pb.h"
+#endif
 
 #include <mutex>
 namespace pure{
@@ -72,24 +75,6 @@ namespace pure{
     🐢 : A signer.
   */
 
-  // class IMsgManageable{
-  // public:
-  //   virtual string sign(string_view s) noexcept=0;
-
-  //   virtual bool verify(string_view msg) noexcept=0;
-
-  //   /**
-  //    * @brief Extract the data in msg.
-  //    *
-  //    * @param msg The signed data.
-  //    *
-  //    * 🦜 : It is assumed that the `msg` has been verified using verify().
-  //    * Otherwise, this and get_from() will return rabbish.
-  //    */
-  //   virtual string_view get_data(string_view msg) noexcept=0;
-  //   virtual string_view get_from(string_view msg) noexcept=0;
-  // };
-
 
   template<typename T>
   // 🦜 : Bind the object with a lock.
@@ -97,7 +82,6 @@ namespace pure{
     T o;
     mutable std::mutex lock;
   };
-
 
   /**
    * @brief Msg sent to the next primary when a node is ready to do view-change.
@@ -107,6 +91,9 @@ namespace pure{
    */
   class LaidDownMsg:
     virtual public IJsonizable,
+#ifdef WITH_PROTOBUF
+    virtual public ISerializableInPb,
+#endif
     virtual public ISerializable
   {
   public:
@@ -116,15 +103,6 @@ namespace pure{
     string msg;
     int epoch;
     string state;
-
-    string toString() const noexcept override {
-      return IJsonizable::toJsonString();
-    }
-
-    bool fromString(string_view s) noexcept override{
-      BOOST_LOG_TRIVIAL(debug) <<  "Forming LaidDownMsg from string.";
-      return IJsonizable::fromJsonString(s);
-    }
 
     json::value toJson() const noexcept override {
       return json::value_from(*this);
@@ -144,6 +122,35 @@ namespace pure{
       BOOST_LOG_TRIVIAL(trace) << "LaidDown msg formed.";
       return true;
     }
+
+    ADD_TO_FROM_STR_WITH_JSON_OR_PB // defines the to/fromString() methods
+
+#ifdef WITH_PROTOBUF
+    /*
+      🦜 : If we have protobuf, we can use that to serialize the object.
+    */
+    bool fromPbString(string_view s) noexcept override {
+      hiPb::LaidDownMsg o;
+      bool ok = o.ParseFromString(string(s));
+      if (not ok){
+        BOOST_LOG_TRIVIAL(error) << "Failed to parse LaidDownMsg from string";
+        return false;
+      }
+
+      this->msg = o.msg();
+      this->epoch = o.epoch();
+      this->state = o.state();
+    }
+
+    string toPbString() const override {
+      hiPb::LaidDownMsg o;
+      o.set_msg(this->msg);
+      o.set_epoch(this->epoch);
+      o.set_state(this->state);
+      return o.SerializeAsString();
+    }
+#endif
+
   }; // class LaidDownMsg
 
   // json functions for LaidDownMsg
@@ -207,7 +214,6 @@ namespace pure{
       sig_of_nodes_to_be_added(ssig_of_nodes_to_be_added),
       cmds(ccmds)
     {}
-
 
     string toString() const noexcept override {
       return IJsonizable::toJsonString();
@@ -347,9 +353,9 @@ public:
       🦜 : This list of commands to be confirmed. This is kinda like a
       counter. When a command has reached more than 2f + 1 count (confirmed
       message) then the command can be savely executed.
-      
+
       The meaning of to_be_confirmed_commands is kinda like : <cmd> : {set of who received commands}
-      
+
       So when two sub-nodes call each other, they will exchange what
       they've got in their hand. As a result, eventually the node will
       still execute what primary sent to most nodes. (🦜: This eventually makes each nodes "selfless").
@@ -1036,7 +1042,7 @@ public:
         std::unique_lock l(this->laid_down_history.lock);
         // 🦜 : 1. Does this epoch already has something ? If not, create a new dict{}
         if (not this->laid_down_history.o.contains(o.epoch)){
-  
+
           this->say(format("\tAdding new record in laid_down_history for epoch " S_GREEN "%d " S_NOR)
                     % o.epoch);
           this->laid_down_history.o.insert({
