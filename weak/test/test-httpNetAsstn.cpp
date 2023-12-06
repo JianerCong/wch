@@ -229,7 +229,7 @@ BOOST_AUTO_TEST_CASE(test_load_keys_from_pem){
 }
 
 
-BOOST_AUTO_TEST_CASE(test_dump_key_to_pem){
+BOOST_AUTO_TEST_CASE(test_dump_key_to_pem1){
   UniquePtr<EVP_PKEY> sk1(EVP_PKEY_Q_keygen(NULL, NULL, "ED25519"));
   UniquePtr<EVP_PKEY> pk1 = SslMsgMgr::extract_public_key(sk1.get());
 

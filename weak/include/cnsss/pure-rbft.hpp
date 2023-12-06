@@ -1019,11 +1019,16 @@ public:
      */
     void  handle_laid_down(string endpoint, string data){
       try {
-        this->say("Handling laid_down");
+        this->say(
+                  (format("Handling laid_down from %s") %
+                   RbftConsensus::make_endpoint_human_readable(endpoint)
+                   ).str()
+                  );
+
         auto o = this->sig->tear_msg_open(data);
         BOOST_VERIFY(o);
-        LaidDownMsg msg;
 
+        LaidDownMsg msg;
         BOOST_VERIFY(msg.fromString(std::get<1>(o.value())));
 
         if (msg.epoch < this->epoch.load()){
@@ -1047,7 +1052,9 @@ public:
                                                  ];
 
         } // unlocked here
-        this->say("Got next primary = " + next_primary);
+        this->say("Got next primary = " +
+                  RbftConsensus::make_endpoint_human_readable(next_primary)
+                  );
 
         if (next_primary != this->net->listened_endpoint()){
           this->say(format("🚮️ This view-change is for " S_CYAN "%s " S_NOR ",non of my bussinesses.")
@@ -1079,7 +1086,7 @@ public:
       // int epoch = o.epoch;
       shared_ptr<vector<string>> to_be_added_list;
 
-      this->say("1.");
+      // this->say("1.");
       {
         std::unique_lock l(this->laid_down_history.lock);
         // 🦜 : 1. Does this epoch already has something ? If not, create a new dict{}
@@ -1095,7 +1102,7 @@ public:
               >()});
         }
 
-        this->say("2.");
+        // this->say("2.");
         // 🦜 : 2. Does this epoch already got state like this ? If not, create a new list[]
         if (not this->laid_down_history.o.at(o.epoch)->contains(o.state)){
           this->say(format("\tAdding new record in laid_down_history for " S_GREEN "epoch=%d,state=%s" S_NOR)
@@ -1111,7 +1118,7 @@ public:
         to_be_added_list = this->laid_down_history.o.at(o.epoch)->at(o.state);
       } // unlocks here
 
-      this->say("3.");
+      // this->say("3.");
       // 🦜 : This is the list that data (signed msg) will be added in.
       if (::pure::contains(to_be_added_list, data)){
         this->say(format("🚮️ Ignoring duplicated msg:" S_CYAN "%s" S_NOR)% data);
@@ -1128,7 +1135,7 @@ public:
 
       */
 
-      this->say("4.");
+      // this->say("4.");
       int x = this->N() - this->f();
       if (to_be_added_list->size() >= x){
         this->say(format("Collected enough " S_GREEN "%d " S_NOR " >= " S_CYAN "%d" S_NOR " LaidDownMsg%s")
@@ -1136,7 +1143,7 @@ public:
                   );
         this->try_to_be_primary(o.epoch,o.state,to_be_added_list);
       }else{
-        this->say(format("Collected enough " S_MAGENTA "%d " S_NOR " <= " S_CYAN "%d" S_NOR " LaidDownMsg%s"
+        this->say(format("Collected " S_MAGENTA "%d " S_NOR " <= " S_CYAN "%d" S_NOR " LaidDownMsg%s"
                          S_MAGENTA " not yet the time" S_NOR)
                   % to_be_added_list->size() % x % pluralizeOn(to_be_added_list->size())
                   );
@@ -1377,18 +1384,22 @@ public:
                                                      ranges::find(*v,this->net->listened_endpoint()))
                                        );
       } // unlocks here
+#if defined (WITH_PROTOBUF)
+      my_id += (": " +  RbftConsensus::make_endpoint_human_readable(this->net->listened_endpoint()));
+#endif
 
       // 🦜 : Don't show this in actual run ⚠️
       string cmds;
 
-      #ifdef BFT_STATE_DEBUG
+#if defined (BFT_STATE_DEBUG)
       {
         std::unique_lock l(this->command_history.lock);
         cmds = S_GREEN "[" +
           boost::algorithm::join(this->command_history.o,",") +
           "]" S_NOR;
       }
-      #endif
+#endif
+
 
       BOOST_LOG_TRIVIAL(debug)
         << S_CYAN "[" + my_id + "]" S_NOR " "
@@ -1589,7 +1600,8 @@ public:
     void listen(string target,
                 function<void(string,string)> handler
                 ) noexcept override{
-      string k = (format("%s-%s") % this->endpoint % target).str();
+      string k = make_k(this->endpoint,target);
+
       BOOST_LOG_TRIVIAL(debug) << format("Adding handler: " S_GREEN " %s" S_NOR) % k;
       std::unique_lock l(lock_for_network_hub);
       network_hub[k] = handler;
@@ -1608,13 +1620,24 @@ public:
       }
     }; // unlock here
 
+    static string make_k(string endpoint, string target){
+      return (format("%s-%s") %
+                  RbftConsensus::make_endpoint_human_readable(endpoint)
+                  % target).str();
+    }
 
     void send(string endpoint, string target, string data) noexcept override{
-      string k = (format("%s-%s") % endpoint % target).str();
-      BOOST_LOG_TRIVIAL(debug) << format(" Calling handler:  " S_GREEN "%s " S_NOR
+      string k = make_k(endpoint,target);
+      #if defined (WITH_PROTOBUF)
+      BOOST_LOG_TRIVIAL(debug) << format(" Calling handler:  " S_GREEN "%s" S_NOR
+                                         ) % k;
+      #else
+      BOOST_LOG_TRIVIAL(debug) << format(" Calling handler:  " S_GREEN "%s" S_NOR
                                          "with data\n"
                                          S_CYAN "%s" S_NOR
                                          ) % k % data;
+      #endif
+
       // write send()
       optional<string> r;
       std::unique_lock l(lock_for_network_hub);

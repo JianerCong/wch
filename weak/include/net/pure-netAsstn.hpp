@@ -361,6 +361,21 @@ namespace pure{
         BOOST_THROW_EXCEPTION(std::runtime_error("❌ Error reading my secret key:\n" + my_sk_pem));
       }
       this->my_secret_key = std::move(r.value());
+
+      /*
+        3. (optional)
+
+        🦜 : You know what? In fact I can just check that if my cert is valid to my ca.
+
+        🐢 : Yeah, we should try that
+       */
+
+      if (this->we_check_cert()){
+          string my_pk_pem = dump_key_to_pem(this->my_secret_key.get(), false /*is_secret*/);
+          if (not this->do_verify(this->ca_public_key.get(), my_pk_pem, this->my_cert)){
+            BOOST_THROW_EXCEPTION(std::runtime_error("❌️ My cert is not valid to my CA"));
+          }
+      }
     }
 
     /**
@@ -391,16 +406,22 @@ namespace pure{
      * string endpoint = ::pure::SignedData::serialize_3_strs("<my-pk-pem>","localhost:1234","<my-cert>");
      */
     string prepare_msg(string && data)const noexcept override{
+
+      // BOOST_LOG_TRIVIAL(debug) << "Preparing msg with my_pk_pem = :"
+      //                          << dump_key_to_pem(this->my_secret_key.get(), false /*is_secret*/);
+
       string sig = SslMsgMgr::do_sign(this->my_secret_key.get(),data);
 
       return SignedData(this->my_endpoint(),sig,data).toString();
     }
 
     optional<tuple<string,string>> tear_msg_open(string_view msg)const noexcept override {
-      // BOOST_LOG_TRIVIAL(debug) << format("tearing msg open");
+      BOOST_LOG_TRIVIAL(debug) << format("tearing msg open");
       SignedData d;
-      if (not d.fromString(msg))
+      if (not d.fromString(msg)){
+        BOOST_LOG_TRIVIAL(warning) <<  "⚠️ Wrong format for <msg>";
         return {};              // failed to parse data
+}
 
       // --------------------------------------------------
       // get the from <endpoint>
@@ -420,11 +441,11 @@ namespace pure{
 
        */
       auto [from_pk_pem, from_addr_port, from_cert] = r.value();
+      // BOOST_LOG_TRIVIAL(debug) << "⚙️ Parsed from_pk_pem" << from_pk_pem;
       if (not test_trusted_peer(from_pk_pem, from_cert)){
         BOOST_LOG_TRIVIAL(warning) <<  S_MAGENTA "⚠️ Untrusted peer: " << from_pk_pem << S_NOR;
         return {};
       }
-
       // --------------------------------------------------
       /*
         3. finally, verify the signature
@@ -438,8 +459,11 @@ namespace pure{
     }
 
     string my_endpoint()const noexcept override{
-      static string my_pk_pem = dump_key_to_pem(this->my_secret_key.get(), false /*is_secret*/);
-      static string ep = ::pure::SignedData::serialize_3_strs(my_pk_pem, this->my_addr_port,this->my_cert);
+      /*
+        🦜 : ⚠️ If you make it static, that's gonna be one for all instance, not one per instance...
+       */
+      string my_pk_pem = dump_key_to_pem(this->my_secret_key.get(), false /*is_secret*/);
+      string ep = ::pure::SignedData::serialize_3_strs(my_pk_pem, this->my_addr_port,this->my_cert);
       return ep;
     }
 
@@ -540,7 +564,7 @@ namespace pure{
       return do_sign(ed_key, (unsigned char*)msg.c_str(), msg.size());
     }
 
-    static bool do_verify(EVP_PKEY *ed_key,string msg, string sig){
+    static bool do_verify(EVP_PKEY *ed_key,const string msg, const string sig){
       // 🐢 : Use EVP_DigestVerify
       // init the contex
       EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
@@ -557,13 +581,21 @@ namespace pure{
       return r == 1;
     }
 
-    static bool do_verify(string ed_key_pem, string msg, string sig){
+    static bool do_verify(string ed_key_pem, const string msg, const string sig){
       auto r = load_key_from_pem(ed_key_pem,false);
       if (not r){
         BOOST_LOG_TRIVIAL(error) << S_RED "❌️ Error reading public key" S_NOR;
         return false;
       }
-      return do_verify(r.value().get(),msg,sig);
+      UniquePtr<EVP_PKEY> ed_key = std::move(r.value());
+      bool ok = do_verify(ed_key.get(),msg,sig);
+      if (not ok){
+        BOOST_LOG_TRIVIAL(debug) <<  S_RED "❌️ Signature verification failed with pk_pem: \n" << ed_key_pem
+                                 << "\nmsg:" << msg << "\nsig-len:" << sig.size() <<
+          S_NOR;
+}
+      return ok;
+      // return do_verify(r.value().get(),msg,sig);
     }
 
 

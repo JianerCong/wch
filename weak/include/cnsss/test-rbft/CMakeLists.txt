@@ -23,7 +23,6 @@ if(ENABLE_PROTOBUF)
   find_package(Protobuf CONFIG REQUIRED)
 
   add_library(hi_pb "${CMAKE_CURRENT_LIST_DIR}/../pure-rbft.proto")
-
   set(o "${CMAKE_CURRENT_LIST_DIR}/../.generated_pb")
   # mkdir first
   file(MAKE_DIRECTORY "${o}")

@@ -17,7 +17,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # 🦜 : Enable the following
-option(WITH_TEST "build test" OFF)
+option(WITH_TEST "build test" ON)
 option(WITH_PROTOBUF "build protobuf" ON)
 
 include("cmake/deps.cmake")
@@ -45,11 +45,6 @@ target_include_directories(deps INTERFACE
   ${PROJECT_SOURCE_DIR}/pkgs/
 )
 
-if (WITH_PROTOBUF)
-  # 🦜 : Add that definitions
-  target_compile_definitions(wch PUBLIC WITH_PROTOBUF)
-  tartget_link_libraries(deps INTERFACE protobuf::libprotobuf)
-endif()
 
 if(WITH_TEST)
   add_subdirectory(test)
@@ -57,6 +52,12 @@ endif()
 
 add_executable(wch main.cpp)
 
+if (WITH_PROTOBUF)
+  # 🦜 : Add that definitions
+  target_compile_definitions(wch PUBLIC WITH_PROTOBUF)
+  target_link_libraries(wch PUBLIC hi_pb)
+  target_link_libraries(deps INTERFACE protobuf::libprotobuf)
+endif()
 
 target_include_directories(wch PUBLIC ${PROJECT_SOURCE_DIR}/include)
 target_link_libraries(wch PUBLIC deps)
@@ -83,6 +84,7 @@ endforeach()
 ## run the app upon build
 # add_custom_target(run ALL main COMMENT "Runing App 🐸")
 
-# cmake -S. -B build -DHUNTER_STATUS_DEBUG=ON -DCMAKE_BUILD_TYPE=Release
+# rm -rf build
+# cmake -S weak -B build -DCMAKE_BUILD_TYPE=Release
 # cmake --build build --config Release
 # cmake --build build --target run-test
