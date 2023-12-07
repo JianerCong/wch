@@ -13,7 +13,7 @@ using std::vector;
 using namespace pure;
 
 #define TRY_REAL_SSL
-// #define WITH_PROTOBUF
+#define WITH_PROTOBUF
 
 #if defined (TRY_REAL_SSL) && defined (WITH_PROTOBUF)
 /*
@@ -193,29 +193,34 @@ struct NodeFactory {
     // 2.
 
     // 🦜 Update the current all_endpoints
-    {
-      std::unique_lock l(this->nodes.begin()->second->nd->all_endpoints.lock);
-      this->all_endpoints = this->nodes.begin()->second->nd->all_endpoints.o;
-
-    }
+    this->update_all_endpoints();
     // make the node
     this->nodes[ep] = make_shared<BftAndColleague>(ep, this->all_endpoints,
                                                    sk_pem, this->ca_pk_pem());
   }
 
+  void update_all_endpoints(){
+    std::unique_lock l(this->nodes.begin()->second->nd->all_endpoints.lock);
+    this->all_endpoints = this->nodes.begin()->second->nd->all_endpoints.o;
+  }
   /**
    * @brief kick the ith node
    * @param i the index of the node to be kicked
    */
   void kick(int i){
-    if (i >= this->all_endpoints.size()){
+    if (
+        static_cast<size_t>(i) >= this->all_endpoints.size()){
       BOOST_LOG_TRIVIAL(debug) << "Trying to kick " S_RED + lexical_cast<string>(i) + S_NOR ", but it doesn't exists. ";
       return ;
     }
 
     string ep = this->all_endpoints[i];
+    this->all_endpoints.erase(this->all_endpoints.begin() + i);
+
     this->nodes.erase(ep);
-    BOOST_LOG_TRIVIAL(info) <<  "🚮️ kick " S_RED + ep.substr(0,4) + S_NOR;
+    BOOST_LOG_TRIVIAL(info) <<  "🚮️ kick " S_RED +
+      RbftConsensus::make_endpoint_human_readable(ep)
+      + S_NOR;
   }
 };
 
@@ -356,12 +361,26 @@ void start_cluster(int n){
 
     string cmd;
     cin >> cmd;
-    while (cin.get() != '\n') continue;
-    cout << S_MAGENTA "Sending " + cmd +
-      " To " + reply +  S_NOR << "\n";
-    nClient->send(reply,"/pleaseExecuteThis",cmd);
-  }
 
+    while (cin.get() != '\n') continue;
+    #if defined (TRY_REAL_SSL) && defined (WITH_PROTOBUF)
+    int i = lexical_cast<int>(reply);
+    fac.update_all_endpoints();
+    string ep = fac.all_endpoints[i];
+
+    cout << S_MAGENTA "Sending " + cmd +
+      " To " +
+      RbftConsensus::make_endpoint_human_readable(ep)
+      +  S_NOR << "\n";
+    nClient->send(ep,"/pleaseExecuteThis",cmd);
+    #else
+    cout << S_MAGENTA "Sending " + cmd +
+      " To " +
+      reply
+      +  S_NOR << "\n";
+    nClient->send(reply,"/pleaseExecuteThis",cmd);
+    #endif
+  }
   BOOST_LOG_TRIVIAL(debug) << "Tester closed";
 
   fac.nodes.clear();            // remove all (🦜 : calls the dtor respectively).

@@ -48,6 +48,9 @@ if (WITH_PROTOBUF)
     # schema file     = proto/hi/hi.proto
     # import folder   = proto/
     # generated files = ${PROTOC_OUT_DIR}/hi/hi.pb.h|cc
+    #
+    # 🦜 : So, the generated files are kinda in ${PROTOC_OUT_DIR} + <schama dir>
+    # - <import dir>
     PROTOC_OUT_DIR "${o}"
   )
   target_link_libraries(hi_pb PUBLIC protobuf::libprotobuf)

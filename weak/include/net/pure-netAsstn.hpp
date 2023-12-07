@@ -460,7 +460,8 @@ namespace pure{
 
     string my_endpoint()const noexcept override{
       /*
-        🦜 : ⚠️ If you make it static, that's gonna be one for all instance, not one per instance...
+        🦜 : ⚠️ If you make it static, that's gonna be one for all instance (e.g.
+        one per class), not one per instance...
        */
       string my_pk_pem = dump_key_to_pem(this->my_secret_key.get(), false /*is_secret*/);
       string ep = ::pure::SignedData::serialize_3_strs(my_pk_pem, this->my_addr_port,this->my_cert);

@@ -1605,13 +1605,14 @@ public:
       BOOST_LOG_TRIVIAL(debug) << format("Adding handler: " S_GREEN " %s" S_NOR) % k;
       std::unique_lock l(lock_for_network_hub);
       network_hub[k] = handler;
-
+      BOOST_LOG_TRIVIAL(debug) << "Added handler";
     };                          // unlocks here
 
     void clear() noexcept override{
       std::unique_lock l(lock_for_network_hub);
       for (auto it = network_hub.begin(); it != network_hub.end();){
-        if (it->first.starts_with(this->endpoint + "-")){
+        if (it->first.starts_with(RbftConsensus::make_endpoint_human_readable(this->endpoint)
+                                  + "-")){
           BOOST_LOG_TRIVIAL(debug) << format("\t🚮️ Removing handler: " S_MAGENTA " %s" S_NOR) % it->first;
           it = network_hub.erase(it);
         }else{
