@@ -9,14 +9,14 @@
  * 🐢 : The process is as folloing:
  *
  *   1. Read the options. The among many options, important ones are:
- *         
+ *
  *        + string consensus_name: The consensus name to use.
  *
  *        + <consensus_related_settings>: Then we have different options for
  *        different consensus, and those options are grouped together.
- *        
+ *
  *        + int port: The port to listen
- *        
+ *
  *        + string data dir: The folder in which all the chain related data will
  *        be stored. Backing up this folder should back up the state of the
  *        nodes. And if the data dir is not empty, we will assume that this

@@ -67,14 +67,6 @@ namespace weak{
       options_description o1("Generic options");
       o1.add_options()
         ("help,h", "Produce help message")
-        ("without-sealer", program_options::value<string>(&(this->without_sealer))->implicit_value("yes"),
-         "Enable sealer")
-        ("mock-exe", program_options::value<string>(&(this->mock_exe))->implicit_value("yes"),
-         "Disable concrete executor, used for testing communication layers.")
-        ("verbose", program_options::value<string>(&(this->verbose))->implicit_value("yes"),
-         "Print debug info during execution, this might affect speed.")
-        ("light-exe", program_options::value<string>(&(this->light_exe))->implicit_value("yes"),
-         "Enable the executor optimized for speed. ('yes' by default)")
         ("config,c", program_options::value<string>(&(this->config_file)),
          "[Optional] Name of the configuration file.")
         ;
@@ -83,6 +75,14 @@ namespace weak{
       // in config file
       options_description o2("Configuration");
       o2.add_options()
+        ("without-sealer", program_options::value<string>(&(this->without_sealer))->implicit_value("yes"),
+         "Enable sealer")
+        ("mock-exe", program_options::value<string>(&(this->mock_exe))->implicit_value("yes"),
+         "Disable concrete executor, used for testing communication layers.")
+        ("verbose", program_options::value<string>(&(this->verbose))->implicit_value("yes"),
+         "Print debug info during execution, this might affect speed.")
+        ("light-exe", program_options::value<string>(&(this->light_exe))->implicit_value("yes"),
+         "Enable the executor optimized for speed. ('yes' by default)")
         ("this-host",program_options::value<string>(&(this->my_address))->default_value("localhost"),
          "The address of this host. In some consensuses, this will be the <host> exposed "
          "to other nodes. Default value: \"localhost\""
@@ -110,6 +110,22 @@ namespace weak{
          "considered to be one of the `initial node` in the cluster. Otherwise,"
          "the node is considered to be a `newcomer` and it will send request to the existing "
          "to nodes to try to get in."
+         )
+        ("without-crypto", program_options::value<string>(&(this->without_sealer))->implicit_value("yes"),
+         "When set to 'no', Enable all those crypto stuff about CA, key pair, "
+         "peer validation, etc. Otherwise, we skip any of those, and all arguments starting with 'crypto' are ignored."
+         "Default value: 'yes'.")
+        ("crypto.ca_public_key_pem_file",
+         program_options::value<string>()->default_value(""),
+         "The path to the CA's public key."
+         )
+        ("crypto.node_secret_key_pem_file",
+          program_options::value<string>()->default_value(""),
+          "The path to the node's secret key."
+         )
+        ("crypto.node_certificate",
+          program_options::value<string>()->default_value(""),
+          "The path to the node's certificate."
          )
         ;
 
