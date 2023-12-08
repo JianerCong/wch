@@ -149,10 +149,14 @@
  *          + crypto.node_secret_key_pem_file: The path to the node's secret key
  *          file.
  *
- *          + crypto.node_certificate: The path to the node's certificate
+ *          + crypto.node_cert_file: The path to the node's certificate
  *          file. (Which is CA's signature on the node's public key. Should be binary.)
  *
- *       These three options are only read when `--without-crypto=no` is given.
+ *          + crypto.peer_json_file_or_string: The path to the <peer-json> file,
+ *          or the json string itself. This json tells us the public key and
+ *          signature of each peer. @see PeerCryptoInfo.
+ *
+ *       These options are only read when `--without-crypto=no` is given.
  *
  *       🦜 : Okay. But do we need to do some preparation before init an
  *       instance of `SslMsgMgr`?
@@ -267,24 +271,6 @@
 
 namespace weak{
 
-  struct PeerCryptoInfo {
-    string addr_port;
-    string pk_pem;
-    string cert;
-
-    PeerCryptoInfo(string aaddr_port, string pk_pem_file, string cert_file):
-      addr_port(aaddr_port)
-      // throw runtime_error if file not exist
-    {
-      this->pk_pem = read_file(pk_pem_file);
-      this->cert = read_file(cert_file);
-    }
-
-    string endpoint() const{
-      return ::pure::SignedData::serialize_3_strs(this->pk_pem,this->addr_port,this->cert);
-    }
-}
-
   /**
    * @brief Read the content of a file.
    *
@@ -322,6 +308,80 @@ namespace weak{
 
     return o;
   }
+
+
+  struct PeerCryptoInfo {
+    string addr_port;
+    string pk_pem;
+    string cert;
+
+    string endpoint() const{
+      return ::pure::SignedData::serialize_3_strs(this->pk_pem,this->addr_port,this->cert);
+    }
+
+    /**
+     * @brief Parse the json file or string to get the peer crypto info.
+     *
+     * @param json_file_or_string The json file or string. If the string starts
+     * with a '@', for example, "@hi.json" then it's a file path. Otherwise, it's the json string.
+     *
+     * @param required_keys The required keys in the json. If not all of them
+     * are in the json, we will throw.
+     *
+     * The json should have the following format:
+
+     * {
+     *   "<addr:port>" : {"pk_pem_file" : "<path to pk pem file>", "cert_file" : "<path to cert pem file>"},
+     *   "<addr:port2>" : {"pk_pem_file" : "<path to pk pem file>", "cert_file" : "<path to cert pem file>"},
+     *   ...
+     * }
+     *
+     * For example:
+     *
+     * {
+     *   "localhost:7777" : {"pk_pem_file" : "./N0-pk.pem", "cert_file" : "./N0-cert.sig"},
+     *   "localhost:7778" : {"pk_pem_file" : "./N1-pk.pem", "cert_file" : "./N1-cert.sig"},
+     *   "localhost:7779" : {"pk_pem_file" : "./N2-pk.pem", "cert_file" : "./N2-cert.sig"}
+     * }
+     */
+    static unordered_map<string,PeerCryptoInfo> parse_peer_json(string json_file_or_string,
+                                                                vector<string> required_keys = {}
+                                                                ){
+      unordered_map<string,PeerCryptoInfo> o;
+
+      if (json_file_or_string.size() > 0 and json_file_or_string[0] == '@'){
+        // this is a file path
+        string s = read_file(json_file_or_string.substr(1));
+        o = parse_peer_json(s);
+      }else{
+        // this is a json string
+        string s = json_file_or_string;
+        json::error_code ec;
+        json::value jv = json::parse(s, ec );
+        // BOOST_ASSERT_MSG(not ec, (format("Error parsing json %s") % s).str());
+        BOOST_ASSERT(not ec);
+        for (const auto & [k,v] : jv.as_object()){
+          string addr_port = k;
+          string pk_pem_file = string(v.at("pk_pem_file").as_string());
+          string cert_file = string(v.at("cert_file").as_string());
+          // 🦜 : It looks like we need to explicitly convert from json::string to std::string
+          string pk_pem = read_file(pk_pem_file);
+          string cert = read_file(cert_file);
+
+          o[addr_port] = PeerCryptoInfo{addr_port,pk_pem,cert};
+        }
+      }
+
+      // check if all required keys are in the json
+      for (const string & k : required_keys){
+        if (not o.contains(k)){
+          BOOST_THROW_EXCEPTION(std::runtime_error((format("Required key %s is not in the json") % k).str()));
+        }
+      }
+
+      return o;
+    }
+  };
 
   /**
    * @brief Combine the <pk> with each of the host in v.
@@ -626,7 +686,7 @@ namespace weak{
             ::pure::IMsgManageable * iMsgManageable;
           } msg_mgr;
 
-          if (o.without_crypto){
+          if (o.without_crypto == "yes"){
             string endpoint_for_cnsss = ::pure::SignedData::serialize_3_strs("<mock-pk>",my_addr_port,"");
             msg_mgr.naive = make_shared<::pure::NaiveMsgMgr>(endpoint_for_cnsss);
             // the default mgr

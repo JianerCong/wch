@@ -60,8 +60,7 @@ namespace weak{
       string ca_public_key_pem_file;
       string node_secret_key_pem_file;
       string node_cert_file;
-      string Solo_node_to_connect_pk_pem_file;
-      string Solo_node_to_connect_cert_file;
+      string peer_json_file_or_string;
     } crypto;
 
     vector<string> Bft_node_list;
@@ -135,13 +134,20 @@ namespace weak{
          program_options::value<string>(&(this->crypto.node_cert_file)),
           "The path to the node's certificate."
          )
-        ("crypto.Solo_node_to_connect_public_key_pem_file",
-         program_options::value<string>(&(this->crypto.Solo_node_to_connect_pk_pem_file)),
-          "The path to the primary node's public key."
+        ("crypto.peer_json_file_or_string",
+         program_options::value<string>(&(this->crypto.peer_json_file_or_string)),
+          "Path to the <peer json> file, or the json string itself.\n"
+         "If you are specifying file path, then prefix the path with '@', for example.\n"
+         "     --crypto.peer_json_file_or_string @./peer.json\n"
+         "This json contains an object something like this: \n"
+         "{\"<addr:port>\" : \"<addr:port>\" : {\"pk_pem_file\" : \"<path to pk pem file>\", \"cert_file\" : \"<path to cert pem file>\"},} \n"
+         "for example: \n"
+             "{\n"
+               "\"localhost:7777\" : {\"pk_pem_file\" : \"./N0-pk.pem\", \"cert_file\" : \"./N0-cert.sig\"},\n"
+               "\"localhost:7778\" : {\"pk_pem_file\" : \"./N1-pk.pem\", \"cert_file\" : \"./N1-cert.sig\"},\n"
+               "\"localhost:7779\" : {\"pk_pem_file\" : \"./N2-pk.pem\", \"cert_file\" : \"./N2-cert.sig\"}\n"
+             "}"
          )
-        ("crypto.Solo_node_to_connect_cert_file",
-         program_options::value<string>(&(this->crypto.Solo_node_to_connect_cert_file)),
-         "The path to the primary node's certificate.")
         ;
 
 

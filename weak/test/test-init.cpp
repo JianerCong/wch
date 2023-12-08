@@ -237,4 +237,112 @@ BOOST_AUTO_TEST_CASE(test_prepare_endpoint_list_bad_nonunique){
                     ,std::runtime_error);
 }
 
+vector<filesystem::path> prepare_pk_and_sig_files(){
+  filesystem::path tmp = std::filesystem::temp_directory_path();
+  vector<string> needed_files{"N0-pk.pem","N0-cert.sig","N1-pk.pem","N1-cert.sig","N2-pk.pem","N2-cert.sig"};
+  vector<filesystem::path> paths;
+  for (auto f : needed_files){
+    filesystem::path p = tmp / f;
+    if (filesystem::exists(p)) filesystem::remove(p);
+    paths.push_back(p);
+    (std::ofstream(paths.back().c_str()) << "abc").flush();
+  }
+  return paths;
+}
+
+BOOST_AUTO_TEST_CASE(test_parse_peer_json_ok){
+  /*
+    1. prepare the pk and sig file.
+    🦜 : These files just need to exist. We don't need to actually contain
+    anything meaningful.
+  */
+
+  vector<filesystem::path> paths = prepare_pk_and_sig_files();
+  // 2. prepare the json string
+  string s = "{\n"
+    "\"localhost:7777\" : {\"pk_pem_file\" : \"" + paths[0].string() + "\", \"cert_file\" : \"" + paths[1].string() + "\"},\n"
+    "\"localhost:7778\" : {\"pk_pem_file\" : \"" + paths[2].string() + "\", \"cert_file\" : \"" + paths[3].string() + "\"},\n"
+    "\"localhost:7779\" : {\"pk_pem_file\" : \"" + paths[4].string() + "\", \"cert_file\" : \"" + paths[5].string() + "\"}\n"
+    "}";
+
+  // 3. parse it
+  unordered_map<string,PeerCryptoInfo> m = PeerCryptoInfo::parse_peer_json(s);
+  BOOST_CHECK_EQUAL(m.size(),3);
+  BOOST_CHECK_EQUAL(m["localhost:7777"].pk_pem,"abc");
+  BOOST_CHECK_EQUAL(m["localhost:7778"].pk_pem,"abc");
+}
+
+BOOST_AUTO_TEST_CASE(test_parse_peer_json_required_keys_ok){
+  vector<filesystem::path> paths = prepare_pk_and_sig_files();
+  // 2. prepare the json string
+  string s = "{\n"
+    "\"localhost:7777\" : {\"pk_pem_file\" : \"" + paths[0].string() + "\", \"cert_file\" : \"" + paths[1].string() + "\"},\n"
+    "\"localhost:7778\" : {\"pk_pem_file\" : \"" + paths[2].string() + "\", \"cert_file\" : \"" + paths[3].string() + "\"},\n"
+    "\"localhost:7779\" : {\"pk_pem_file\" : \"" + paths[4].string() + "\", \"cert_file\" : \"" + paths[5].string() + "\"}\n"
+    "}";
+
+  // 3. parse it
+  unordered_map<string,PeerCryptoInfo> m = PeerCryptoInfo::parse_peer_json(s,
+                                                                           {
+                                                                             "localhost:7777",
+                                                                             "localhost:7778"
+                                                                             /* 🦜 the required key is here*/
+                                                                           }
+                                                                           );
+  BOOST_CHECK_EQUAL(m.size(),3);
+  BOOST_CHECK_EQUAL(m["localhost:7778"].pk_pem,"abc");
+  }
+
+BOOST_AUTO_TEST_CASE(test_parse_peer_json_required_keys_bad){
+  vector<filesystem::path> paths = prepare_pk_and_sig_files();
+  // 2. prepare the json string
+  string s = "{\n"
+    "\"localhost:7777\" : {\"pk_pem_file\" : \"" + paths[0].string() + "\", \"cert_file\" : \"" + paths[1].string() + "\"}\n"
+    "}";
+  auto f = [&](){
+    unordered_map<string,PeerCryptoInfo> m = PeerCryptoInfo::parse_peer_json(s,
+                                                                             {
+                                                                               "localhost:7778"
+                                                                               /* 🦜 the required key is here*/
+                                                                             }
+                                                                             );
+  };
+  BOOST_CHECK_THROW(f(),std::runtime_error);
+
+  }
+
+BOOST_AUTO_TEST_CASE(test_parse_peer_json_bad){
+  BOOST_CHECK_THROW(
+                    {
+                      /*
+                        unordered_map<string,PeerCryptoInfo>
+                        🦜 : It seems like you can't have ',' in your BOOST_CHECK_THROW({...},std::exception);
+                        because it will be treated as a separator for the arguments of BOOST_CHECK_THROW....
+                        Kinda macro magic, so yeah, just don't do that.
+                       */
+                        auto m = PeerCryptoInfo::parse_peer_json("aaa");
+                    }
+                    ,std::exception);
+  }
+
+BOOST_AUTO_TEST_CASE(test_parse_peer_json_from_file){
+  // 1. prepare the pk and sig file and also the json.
+  vector<filesystem::path> paths = prepare_pk_and_sig_files();
+  string s = "{\n"
+    "\"localhost:7777\" : {\"pk_pem_file\" : \"" + paths[0].string() + "\", \"cert_file\" : \"" + paths[1].string() + "\"},\n"
+    "\"localhost:7778\" : {\"pk_pem_file\" : \"" + paths[2].string() + "\", \"cert_file\" : \"" + paths[3].string() + "\"},\n"
+    "\"localhost:7779\" : {\"pk_pem_file\" : \"" + paths[4].string() + "\", \"cert_file\" : \"" + paths[5].string() + "\"}\n"
+    "}";
+
+  // 2. write json to file
+  filesystem::path tmp = std::filesystem::temp_directory_path();
+  filesystem::path p = tmp / "peer.json";
+  (std::ofstream(p.c_str()) << s).flush();
+  // 3. parse it
+  unordered_map<string,PeerCryptoInfo> m = PeerCryptoInfo::parse_peer_json('@' + p.string());
+  BOOST_CHECK_EQUAL(m.size(),3);
+  BOOST_CHECK_EQUAL(m["localhost:7777"].pk_pem,"abc");
+  BOOST_CHECK_EQUAL(m["localhost:7778"].pk_pem,"abc");
+}
+
 BOOST_AUTO_TEST_SUITE_END();
