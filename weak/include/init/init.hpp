@@ -271,6 +271,8 @@
 
 namespace weak{
 
+
+
   /**
    * @brief Read the content of a file.
    *
@@ -383,6 +385,19 @@ namespace weak{
     }
   };
 
+  inline string turn_addr_port_into_raw_endpoint(string addr_port){
+    return ::pure::SignedData::serialize_3_strs("<mock-pk>",addr_port,"");
+  }
+
+  namespace ranges = std::ranges;
+  template<class T>
+  bool is_unique(vector<T> v){
+    ranges::sort(v);
+    auto ret = ranges::unique(v);
+    // 🦜 : If the input is unique, then the return value of unique is the end of v
+    return ret.begin() == v.end();
+  }
+
   /**
    * @brief Combine the <pk> with each of the host in v.
    *
@@ -394,20 +409,20 @@ namespace weak{
    */
   vector<string> prepare_endpoint_list(const vector<string> & v){
 
-    std::set<string> r;
-    for (const string & s : v){
-      string r0 = ::pure::SignedData::serialize_3_strs("<mock-pk>",s,"");
-      // ::pure::SignedData::serialize_3_strs("<mock-pk>",o.Solo_node_to_connect,"");
-      if (not r.insert(r0).second){
-          BOOST_THROW_EXCEPTION(std::runtime_error(
-                                                   S_RED "❌️ The endpoint list is not unique: " + 
-                                                   boost::algorithm::join(v,",") + 
-                                                   S_NOR
-                                                   )
-                                );
-      }
+    if (not is_unique(v)){
+      BOOST_THROW_EXCEPTION(std::runtime_error(
+                                               S_RED "❌️ The endpoint list is not unique: " +
+                                               boost::algorithm::join(v,",") +
+                                               S_NOR
+                                               )
+                            );
     }
-    vector<string> o(r.begin(),r.end());
+
+    vector<string> o;
+    o.reserve(v.size());
+    for (const string & addr_port : v){
+      o.push_back(turn_addr_port_into_raw_endpoint(addr_port));
+    }
     return o;
   }
 
@@ -680,6 +695,7 @@ namespace weak{
           string my_addr_port = IPBasedHttpNetAsstn::combine_addr_port(o.my_address,o.port);
           BOOST_LOG_TRIVIAL(info) << format("\t⚙️ using p2p addr_port: " S_CYAN "%s" S_NOR) % my_addr_port;
 
+
           struct {
             shared_ptr<::pure::NaiveMsgMgr> naive;
             shared_ptr<::pure::SslMsgMgr> ssl;
@@ -687,7 +703,7 @@ namespace weak{
           } msg_mgr;
 
           if (o.without_crypto == "yes"){
-            string endpoint_for_cnsss = ::pure::SignedData::serialize_3_strs("<mock-pk>",my_addr_port,"");
+            string endpoint_for_cnsss = turn_addr_port_into_raw_endpoint(my_addr_port);
             msg_mgr.naive = make_shared<::pure::NaiveMsgMgr>(endpoint_for_cnsss);
             // the default mgr
             msg_mgr.iMsgManageable = dynamic_cast<::pure::IMsgManageable*>(&(*msg_mgr.naive));
@@ -699,7 +715,6 @@ namespace weak{
             string my_cert = read_file(o.crypto.node_cert_file); // binary
 
             msg_mgr.ssl = make_shared<::pure::SslMsgMgr>(my_sk_pem, my_addr_port, my_cert,ca_pk_pem);
-
             msg_mgr.iMsgManageable = dynamic_cast<::pure::IMsgManageable*>(&(*msg_mgr.ssl));
           }
 
@@ -736,14 +751,27 @@ namespace weak{
               shared_ptr<::pure::RbftConsensus> rbft;
             } cnsss;
 
+            unordered_map<string,PeerCryptoInfo> peers; // <! the peers crypto info, empty if --without_crypto=yes (default)
 
             if (o.consensus_name == "Solo"){
               string endpoint_node_to_connect;
 
               if (not o.Solo_node_to_connect.empty()){
                 BOOST_LOG_TRIVIAL(info) << format("\t⚙️ Starting as Solo sub");
-                endpoint_node_to_connect = ::pure::SignedData::serialize_3_strs("<mock-pk>",o.Solo_node_to_connect,"");
-                // 🦜 : It's important to make this <mock-pk> same as the one registered to msg_msg for primary node.
+
+                if (o.without_crypto == "yes"){
+                  endpoint_node_to_connect = turn_addr_port_into_raw_endpoint(o.Solo_node_to_connect);
+                  // 🦜 : It's important to make this <mock-pk> same as the one registered to msg_msg for primary node.
+                }else{
+                  /*
+                    🦜 : If we are using serious crypto, we need primary's cryptoInfo
+                  */
+                  peers = PeerCryptoInfo::parse_peer_json(o.crypto.peer_json_file_or_string,
+                                                          {o.Solo_node_to_connect} /* required peer addr_port*/
+                                                          );
+                  endpoint_node_to_connect = peers.at(o.Solo_node_to_connect).endpoint();
+                }
+
               }else{
                 BOOST_LOG_TRIVIAL(info) << format("\t⚙️ Starting as Solo primary");
               }
@@ -754,24 +782,45 @@ namespace weak{
 
               cnsss.iCnsssPrimaryBased = dynamic_cast<ICnsssPrimaryBased*>(&(*cnsss.listenToOne));
             }else if (o.consensus_name == "Rbft"){
-              if (o.Bft_node_list.empty()){
-                BOOST_LOG_TRIVIAL(error) << S_RED "❌️ Empty cluster endpoint list for RBFT" S_NOR;
-                std::exit(EXIT_FAILURE);
+              BOOST_ASSERT_MSG(not o.Bft_node_list.empty(),
+                               "❌️ Empty cluster endpoint list for RBFT");
+
+              vector<string> all_endpoints;
+              if (o.without_crypto == "yes"){
+                // 1. translate the node-addr to endpoint format.
+                all_endpoints = prepare_endpoint_list(o.Bft_node_list);
+                /*
+                  🦜 : Instead of the following:
+
+                  ranges::transform(o.Bft_node_list,
+                  std::back_inserter(all_endpoints),
+                  [](string c) -> string {
+                  return ::pure::SignedData::serialize_3_strs("<mock-pk>",c,"");
+                  });
+
+                  I'm gonna do a dump loop ourselves.
+                */
+              }else{
+
+                // 0. make sure that the node list is unique
+                BOOST_ASSERT_MSG(is_unique(o.Bft_node_list),
+                                 (
+                                  "❌️ The endpoint list is not unique: " +
+                                  boost::algorithm::join(o.Bft_node_list,",")
+                                  ).c_str()
+                                 );
+
+                // 1. parse the peers json file
+                peers = PeerCryptoInfo::parse_peer_json(o.crypto.peer_json_file_or_string,
+                                                        o.Bft_node_list /* required peer addr_port*/
+                                                        );
+
+                // 2. translate the node-addr to endpoint format.
+                for (const string & c : o.Bft_node_list){
+                  all_endpoints.push_back(peers.at(c).endpoint());
+                }
+
               }
-
-              // 1. translate the node-addr to endpoint format.
-              vector<string> all_endpoints = prepare_endpoint_list(o.Bft_node_list);
-              /*
-                🦜 : Instead of the following:
-
-                ranges::transform(o.Bft_node_list,
-                std::back_inserter(all_endpoints),
-                [](string c) -> string {
-                return ::pure::SignedData::serialize_3_strs("<mock-pk>",c,"");
-                });
-
-                I'm gonna do a dump loop ourselves.
-              */
 
               // 2. start the cnsss
               cnsss.rbft = ::pure::RbftConsensus::create(net.iAsyncEndpointBasedNetworkable,
@@ -780,7 +829,7 @@ namespace weak{
                                                          all_endpoints);
 
               cnsss.iCnsssPrimaryBased = dynamic_cast<ICnsssPrimaryBased*>(&(*cnsss.rbft));
-            } else{
+            }else{
               BOOST_LOG_TRIVIAL(error) << format("❌️ Unknown consensus method: " S_RED "%s" S_NOR) % o.consensus_name;
               std::exit(EXIT_FAILURE);
             }
