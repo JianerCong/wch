@@ -53,8 +53,16 @@ namespace weak{
     string without_sealer{"yes"};
     string mock_exe{"no"};
     string verbose{"yes"};
-
     string light_exe{"yes"};
+
+    string without_crypto{"yes"};
+    struct {
+      string ca_public_key_pem_file;
+      string node_secret_key_pem_file;
+      string node_cert_file;
+      string Solo_node_to_connect_pk_pem_file;
+      string Solo_node_to_connect_cert_file;
+    } crypto;
 
     vector<string> Bft_node_list;
 
@@ -111,22 +119,29 @@ namespace weak{
          "the node is considered to be a `newcomer` and it will send request to the existing "
          "to nodes to try to get in."
          )
-        ("without-crypto", program_options::value<string>(&(this->without_sealer))->implicit_value("yes"),
+        ("without-crypto", program_options::value<string>(&(this->without_crypto))->implicit_value("yes"),
          "When set to 'no', Enable all those crypto stuff about CA, key pair, "
          "peer validation, etc. Otherwise, we skip any of those, and all arguments starting with 'crypto' are ignored."
          "Default value: 'yes'.")
         ("crypto.ca_public_key_pem_file",
-         program_options::value<string>()->default_value(""),
+         program_options::value<string>(&(this->crypto.ca_public_key_pem_file)),
          "The path to the CA's public key."
          )
         ("crypto.node_secret_key_pem_file",
-          program_options::value<string>()->default_value(""),
+         program_options::value<string>(&(this->crypto.node_secret_key_pem_file)),
           "The path to the node's secret key."
          )
-        ("crypto.node_certificate",
-          program_options::value<string>()->default_value(""),
+        ("crypto.node_cert_file",
+         program_options::value<string>(&(this->crypto.node_cert_file)),
           "The path to the node's certificate."
          )
+        ("crypto.Solo_node_to_connect_public_key_pem_file",
+         program_options::value<string>(&(this->crypto.Solo_node_to_connect_pk_pem_file)),
+          "The path to the primary node's public key."
+         )
+        ("crypto.Solo_node_to_connect_cert_file",
+         program_options::value<string>(&(this->crypto.Solo_node_to_connect_cert_file)),
+         "The path to the primary node's certificate.")
         ;
 
 

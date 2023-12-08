@@ -8,7 +8,7 @@
  *
  * 🐢 : The process is as folloing:
  *
- *   1. Read the options. The among many options, important ones are:
+ *   0. Read the options. The among many options, important ones are:
  *
  *        + string consensus_name: The consensus name to use.
  *
@@ -31,7 +31,7 @@
  *  🐢 : these are at least, I think.
  *
  *  // Prepare system --------------------------------------------------
- *  
+ *
  *  🦜 : Okay, what's next?
  *
  *  🐢 : Next we let the crew in. In particular:
@@ -55,7 +55,7 @@
  *  assume that the chain is empty. Otherwise, we have some other things to do.
  *
  *  (🦜 : "other things" means that we need to some info about the chain to
- *  initialize some module right? 🐢: Yes.) In particular, we need
+ *  initialize some modules right? 🐢: Yes.) In particular, we need
  *
  *    3.1. the hashes of all Txs that is on the chain so far. (🦜: How do we get
  *    that? do we need to store all these into a key on the stateDB? 🐢: No, we
@@ -82,8 +82,7 @@
  *
  *      + start a CnsssBlkChainAsstn: this is like an agent that manage "some"
  *      of the communication between consensus and other modules (mainly RPC and
- *      sealer). This doesn't need anything else from apart from a
- *      pure-consensus.
+ *      sealer). This doesn't need anything else apart from a pure-consensus.
  *
  *    To start a pure-consensus, we need two things: an `exe`
  *    (::pure::IForConsensusExecutable) and an `network`
@@ -93,9 +92,10 @@
  *    signature.
  *
  *    4.1 `exe` is kinda like the "computer" of pure-consensus, which should be
- *    complex.(🐢 : Here is also where we can mock a good amount of code.) In
- *    real run, we should start an `ExecutorForCnsss`(cnsss/exeForCnsss.hpp) for Cnsss
- *    here. This will require two things
+ *    complex.(🐢 : Here is also a place where we can mock a good amount of
+ *    code.) In real run, we should start an
+ *    `ExecutorForCnsss`(cnsss/exeForCnsss.hpp) for Cnsss here. This will
+ *    require two things
  *
  *       4.1.1 an `IBlkExecutable`: which can be used to execute and commit Blk.
  *       Serious instance is the `BlkExecutor` (execManager.hpp). This will need 2 + 1 things:
@@ -109,19 +109,19 @@
  *          to initialize.
  *
  *       4.1.2 an `IPoolSettable`: this is where exe can throw `Tx` in. Serious
- *       implementation is Mempool (cnsss/mempool.hpp).
+ *       implementation is `Mempool` (cnsss/mempool.hpp).
  *
  *    4.2 `net` is the network that cnsss use to communicate with each other (p2p).
  *
  *    Here we have two types of network component (we called them `network
  *    assistant`).
  *
- *    1. `IEndpointBasedNetworkable`. This is for cnsss that need response for
+ *    4.2.1. `IEndpointBasedNetworkable`. This is for cnsss that need response for
  *    each request, such as Solo and Raft. In this case, we currenly have
  *    http-based network. Serious implementation is `IPBasedHttpNetAsstn`
  *    (net/pure-httpNetAsstn.hpp).
  *
- *    2. `IAsyncEndpointBasedNetworkable`. This is for cnssses that don't need
+ *    4.2.2. `IAsyncEndpointBasedNetworkable`. This is for cnssses that don't need
  *    response for each request, such as *BFT. In this case, we have
  *    `IPBasedUdpNetAsstn` (net/pure-udpNetAsstn.hpp).
  *
@@ -137,8 +137,36 @@
  *
  *    🦜 : So I guess there's a serious implementation using openssl right?
  *
- *    🐢 : Yeah, and it's called `SslMsgMgr` (net/pure-netAsstn.hpp). It's still
- *    under development....
+ *    🐢 : Yeah, and it's called `SslMsgMgr` (net/pure-netAsstn.hpp). Let's talk
+ *    about that.
+ *
+ *       4.2.2.1 If the option `--without-crypto=no` is given (default is `yes`),
+ *       then we will try to use a `SslMsgMgr`. This will consume all the
+ *       options that starts with `--crypto`. In particular it contains:
+ *
+ *          + crypto.ca_public_key_pem_file: The path to the CA public key file.
+ *
+ *          + crypto.node_secret_key_pem_file: The path to the node's secret key
+ *          file.
+ *
+ *          + crypto.node_certificate: The path to the node's certificate
+ *          file. (Which is CA's signature on the node's public key. Should be binary.)
+ *
+ *       These three options are only read when `--without-crypto=no` is given.
+ *
+ *       🦜 : Okay. But do we need to do some preparation before init an
+ *       instance of `SslMsgMgr`?
+ *
+ *       🐢 : Yes. But we don't need to touch any crypto stuff here. We just
+ *       need to read the content of those files.
+ *
+ *       string my_sk_pem = read_file(o.crypto.node_secret_key_pem_file); // plain text
+ *       string ca_pk_pem = read_file(o.crypto.ca_public_key_pem_file); // plain text
+ *       string my_cert = read_file(o.crypto.node_cert_file); // binary
+ *
+ *       auto mgr = SslMsgMgr(my_sk_pem, my_addr_port_str, my_cert,ca_pk_pem);
+ *
+ *       ... And.. that's it. The SslMsgMgr is up.
  *
  *    `IPBasedUdpNetAsstn` also requires a message manager, but more
  *    importantly, it needs a `port` to listen on UDP.
@@ -148,9 +176,17 @@
  *    cnsss->listened_endpoint(). (🦜 : Okay, so what's the format of this
  *    string ? 🐢 : This is usually something like
  *
- *    ::pure::SignedData::serialize_3_strs("<mock-pk>","10.0.0.2:7777","");
- *
+ *    ::pure::SignedData::serialize_3_strs("<pk>","10.0.0.2:7777","<crt>");
  *    ).
+ *
+ *    🐢 : Note that, if we are doing serious crypto and using Solo as our
+ *    cnsss, then we would need to know the primary's public key and its crt:
+ *
+ *       string Solo_node_to_connect_pk_pem = read_file(o.crypto.Solo_node_to_connect_pk_pem_file); // plain text
+ *       string Solo_node_to_connect_cert = read_file(o.crypto.Solo_node_to_connect_cert_file); // binary
+ *       string endpoint_node_to_connect = ::pure::SignedData::serialize_3_strs(Solo_node_to_connect_pk_pem,
+ *                                                                       o.Solo_node_to_connect,
+ *                                                                       o.Solo_node_to_connect_cert)
  *
  *    4.2e `net` and `exe` are essential to (almost) all cnsss. In addition to
  *    that, some cnsss requires the magic of digital-signature (most commonly
@@ -230,6 +266,62 @@
 #include <boost/log/expressions.hpp>
 
 namespace weak{
+
+  struct PeerCryptoInfo {
+    string addr_port;
+    string pk_pem;
+    string cert;
+
+    PeerCryptoInfo(string aaddr_port, string pk_pem_file, string cert_file):
+      addr_port(aaddr_port)
+      // throw runtime_error if file not exist
+    {
+      this->pk_pem = read_file(pk_pem_file);
+      this->cert = read_file(cert_file);
+    }
+
+    string endpoint() const{
+      return ::pure::SignedData::serialize_3_strs(this->pk_pem,this->addr_port,this->cert);
+    }
+}
+
+  /**
+   * @brief Read the content of a file.
+   *
+   * @param path The path to the file.
+   * @return The content of the file.
+   */
+  string read_file(string path){
+    filesystem::path p(path);
+    if (not filesystem::exists(p)){
+      BOOST_THROW_EXCEPTION(std::runtime_error((format("File %s does not exist") % path).str()));
+    }
+
+    ifstream ifs(p.c_str(), std::ios::binary);
+    if (not ifs.is_open()){
+      BOOST_THROW_EXCEPTION(std::runtime_error((format("File %s cannot be opened") % path).str()));
+    }
+
+    char * buffer;
+    // get the length of the file
+    // ifs.seekg(0, ifs.end);
+    // size_t length = ifs.tellg();
+    // ifs.seekg(0, ifs.beg);
+    size_t length = filesystem::file_size(p);
+    // 🦜 : Yeah, the smart file_size() is better.
+
+    // allocate memory:
+    buffer = new char [length];
+
+    // read data as a block:
+    ifs.read(buffer,length);
+    // close
+    ifs.close();
+    string o(buffer,length);
+    delete[] buffer;
+
+    return o;
+  }
 
   /**
    * @brief Combine the <pk> with each of the host in v.
@@ -527,17 +619,29 @@ namespace weak{
         {
           string my_addr_port = IPBasedHttpNetAsstn::combine_addr_port(o.my_address,o.port);
           BOOST_LOG_TRIVIAL(info) << format("\t⚙️ using p2p addr_port: " S_CYAN "%s" S_NOR) % my_addr_port;
-          string endpoint_for_cnsss = ::pure::SignedData::serialize_3_strs("<mock-pk>",my_addr_port,"");
 
           struct {
             shared_ptr<::pure::NaiveMsgMgr> naive;
-            shared_ptr<::pure::SslMsgMgr> msg_mgr;
+            shared_ptr<::pure::SslMsgMgr> ssl;
             ::pure::IMsgManageable * iMsgManageable;
           } msg_mgr;
 
-          msg_mgr.naive = make_shared<::pure::NaiveMsgMgr>(endpoint_for_cnsss);
-          // the default mgr
-          msg_mgr.iMsgManageable = dynamic_cast<::pure::IMsgManageable*>(&(*msg_mgr.naive));
+          if (o.without_crypto){
+            string endpoint_for_cnsss = ::pure::SignedData::serialize_3_strs("<mock-pk>",my_addr_port,"");
+            msg_mgr.naive = make_shared<::pure::NaiveMsgMgr>(endpoint_for_cnsss);
+            // the default mgr
+            msg_mgr.iMsgManageable = dynamic_cast<::pure::IMsgManageable*>(&(*msg_mgr.naive));
+          }else{
+            BOOST_LOG_TRIVIAL(info) <<  format("⚙️ Using serious crypto");
+
+            string my_sk_pem = read_file(o.crypto.node_secret_key_pem_file); // plain text
+            string ca_pk_pem = read_file(o.crypto.ca_public_key_pem_file); // plain text
+            string my_cert = read_file(o.crypto.node_cert_file); // binary
+
+            msg_mgr.ssl = make_shared<::pure::SslMsgMgr>(my_sk_pem, my_addr_port, my_cert,ca_pk_pem);
+
+            msg_mgr.iMsgManageable = dynamic_cast<::pure::IMsgManageable*>(&(*msg_mgr.ssl));
+          }
 
           struct {
             unique_ptr<IPBasedHttpNetAsstn> http;
@@ -550,8 +654,7 @@ namespace weak{
           if (o.consensus_name == "Solo"){
             BOOST_LOG_TRIVIAL(debug) <<  "\t 🌐️ Using " S_CYAN "http-based " S_NOR " p2p";
             net.http = make_unique<IPBasedHttpNetAsstn>(dynamic_cast<::pure::IHttpServable*>(&srv),
-                                                        msg_mgr.iMsgManageable
-                                                        );
+                                                        msg_mgr.iMsgManageable);
             net.iEndpointBasedNetworkable = dynamic_cast<::pure::IEndpointBasedNetworkable*>(&(*net.http));
           }else if (o.consensus_name == "Rbft"){
             BOOST_LOG_TRIVIAL(debug) <<  "\t 🌐️ Using " S_CYAN "udp-based " S_NOR " p2p";
