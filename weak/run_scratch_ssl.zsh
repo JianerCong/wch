@@ -51,7 +51,7 @@ echo '}' >> $pj
 print 'Generated'  $S_GREEN $(ls $pj) $S_NOR
 cd ..
 
-# 1. try start the cluster
+# 1. try start the cluster (solo)
 # --------------------------------------------------
 ops=(--mock-exe --without-crypto no \
                 --crypto.ca_public_key_pem_file $tmp/ca-$pk \
@@ -76,7 +76,7 @@ $w --port ${ports[2]} \
 txs='[
   {"from" : "01",
    "to" : "",
-   "data" : "aa",
+   "data" : "bb",
    "nonce" : 123
   }
 ]'
@@ -84,6 +84,30 @@ e=http://localhost
 curl --data $txs $e:7778/add_txs
 
 # n2
+n=${ap[${ports[2]}]}
+$w --port ${ports[2]} \
+   --Solo.node-to-connect localhost:${ports[1]} \
+   --crypto.node_secret_key_pem_file $tmp/$n-$sk \
+   --crypto.node_cert_file $tmp/$n-$sg \
+   $ops
+
+# --------------------------------------------------
+# 1. try with rbft
+ops=(--mock-exe \
+         --consensus Rbft --Bft.node-list localhost:7777 \
+         --without-crypto no \
+         --crypto.ca_public_key_pem_file $tmp/ca-$pk \
+         --crypto.peer_json_file_or_string "@$tmp/$pj" \
+    )
+
+# the primary n0
+n=${ap[${ports[1]}]}
+$w --port ${ports[1]} \
+   --crypto.node_secret_key_pem_file $tmp/$n-$sk \
+   --crypto.node_cert_file $tmp/$n-$sg \
+   $ops
+
+# the n1
 n=${ap[${ports[2]}]}
 $w --port ${ports[2]} \
    --Solo.node-to-connect localhost:${ports[1]} \

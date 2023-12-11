@@ -180,8 +180,7 @@ namespace pure{
       }
 
       // Start accepting incoming connections
-      void
-      run(){do_accept();}
+      void run(){do_accept();}
     private:
       void
       do_accept(){
