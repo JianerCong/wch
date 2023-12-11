@@ -353,9 +353,11 @@ namespace weak{
 
       if (json_file_or_string.size() > 0 and json_file_or_string[0] == '@'){
         // this is a file path
+        BOOST_LOG_TRIVIAL(debug) << "\tParsing json file " S_CYAN << json_file_or_string.substr(1) << S_NOR " to get peer crypto info";
         string s = read_file(json_file_or_string.substr(1));
         o = parse_peer_json(s);
       }else{
+        BOOST_LOG_TRIVIAL(debug) << "\tParsing json string";
         // this is a json string
         string s = json_file_or_string;
         json::error_code ec;

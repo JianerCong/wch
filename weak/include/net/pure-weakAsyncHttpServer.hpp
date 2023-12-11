@@ -134,7 +134,7 @@ namespace pure{
     // Report a failure
     static void fail(beast::error_code ec, char const* what)
     {
-      std::cerr << what << ": " << ec.message() << "\n";
+      BOOST_THROW_EXCEPTION(std::runtime_error(string(what) + ": " + ec.message()));
     }
 
     // Accepts incoming connections and launches the sessions
@@ -153,28 +153,28 @@ namespace pure{
         // Open the acceptor
         acceptor_.open(endpoint.protocol(), ec);
         if(ec){
-          fail(ec, "open");
+          fail(ec, "failed to open acceptor");
           return;
         }
 
         // Allow address reuse
         acceptor_.set_option(asio::socket_base::reuse_address(true), ec);
         if(ec){
-          fail(ec, "set_option");
+          fail(ec, "failed in set_option");
           return;
         }
 
         // Bind to the server address
         acceptor_.bind(endpoint, ec);
         if(ec){
-          fail(ec, "bind");
+          fail(ec, "failed to bind server address");
           return;
         }
 
         // Start listening for connections
         acceptor_.listen(asio::socket_base::max_listen_connections, ec);
         if(ec){
-          fail(ec, "listen");
+          fail(ec, "failed to listen for connection");
           return;
         }
       }

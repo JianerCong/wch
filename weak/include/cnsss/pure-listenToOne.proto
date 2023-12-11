@@ -2,6 +2,6 @@ syntax = "proto3";
 package hiPb;
 
 message YouAreInTicket {
-  string msg = 1;
+  bytes msg = 1;
   repeated bytes command_history = 2;
 }

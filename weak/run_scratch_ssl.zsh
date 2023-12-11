@@ -37,7 +37,7 @@ done
 echo '{' > $pj
 for port in ${ports}; do
     v=${ap[$port]}
-    echo \" localhost:$port \" \: \{ \
+    echo \"localhost:$port\" \: \{ \
          \"pk_pem_file\"\: \"$tmp/$v-$pk\" ',' \
          \"cert_file\"\: \"$tmp/$v-$sg\" \
          \} >> $pj
@@ -55,7 +55,7 @@ cd ..
 # --------------------------------------------------
 ops=(--mock-exe --without-crypto no \
                 --crypto.ca_public_key_pem_file $tmp/ca-$pk \
-                --crypto.peer_json_file_or_string $tmp/$pj \
+                --crypto.peer_json_file_or_string "@$tmp/$pj" \
     )
 # the primary n0
 n=${ap[${ports[1]}]}
@@ -65,6 +65,25 @@ $w --port ${ports[1]} \
    $ops
 
 # the n1
+n=${ap[${ports[2]}]}
+$w --port ${ports[2]} \
+   --Solo.node-to-connect localhost:${ports[1]} \
+   --crypto.node_secret_key_pem_file $tmp/$n-$sk \
+   --crypto.node_cert_file $tmp/$n-$sg \
+   $ops
+
+# send an tx
+txs='[
+  {"from" : "01",
+   "to" : "",
+   "data" : "aa",
+   "nonce" : 123
+  }
+]'
+e=http://localhost
+curl --data $txs $e:7778/add_txs
+
+# n2
 n=${ap[${ports[2]}]}
 $w --port ${ports[2]} \
    --Solo.node-to-connect localhost:${ports[1]} \
