@@ -1,6 +1,7 @@
 ** todos
 *** TODO grpc
 *** TODO disable command_history
+*** TODO https
 *** TODO nbft
 *** TODO pb Tx and Blks
 *** TODO pure data Tx
