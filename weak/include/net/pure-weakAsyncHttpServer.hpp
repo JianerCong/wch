@@ -193,13 +193,14 @@ namespace pure{
 
       void on_accept(beast::error_code ec, tcp::socket socket) {
         if(ec){
-          fail(ec, "accept");
+          // fail(ec, "accept");
+          BOOST_LOG_TRIVIAL(error) << S_RED "❌️ failed " S_NOR "to accept socket[" \
+            S_MAGENTA "ignoring it" S_NOR "]: " << ec.message();
           return; // To avoid infinite loop
         }else{
           // Create the session and run it
           std::make_shared<session>(this->srv,std::move(socket))->run();
         }
-
         // Accept another connection
         do_accept();
       }

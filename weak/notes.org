@@ -1,0 +1,6 @@
+** todos
+*** TODO grpc
+*** TODO disable command_history
+*** TODO nbft
+*** TODO pb Tx and Blks
+*** TODO pure data Tx
