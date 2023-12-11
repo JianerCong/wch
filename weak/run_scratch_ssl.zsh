@@ -1,14 +1,20 @@
 S_GREEN="\x1b[32m"
 S_NOR="\x1b[0m"
-# 0. prepare the keys
-# --------------------------------------------------
-# 0.1 for a 3-nodes cluster, generated 4 key pairs (1 ca + 3 pks)
+
 tmp=".tmp"
 pj=peer.json
 ns=(ca n0 n1 n2)
 sk=secret-key.pem
 pk=public-key.pem
 sg=cert.sig
+typeset -A ap
+ap=(7777 n0 7778 n1 7779 n2)
+w=./build-weak/wch
+ports=(${(k)ap})
+
+# 0. prepare the keys
+# --------------------------------------------------
+# 0.1 for a 3-nodes cluster, generated 4 key pairs (1 ca + 3 pks)
 
 rm $tmp -rf
 mkdir $tmp
@@ -28,9 +34,6 @@ for n in ${ns[2,-1]}; do            # for each nodes
 done
 
 # 0.3 write the peer json
-typeset -A ap
-ap=(7777 n0 7778 n1 7779 n2)
-ports=(${(k)ap})
 echo '{' > $pj
 for port in ${ports}; do
     v=${ap[$port]}
@@ -50,11 +53,21 @@ cd ..
 
 # 1. try start the cluster
 # --------------------------------------------------
-# the primary
-w=./build-weak/wch
+ops=(--mock-exe --without-crypto no \
+                --crypto.ca_public_key_pem_file $tmp/ca-$pk \
+                --crypto.peer_json_file_or_string $tmp/$pj \
+    )
+# the primary n0
+n=${ap[${ports[1]}]}
+$w --port ${ports[1]} \
+   --crypto.node_secret_key_pem_file $tmp/$n-$sk \
+   --crypto.node_cert_file $tmp/$n-$sg \
+   $ops
 
-$w --port 7777 --without-crypto no \
-   --crypto.ca_public_key_pem_file $tmp/ca-$sk \
-   --crypto.node_secret_key_pem_file $tmp/n0-$sk \
-   --crypto.node_cert_file $tmp/n0-$sg \
-   --crypto.peer_json_file_or_string
+# the n1
+n=${ap[${ports[2]}]}
+$w --port ${ports[2]} \
+   --Solo.node-to-connect localhost:${ports[1]} \
+   --crypto.node_secret_key_pem_file $tmp/$n-$sk \
+   --crypto.node_cert_file $tmp/$n-$sg \
+   $ops

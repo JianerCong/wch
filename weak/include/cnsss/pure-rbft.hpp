@@ -944,7 +944,7 @@ public:
           this->patience--;
           this->say(format(" patience >> " S_MAGENTA "%d " S_NOR ", 🐢: Pr : " S_CYAN "%s" S_NOR)
                     % this->patience.load() %
-                    RbftConsensus::make_endpoint_human_readable(this->primary())
+                    ICnsssPrimaryBased::make_endpoint_human_readable(this->primary())
                     );
         }
 
@@ -1021,7 +1021,7 @@ public:
       try {
         this->say(
                   (format("Handling laid_down from %s") %
-                   RbftConsensus::make_endpoint_human_readable(endpoint)
+                   ICnsssPrimaryBased::make_endpoint_human_readable(endpoint)
                    ).str()
                   );
 
@@ -1053,7 +1053,7 @@ public:
 
         } // unlocked here
         this->say("Got next primary = " +
-                  RbftConsensus::make_endpoint_human_readable(next_primary)
+                  ICnsssPrimaryBased::make_endpoint_human_readable(next_primary)
                   );
 
         if (next_primary != this->net->listened_endpoint()){
@@ -1385,7 +1385,7 @@ public:
                                        );
       } // unlocks here
 #if defined (WITH_PROTOBUF)
-      my_id += (": " +  RbftConsensus::make_endpoint_human_readable(this->net->listened_endpoint()));
+      my_id += (": " +  ICnsssPrimaryBased::make_endpoint_human_readable(this->net->listened_endpoint()));
 #endif
 
       // 🦜 : Don't show this in actual run ⚠️
@@ -1406,24 +1406,6 @@ public:
         << cmds
         << " " S_BLUE "<" << this->epoch.load() << ">: " S_NOR
         << s;
-    }
-
-    /**
-     * @brief Make the endpoint string human-readable in case SSL is used.
-     * @param ep The endpoint string. 
-     */
-    static string make_endpoint_human_readable(string ep){
-      // if ep is smaller than 4 bytes, return
-      if (ep.size() < 4)
-        return ep;
-
-      // start from the second char, find the first '\n'
-      auto it = std::find(ep.begin() + 1, ep.end(), '\n');
-      // find the next '\n'
-      auto it2 = std::find(it + 1, ep.end(), '\n');
-
-      // return the four bytes before the second '\n'
-      return string(it2 - 4, it2);
     }
 
     /**

@@ -219,7 +219,7 @@ struct NodeFactory {
 
     this->nodes.erase(ep);
     BOOST_LOG_TRIVIAL(info) <<  "🚮️ kick " S_RED +
-      RbftConsensus::make_endpoint_human_readable(ep)
+      ICnsssPrimaryBased::make_endpoint_human_readable(ep)
       + S_NOR;
   }
 };
@@ -370,7 +370,7 @@ void start_cluster(int n){
 
     cout << S_MAGENTA "Sending " + cmd +
       " To " +
-      RbftConsensus::make_endpoint_human_readable(ep)
+      ICnsssPrimaryBased::make_endpoint_human_readable(ep)
       +  S_NOR << "\n";
     nClient->send(ep,"/pleaseExecuteThis",cmd);
     #else

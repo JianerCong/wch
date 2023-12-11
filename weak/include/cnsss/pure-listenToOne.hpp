@@ -161,8 +161,10 @@ namespace pure{
     }
 
     void say(string s){
-      BOOST_LOG_TRIVIAL(debug) << format("[%s]: %s")
-        % this->net->listened_endpoint() % s;
+      BOOST_LOG_TRIVIAL(debug) << format("[%s]: %s") %
+        ICnsssPrimaryBased::make_endpoint_human_readable(this->net->listened_endpoint())
+        // this->net->listened_endpoint()
+        % s;
     };
 
 

@@ -77,6 +77,26 @@ namespace pure {
         return handle_execute_for_primary(endpoint,data);
       return handle_execute_for_sub(endpoint, data);
     };
+
+    /**
+     * @brief Make the endpoint string human-readable in case SSL is used.
+     * @param ep The endpoint string.
+     */
+    static string make_endpoint_human_readable(string ep){
+      // if ep is smaller than 4 bytes, return
+      if (ep.size() < 4)
+        return ep;
+
+      // start from the second char, find the first '\n'
+      auto it = std::find(ep.begin() + 1, ep.end(), '\n');
+      // find the next '\n'
+      auto it2 = std::find(it + 1, ep.end(), '\n');
+
+      // return the four bytes before the second '\n'
+      return string(it2 - 4, it2);
+    }
+
+
   };
 
   class IForCnsssNetworkable{
@@ -135,6 +155,8 @@ namespace pure {
     virtual string execute(string & cmd)noexcept =0;
   };
 
+
+
   namespace mock{
   using namespace pure;
   class Executable: public virtual IForConsensusExecutable{
@@ -154,6 +176,7 @@ namespace pure {
 
     virtual ~Executable(){};
   };
+
 } // namespace mock
 } // namespace pure
 

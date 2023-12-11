@@ -359,9 +359,10 @@ namespace weak{
         // this is a json string
         string s = json_file_or_string;
         json::error_code ec;
-        json::value jv = json::parse(s, ec );
-        // BOOST_ASSERT_MSG(not ec, (format("Error parsing json %s") % s).str());
-        BOOST_ASSERT(not ec);
+        json::value jv = json::parse(s, ec);
+        BOOST_ASSERT_MSG(not ec,
+                         (format("Error parsing json %s") % s).str().c_str()
+                         );
         for (const auto & [k,v] : jv.as_object()){
           string addr_port = k;
           string pk_pem_file = string(v.at("pk_pem_file").as_string());
@@ -380,7 +381,6 @@ namespace weak{
           BOOST_THROW_EXCEPTION(std::runtime_error((format("Required key %s is not in the json") % k).str()));
         }
       }
-
       return o;
     }
   };
@@ -763,12 +763,14 @@ namespace weak{
                   endpoint_node_to_connect = turn_addr_port_into_raw_endpoint(o.Solo_node_to_connect);
                   // 🦜 : It's important to make this <mock-pk> same as the one registered to msg_msg for primary node.
                 }else{
+                  BOOST_LOG_TRIVIAL(debug) << "\t⚙️ Parsing peer json";
                   /*
                     🦜 : If we are using serious crypto, we need primary's cryptoInfo
                   */
                   peers = PeerCryptoInfo::parse_peer_json(o.crypto.peer_json_file_or_string,
                                                           {o.Solo_node_to_connect} /* required peer addr_port*/
                                                           );
+                  BOOST_LOG_TRIVIAL(debug) << "\tTrying to get endpoint for " S_CYAN << o.Solo_node_to_connect << S_NOR  " from peer json";
                   endpoint_node_to_connect = peers.at(o.Solo_node_to_connect).endpoint();
                 }
 
