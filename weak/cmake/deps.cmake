@@ -2,64 +2,44 @@
 # dynamic library from non-default locations.
 set(Boost_USE_STATIC_LIBS ON)
 
+if(WIN32)
+  add_compile_options(/utf-8)
+  add_definitions(-D_WIN32_WINNT=0x0A00) #minimum windows 10
+  set(x ${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg/installed/x64-windows-static/)
+  include_directories(${x}/include)
+endif()
 
 # try to find Boost on system
 find_package(Boost 1.75...1.99 COMPONENTS json unit_test_framework log program_options)
 
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 if (Boost_FOUND)
-  message("🐸 在本地找到了Boost")
+  message("🐸 Found Boost locally")
 else()
   if (WIN32)
-    message("Manually make Boost target")
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-    set(x
-      ${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg/installed/x64-windows-static/
-    )
-    add_library(Boost:json STATIC IMPORTED)
-    set_target_properties(Boost:json PROPERTIES
-      IMPORTED_LOCATION "${x}/lib/boost_json-vc140-mt.lib"
-    )
-
-    add_library(Boost:log STATIC IMPORTED)
-    set_target_properties(Boost:log PROPERTIES
-      IMPORTED_LOCATION "${x}/lib/boost_log-vc140-mt.lib"
-    )
-    target_link_libraries(Boost:log INTERFACE
-      "${x}/lib/boost_log_setup-vc140-mt.lib"
-    )
-
-    add_library(Boost:program_options STATIC IMPORTED)
-    set_target_properties(Boost:program_options PROPERTIES
-      IMPORTED_LOCATION "${x}/lib/boost_program_options-vc140-mt.lib"
-    )
-
-    add_library(Boost:unit_test_framework STATIC IMPORTED)
-    set_target_properties(Boost:unit_test_framework PROPERTIES
-      IMPORTED_LOCATION "${x}/lib/boost_unit_test_framework-vc140-mt.lib"
-    )
-
+    message("🐸 Finding Boost target on windows")
+    set(Boost_DIR "${PROJECT_SOURCE_DIR}/../.pre/boost_1_84_0/stage/lib/cmake/Boost-1.84.0/")
   else()
     message("🐸 在本地没有找到Boost，我们将使用预编译的Boost")
     set(Boost_DIR "${PROJECT_SOURCE_DIR}/../.pre/boost_1_82_0/stage/lib/cmake/Boost-1.82.0/")
-    find_package(Boost 1.75...1.99
-      CONFIG REQUIRED COMPONENTS json unit_test_framework log program_options
-    )
   endif()
+  find_package(Boost 1.75...1.99
+    CONFIG REQUIRED COMPONENTS json unit_test_framework log program_options
+  )
 endif()
+
 
 if (WIN32)
   # manually import the libs
-  set(x ${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg/installed/x64-windows-static/)
+  message("🐸 manually making rocksdb on windows")
+  set(x ${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg/installed/x64-windows-static/lib)
   add_library(RocksDB::rocksdb STATIC IMPORTED)
   set_target_properties(RocksDB::rocksdb PROPERTIES
-    IMPORTED_LOCATION "${x}/lib/rocksdb.lib"
+    IMPORTED_LOCATION "${x}/rocksdb.lib"
   )
   target_link_libraries(RocksDB::rocksdb INTERFACE
-    "${x}/lib/bz2.lib"
-    "${x}/lib/libexpatMT.lib"
-    "${x}/lib/lzma.lib"
-    "${x}/lib/zstd.lib"
-    "${x}/lib/zlib.lib"
+    # "${x}/bz2.lib"
+    "${x}/zlib.lib"
   )
 else()
   set(RocksDB_DIR "${PROJECT_SOURCE_DIR}/../.pre/installed-rocksdb/lib/x86_64-linux-gnu/cmake/rocksdb")
@@ -72,13 +52,11 @@ endif()
 if (WITH_PROTOBUF)
   if (WIN32)
     # manually import the libs
-    set(x ${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg/installed/x64-windows-static/)
-    add_library(Protobuf::libprotobuf STATIC IMPORTED)
-    set_target_properties(Protobuf::libprotobuf PROPERTIES
-      IMPORTED_LOCATION "${x}/lib/libprotobuf.lib"
-    )
-    target_link_libraries(Protobuf::libprotobuf INTERFACE
-      "${x}/lib/libprotoc.lib"
+    message("🐸 manually making protobuf on windows")
+    set(x ${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg/installed/x64-windows-static/lib/)
+    add_library(protobuf::libprotobuf STATIC IMPORTED)
+    set_target_properties(protobuf::libprotobuf PROPERTIES
+      IMPORTED_LOCATION "${x}/libprotobuf.lib"
     )
   else()
     set(x "${PROJECT_SOURCE_DIR}/../.pre/installed-pb")
@@ -118,6 +96,18 @@ if (WITH_PROTOBUF)
   endif()
 endif()
 
+#The core-dependencies (These should be cross-platform). 🦜 : These are the dependencies needed for most tests
+if (WIN32)
+  # manually import the libcrypto
+  message("🐸 manually making libcrypto on windows")
+  set(x ${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg/installed/x64-windows-static/lib/)
+  add_library(OpenSSL::Crypto STATIC IMPORTED)
+  set_target_properties(OpenSSL::Crypto PROPERTIES
+    IMPORTED_LOCATION "${x}/libcrypto.lib"
+  )
+else()
+find_package(OpenSSL REQUIRED)
+endif()
 # include(CMakePrintHelpers)
 # cmake_print_properties(TARGETS Boost::log PROPERTIES
 #   TYPE SOURCE_DIR

@@ -169,8 +169,8 @@ namespace weak {
     void openChainDB(const filesystem::path chainDir){
       BOOST_LOG_TRIVIAL(info) << format("Opening " S_CYAN "chain DB" S_NOR);
       auto o = getInitOptions();
-      rocksdb::Status s = rocksdb::DB::Open(o, chainDir.native() , &chainDB);
-      checkStatus(s,"Failed to open chainDB at" +  chainDir.native());
+      rocksdb::Status s = rocksdb::DB::Open(o, chainDir.string() , &chainDB);
+      checkStatus(s,"Failed to open chainDB at" +  chainDir.string());
       // 🦜 : the conversion from filesystem::path to std::string is only available in POSIX.
     }
 
@@ -180,8 +180,8 @@ namespace weak {
     void openStateDB(const filesystem::path stateDir){
       BOOST_LOG_TRIVIAL(info) << format("Opening " S_CYAN "state DB" S_NOR);
       auto o = getInitOptions(false /*prefix mode*/);
-      rocksdb::Status s = rocksdb::DB::Open(o, stateDir.native() , &stateDB);
-      checkStatus(s,"Failed to open stateDB at" +  stateDir.native());
+      rocksdb::Status s = rocksdb::DB::Open(o, stateDir.string() , &stateDB);
+      checkStatus(s,"Failed to open stateDB at" + stateDir.string());
     }
 
     /**
@@ -239,7 +239,7 @@ namespace weak {
     static inline void removeDirIfExist(filesystem::path d) {
       if (filesystem::exists(d)){
         BOOST_LOG_TRIVIAL(info) << format("🚮removing existing path " S_MAGENTA "%s" S_NOR)
-          % string(d);
+          % d.string();
         bool ok = filesystem::remove_all(d);
         if (not ok){
           // auto e = filesystem::filesystem_error((format("Error remove existing dir %s")
@@ -250,7 +250,7 @@ namespace weak {
 
           // 🦜: For now, I'd rather use runtime error...
           auto e = std::runtime_error(
-                                      (format("Error remove existing dir %s") % string(d)).str()
+                                      (format("Error remove existing dir %s") % d.string()).str()
                                       );
           BOOST_THROW_EXCEPTION(e);
 

@@ -1,3 +1,6 @@
 [submodule "vcpkg"]
-	path = vcpkg
-	url = https://github.com/Microsoft/vcpkg.git
+        path = vcpkg
+        url = https://github.com/Microsoft/vcpkg.git
+[submodule "weak/pkgs/ethash"]
+	path = weak/pkgs/ethash
+	url = https://github.com/chfast/ethash.git

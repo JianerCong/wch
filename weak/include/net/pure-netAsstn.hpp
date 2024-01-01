@@ -516,7 +516,9 @@ namespace pure{
      * @brief Read secret or public key from a string.
      */
     static optional<UniquePtr<EVP_PKEY>> load_key_from_file(path p, bool is_secret = true){
-      FILE * fp = fopen(p.c_str(),"rb");
+      FILE * fp = fopen(
+                        reinterpret_cast<const char*>(p.c_str())
+                        ,"rb");
       UniquePtr<EVP_PKEY> sk;
 
       if (not fp){

@@ -26,23 +26,15 @@ add_subdirectory(pkgs/intx-0.10.0 intx)        #brings in the intx
 add_subdirectory(pkgs/ethash-1.0.1 ethash)        #brings in ethash
 add_subdirectory(pkgs/evmweak)        #brings in the evmweak
 
-#The core-dependencies (These should be cross-platform). 🦜 : These are the dependencies needed for most tests
-find_package(OpenSSL REQUIRED)
 add_library(core-deps INTERFACE)
 
-# on windows, vcpkg installs boost libraries without a cmake config file, so no imported targets
 target_link_libraries(core-deps INTERFACE
   evmc::evmc_cpp
   OpenSSL::Crypto
   # evmc::loader evmc::instructions evmc::tooling
+  Boost::unit_test_framework Boost::log Boost::json Boost::program_options
   intx::intx ethash::keccak
 )
-
-if (not WIN32)
-  target_link_libraries(core-deps INTERFACE
-    Boost::unit_test_framework Boost::log Boost::json Boost::program_options
-  )
-endif()
 
 add_library(deps INTERFACE)     #the ALL dependency target = core + rdb (currently)
 target_link_libraries(deps INTERFACE core-deps RocksDB::rocksdb
