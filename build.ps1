@@ -24,6 +24,7 @@ cd .\boost_1_84_0\
 # 2. get and install other pkgs using vcpkg
 # git submodule  add https://github.com/Microsoft/vcpkg.git
 # fetch the vcpkg repo (1 level)
+git submodule init
 git submodule update --init --recursive --depth 1
 cd vcpkg
 # checkout 2023.12.12
