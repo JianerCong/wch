@@ -53,11 +53,13 @@ if (WITH_PROTOBUF)
   if (WIN32)
     # manually import the libs
     message("🐸 manually making protobuf on windows")
-    set(x ${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg/installed/x64-windows-static/lib/)
-    add_library(protobuf::libprotobuf STATIC IMPORTED)
-    set_target_properties(protobuf::libprotobuf PROPERTIES
-      IMPORTED_LOCATION "${x}/libprotobuf.lib"
-    )
+    # set(x ${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg/installed/x64-windows-static/lib/)
+    # add_library(protobuf::libprotobuf STATIC IMPORTED)
+    # set_target_properties(protobuf::libprotobuf PROPERTIES
+    #   IMPORTED_LOCATION "${x}/libprotobuf.lib"
+    # )
+    set(x ${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg/installed/x64-windows-static/share/protobuf)
+    # set(x "${PROJECT_SOURCE_DIR}/../.pre/installed-pb")
   else()
     set(x "${PROJECT_SOURCE_DIR}/../.pre/installed-pb")
     set(utf8_range_DIR "${x}/lib/cmake/utf8_range")

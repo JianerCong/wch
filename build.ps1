@@ -10,10 +10,12 @@ if (!(Test-Path -Path ./.pre )) {
     New-Item -ItemType Directory -Force -Path ./.pre
 }
 # Download the boost zip file from https://sourceforge.net/projects/boost/files/boost/1.84.0/boost_1_84_0.7z/download
-cd .\boost_1_84_0\
+mv ~\Downloads\boost_1_84_0 .\.pre
+cd .\.pre\boost_1_84_0
 .\bootstrap.bat
 .\b2 --show-libraries
-.\b2 --with-json --with-program_options --with-test --with-headers --with-log link=static
+.\b2 --with-json --with-program_options --with-test --with-headers --with-log -a link=static cxxflags="/utf-8"
+# -a : rebuild all
 
 # The Boost C++ Libraries were successfully built!
 # The following directory should be added to compiler include paths:
@@ -22,13 +24,14 @@ cd .\boost_1_84_0\
 # C:\Users\congj\Music\wrack-chain\.pre\boost_1_84_0\stage\lib
 
 # 2. get and install other pkgs using vcpkg
-# git submodule  add https://github.com/Microsoft/vcpkg.git
+# git submodule add --force https://github.com/Microsoft/vcpkg.git
 # fetch the vcpkg repo (1 level)
 git submodule init
 git submodule update --init --recursive --depth 1
 cd vcpkg
 # checkout 2023.12.12
 git checkout 2023.12.12
+cd ..
 .\vcpkg\bootstrap-vcpkg.bat
 # list 
 .\vcpkg\vcpkg.exe --help
