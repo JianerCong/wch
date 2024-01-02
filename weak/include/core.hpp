@@ -453,7 +453,24 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
     Tx() = default; // Upon you make a constructor yourself, the build-in
                     // constructor is gone,use this to bring it back
 
-    Tx(const address f,const address t,const bytes d,const uint64_t n):
+    // --------------------------------------------------
+    // Type related
+    enum class Type {evm, data};
+
+    static string typeToString(Type t){
+      static const string s[] = {"evm", "data"};
+      return string(s[static_cast<int>(t)]);
+    }
+
+    static Type typeFromString(string_view s){
+      if (s == "" or s == "evm") return Type::evm;
+      if (s == "data") return Type::data;
+      BOOST_THROW_EXCEPTION(std::runtime_error((format("Invalid Tx type: %1%") % s).str()));
+    }
+    // --------------------------------------------------
+    
+    Tx(const address f,const address t,const bytes d,const uint64_t n,
+        Type type = Type::evm):
       from(f),to(t),data(d),nonce(n){
       timestamp = std::time(nullptr);
       // convert nonce to array
@@ -472,6 +489,8 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
       // Get the hash(nonce)
       hash = ethash::keccak256(reinterpret_cast<uint8_t*>(b), size + 20);
     };
+
+    Type type = Type::evm;
 
     address from;
     /// if to is empty, create contract, else call
@@ -500,19 +519,27 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
       BOOST_LOG_TRIVIAL(debug) << format("Forming Tx from Json");
 
       try {
-        // json::object const& o = v.as_object();
+        json::object const& o = v.as_object();
 
         BOOST_LOG_TRIVIAL(trace) << format("parsing nonce");
-        this->nonce = value_to<uint64_t>(v.at("nonce"));
+        this->nonce = value_to<uint64_t>(o.at("nonce"));
         BOOST_LOG_TRIVIAL(trace) << format("parsing timestamp");
-        this->timestamp = static_cast<time_t>(value_to<uint64_t>(v.at("timestamp")));
+        this->timestamp = static_cast<time_t>(value_to<uint64_t>(o.at("timestamp")));
 
         string f,t,d,h;
-        d= value_to<string>(v.at("data"));
-        f= value_to<string>(v.at("from"));
-        h= value_to<string>(v.at("hash"));
-        t= value_to<string>(v.at("to"));
+        d= value_to<string>(o.at("data"));
+        f= value_to<string>(o.at("from"));
+        h= value_to<string>(o.at("hash"));
+        t= value_to<string>(o.at("to"));
         // TODO: check if these bytes are valid hex.
+
+        // 🦜 if v has a `type` field, use it. Otherwise, use default (evm).
+        if (o.contains("type")){
+          string s = value_to<string>(o.at("type"));
+          this->type = typeFromString(s);
+        }else{
+          this->type = Type::evm;
+        }
 
         /*
             🐢 : parse<...>() will call std::terminate() on failure. So we
@@ -527,12 +554,17 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
             🦜 : Agree. And I think in that case, we might gonna use
             evmc::from_hex<evmc::address>(), which will return an optional<evmc::address>
          */
-        this->from = evmc::literals::parse<address>(f);
-        this->to = evmc::literals::parse<address>(t);
+
+        // this->from = evmc::literals::parse<address>(f); // 🦜 this do abort (not what we wan)
+        // this->to = evmc::literals::parse<address>(t);
+        this->from = evmc::from_hex<address>(f).value(); // 🦜 this throws, so we can catch it
+        this->to = evmc::from_hex<address>(t).value();
+
         this->data = evmc::from_hex(d).value();
         /// Decodes hex-encoded string into custom type T with .bytes array of
         /// uint8_t. so ethash::hash256 is such type
         this->hash = evmc::from_hex<hash256>(h).value();
+
       }catch (std::exception &e){
         BOOST_LOG_TRIVIAL(error) << format("❌️ error parsing json: %s") % e.what();
         return false;
@@ -661,7 +693,6 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
      * client and `txs` is the parse Txs. This function throws on error.(🦜 :
      * The exception should be caught by `parse_txs_jsonString_for_rpc()`).
      */
-
     static optional<tuple<string,vector<Tx>>> parse_txs_json_for_rpc(json::array && a) {
       json::array os;           // output object
 
@@ -722,6 +753,10 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
       {"timestamp",static_cast<uint64_t>(c.timestamp)},
       {"hash",hashToString(c.hash)}
     };
+
+    if (c.type != Tx::Type::evm){
+      jv.as_object()["type"] = Tx::typeToString(c.type);
+    }
   }
 
   // This helper function deduces the type and assigns the value with the matching key

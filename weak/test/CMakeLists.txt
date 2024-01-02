@@ -1,5 +1,5 @@
-# set(RUN_SELECTED_ONLY OFF)
-set(RUN_SELECTED_ONLY ON)
+set(RUN_SELECTED_ONLY OFF)
+# set(RUN_SELECTED_ONLY ON)
 
 #[=[
 
@@ -17,8 +17,7 @@ endmacro()
 #[=[
 🦜 : Uncomment the following to enable tests.
 #]=]
-
-# set_test(test-core core-deps)
+set_test(test-core core-deps)
 # set_test(test-pure-thrd-party core-deps)
 # set_test(test-executeEvmTx deps)
 # set_test(test-mempool core-deps)
@@ -41,7 +40,7 @@ endmacro()
 
 # set_test(test-pure-anet core-deps)
 # set_test(test-rpc core-deps)
-set_test(test-init deps)
+# set_test(test-init deps)
 # set_test(test-inRamWrld deps)
 # set_test(test-pure-greenClient core-deps)
 # set_test(test-pure-rbft core-deps)

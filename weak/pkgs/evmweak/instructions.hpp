@@ -284,11 +284,12 @@ inline void eq(StackTop stack) noexcept
   // cout << "🐾[EVMWEAK]  equal called comparing:\n\tstack[0] == "
   //      << uint64_t(stack[0]) << "\n\tstack[1]=="
   //      << uint64_t(stack[1]) << '\n';
-  printf("🐾[EVMWEAK]  EQUAL called comparing\n\ts[0]:%llx\n\ts[1]:%llx\n",
-         uint64_t(stack[0]),
-         uint64_t(stack[1])
-         );
-    stack[1] = stack[0] == stack[1];
+#if defined(_WIN32)
+  printf("🐾[EVMWEAK]  EQUAL called comparing\n\ts[0]:%llx\n\ts[1]:%llx\n", uint64_t(stack[0]), uint64_t(stack[1]));
+#else
+  printf("🐾[EVMWEAK]  EQUAL called comparing\n\ts[0]:%lx\n\ts[1]:%lx\n", uint64_t(stack[0]), uint64_t(stack[1]));
+#endif
+  stack[1] = stack[0] == stack[1];
 }
 
 inline void iszero(StackTop stack) noexcept

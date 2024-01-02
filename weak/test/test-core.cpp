@@ -68,7 +68,7 @@ BOOST_AUTO_TEST_CASE(tx_toJsonString){
   t.from=a1;t.to=a1;t.data=data;t.nonce=0;t.timestamp=0;t.hash=h;
 
   string s = t.toJsonString();
-  // cout << s << '\n';
+  cout << s << '\n';
   BOOST_CHECK_EQUAL("{"
                     "\"from\":\"0000000000000000000000000000000000000001\","
                     "\"to\":\"0000000000000000000000000000000000000001\","
@@ -102,6 +102,60 @@ BOOST_AUTO_TEST_CASE(tx_fromJsonString){
   BOOST_CHECK_EQUAL(addressToString(t.to),
                     addressToString(makeAddress(1)));
 }
+
+BOOST_AUTO_TEST_CASE(tx_fromJsonStringBadAddress){
+  const char* s ="{"
+    "\"data\":\"ffff\","
+    "\"from\":\"bad\","
+    "\"hash\":\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\","
+    "\"nonce\":123,"
+    "\"timestamp\":456,"
+    "\"to\":\"0000000000000000000000000000000000000001\""
+    "}";
+  Tx t;
+  BOOST_REQUIRE(not t.fromJsonString(s));
+}
+
+// 2024-01-02
+BOOST_AUTO_TEST_CASE(test_toJsonWithType){
+  address a1 = makeAddress(1);
+  // bytes data{size_t{2},uint8_t{0xff}}; // !called initializer
+  bytes data(size_t{2},uint8_t{0xff}); // we would like this.
+
+  hash256 h;
+  std::fill(begin(h.bytes), end(h.bytes), 0xff);
+  Tx t;
+  t.from=a1;t.to=a1;t.data=data;t.nonce=0;t.timestamp=0;t.hash=h;
+  t.type = Tx::Type::data;
+
+  string s = t.toJsonString();
+  cout << s << '\n';
+  BOOST_CHECK_EQUAL("{"
+                    "\"from\":\"0000000000000000000000000000000000000001\","
+                    "\"to\":\"0000000000000000000000000000000000000001\","
+                    "\"data\":\"ffff\","
+                    "\"nonce\":0,"
+                    "\"timestamp\":0,"
+                    "\"hash\":\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\","
+                    "\"type\":\"data\""
+                    "}",s);
+  }
+
+BOOST_AUTO_TEST_CASE(test_tx_fromJsonWithType){
+  const char* s ="{"
+    "\"data\":\"ffff\","
+    "\"from\":\"0000000000000000000000000000000000000001\","
+    "\"hash\":\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\","
+    "\"nonce\":123,"
+    "\"timestamp\":456,"
+    "\"to\":\"0000000000000000000000000000000000000001\","
+    "\"type\":\"data\""
+    "}";
+  Tx t;
+  BOOST_REQUIRE(t.fromJsonString(s));
+  BOOST_CHECK_EQUAL(t.nonce, 123);
+  BOOST_CHECK(t.type == Tx::Type::data);
+  }
 
 BOOST_AUTO_TEST_CASE(test_makeBlk){
   auto [a1,a2,data] = get_example_address_and_data();

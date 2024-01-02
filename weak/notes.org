@@ -4,4 +4,30 @@
 *** TODO https
 *** TODO nbft
 *** TODO pb Tx and Blks
+*** py vm
 *** TODO pure data Tx
+🦜 : How to we support this.
+
+🐢 : The first thing we're gonna do is to add a field to our `Tx`.
+#+begin_src c++
+string type;
+#+end_src
+
+For now the allowed values are:
+#+begin_src c++
+{"", "data"}
+#+end_src
+
+The first means, well, the default, this is an EVM tx. The second means this is
+an pure-data tx (innocent tx), ie. no VM of any type will be initialzed, and the
+executor will just return `ok` for this kinda Tx.
+
+🦜 : So what about our rpc ?
+
+🐢 : Our rpc expects an array of Tx right?
+
+🦜 : Yeah
+
+🐢 : And if user did pass a `type` field in a Tx, then we add that to our Tx,
+else, we leave it blank.
+*** TODO unix domain socket
