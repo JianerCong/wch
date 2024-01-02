@@ -3,7 +3,8 @@
  * @author Jianer Cong
  * @brief the EVMExecutor and friends.
  *
- * Responsible for executing EVM transaction.
+ * Responsible for executing EVM transaction. The main class is `EvmExecutor`,
+ * the rest are helpers.
  */
 #pragma once
 #include "core.hpp"
@@ -654,5 +655,5 @@ namespace weak {
 
       return j;
     };
-  }; // EvmExecutor
+  }; // class EvmExecutor
 }
