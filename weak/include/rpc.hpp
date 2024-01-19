@@ -402,7 +402,6 @@ namespace weak{
 
       // 🦜 : Here we can start a thread to post the JSON
       auto [s, txs] = r.value();
-
       bool ok = this->cnsss->addTxs(move(txs));
       if (not ok)
         return make_tuple(false,"Sorry, we have encountered some error in our side."

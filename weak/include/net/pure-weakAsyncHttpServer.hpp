@@ -9,6 +9,11 @@
  * The reason why we created this in preference to WeakHttpServer is that: we
  * kinda have to use thread::detach() for each request, and that is not very
  * healthy and often goes wrong when closing the server.
+ *
+ * [Update on 2024-01-19] 🦜 : We add the unix-domain-socket support. So now
+ * there're two usable classes `WeakAsyncUnixHttpServer` and
+ * `WeakAsyncTcpHttpServer`, and they are supposed to be stacked using
+ * `MultiStackHttpServer`.
  */
 #pragma once
 
@@ -19,9 +24,28 @@
 // #include <boost/beast/version.hpp>
 #include <boost/asio/dispatch.hpp>
 #include <boost/asio/strand.hpp>
-namespace pure{
-  class WeakAsyncHttpServer: public WeakHttpServerBase {
+#include <filesystem>
 
+// 🦜 : if unix, we try to add the unix_domain_socket
+#ifdef __unix__
+#include <boost/asio/local/stream_protocol.hpp>
+#endif
+namespace pure{
+
+  // --------------------------------------------------
+  // using stream_t = beast::basic_stream<unix_domain::stream_protocol>;
+  // using socket_t = unix_domain::stream_protocol::socket;
+  // using acceptor_t = unix_domain::stream_protocol::acceptor;
+  // using endpoint_t = unix_domain::stream_protocol::endpoint;
+
+  template <class stream_t,
+            class socket_t,
+            class acceptor_t,
+            class endpoint_t
+            >
+  class WeakAsyncHttpServerBase: public WeakHttpServerBase {
+
+  public:
     // Handles an HTTP server connection
     class session : public std::enable_shared_from_this<session>{
 
@@ -38,15 +62,17 @@ namespace pure{
         return this->srv->handle_request(std::move(req),"<mock-client>",1234);
       } // handle_request
 
-      beast::tcp_stream stream_;
+      // beast::tcp_stream
+      stream_t stream_;
       beast::flat_buffer buffer_;
       http::request<http::string_body> req_;
 
     public:
       // Take ownership of the stream
 
-      WeakAsyncHttpServer * const srv;
-      session(WeakAsyncHttpServer * const ssrv, tcp::socket&& socket)
+      WeakAsyncHttpServerBase * const srv;
+      // session(WeakAsyncHttpServerBase * const ssrv, tcp::socket&& socket)
+      session(WeakAsyncHttpServerBase * const ssrv, socket_t&& socket)
         : stream_(std::move(socket)),srv(ssrv){
         BOOST_LOG_TRIVIAL(debug) <<  "Session started";
       }
@@ -60,7 +86,7 @@ namespace pure{
         asio::dispatch(stream_.get_executor(),
                       beast::bind_front_handler(
                                                 &session::do_read,
-                                                shared_from_this()));
+                                                this->shared_from_this()));
       }
 
       void do_read(){
@@ -75,7 +101,7 @@ namespace pure{
         http::async_read(stream_, buffer_, req_,
                          beast::bind_front_handler(
                                                    &session::on_read,
-                                                   shared_from_this()));
+                                                   this->shared_from_this()));
       }
 
       void on_read(beast::error_code ec, std::size_t bytes_transferred){
@@ -99,7 +125,7 @@ namespace pure{
         beast::async_write(
                            stream_,
                            std::move(msg),
-                           beast::bind_front_handler(&session::on_write, shared_from_this(), keep_alive));
+                           beast::bind_front_handler(&session::on_write, this->shared_from_this(), keep_alive));
       }
 
       void on_write(
@@ -124,7 +150,8 @@ namespace pure{
       void do_close() {
         // Send a TCP shutdown
         beast::error_code ec;
-        stream_.socket().shutdown(tcp::socket::shutdown_send, ec);
+        // stream_.socket().shutdown(tcp::socket::shutdown_send, ec);
+        stream_.socket().shutdown(socket_t::shutdown_send, ec);
 
         // At this point the connection is closed gracefully
       }
@@ -140,12 +167,13 @@ namespace pure{
     // Accepts incoming connections and launches the sessions
     class listener : public std::enable_shared_from_this<listener>{
       asio::io_context& ioc_;
-      tcp::acceptor acceptor_;
-      WeakAsyncHttpServer * const srv;
+      // tcp::acceptor acceptor_;
+      acceptor_t acceptor_;
+      WeakAsyncHttpServerBase * const srv;
     public:
-      listener(WeakAsyncHttpServer * const ssrv,
+      listener(WeakAsyncHttpServerBase * const ssrv,
                asio::io_context& ioc,
-               tcp::endpoint endpoint
+               endpoint_t endpoint
                ) : ioc_(ioc) , acceptor_(asio::make_strand(ioc)), srv(ssrv){
         BOOST_LOG_TRIVIAL(debug) <<  "listener started";
         beast::error_code ec;
@@ -154,28 +182,24 @@ namespace pure{
         acceptor_.open(endpoint.protocol(), ec);
         if(ec){
           fail(ec, "failed to open acceptor");
-          return;
         }
 
         // Allow address reuse
         acceptor_.set_option(asio::socket_base::reuse_address(true), ec);
         if(ec){
           fail(ec, "failed in set_option");
-          return;
         }
 
         // Bind to the server address
         acceptor_.bind(endpoint, ec);
         if(ec){
           fail(ec, "failed to bind server address");
-          return;
         }
 
         // Start listening for connections
         acceptor_.listen(asio::socket_base::max_listen_connections, ec);
         if(ec){
           fail(ec, "failed to listen for connection");
-          return;
         }
       }
 
@@ -186,11 +210,12 @@ namespace pure{
       do_accept(){
         // The new connection gets its own strand
         acceptor_.async_accept(asio::make_strand(ioc_),
-                               beast::bind_front_handler(&listener::on_accept, shared_from_this())
+                               beast::bind_front_handler(&listener::on_accept, this->shared_from_this())
                                );
       }
 
-      void on_accept(beast::error_code ec, tcp::socket socket) {
+      // void on_accept(beast::error_code ec, tcp::socket socket) {
+        void on_accept(beast::error_code ec, socket_t socket) {
         if(ec){
           // fail(ec, "accept");
           BOOST_LOG_TRIVIAL(error) << S_RED "❌️ failed " S_NOR "to accept socket[" \
@@ -204,44 +229,97 @@ namespace pure{
         do_accept();
       }
     };                            // class listener
-  public:
     //------------------------------------------------------------------------------
 
 
     std::unique_ptr<asio::io_context> ioc;
     vector<std::jthread> * all_threads;
     std::shared_ptr<listener> lstn;
+    int n_threads;
 
-    WeakAsyncHttpServer(unsigned short port = 7777,
-                        const int threads = 4){
+    // WeakAsyncHttpServerBase(unsigned short port = 7777, const int threads = 4){
+    WeakAsyncHttpServerBase(const int threads = 4):
+      n_threads(threads) {
       /*
         🦜 : Usually you don't wanna set threads to be 1.... It does block
         sometimes. And set it to something like 2 usually will work...
        */
 
-      BOOST_LOG_TRIVIAL(debug) <<  "🐸 acceptor start listening on port " << port;
-      auto const address = asio::ip::make_address("0.0.0.0");
+      // BOOST_LOG_TRIVIAL(debug) <<  "🐸 acceptor start listening on port " << port;
       // The io_context is required for all I/O
       this->ioc = std::make_unique<asio::io_context>(threads);
-
       // Create and launch a listening port
-      this->lstn = std::make_shared<listener>(this,*ioc, tcp::endpoint{address, port});
-      this->lstn->run();
-
-      // Run the I/O service on the requested number of threads
-      this->all_threads = new vector<std::jthread>();
-      this->all_threads->reserve(threads);
-
-      for(auto i = threads; i > 0; --i)
-        this->all_threads->emplace_back([this] {this->ioc->run();});
 
     }
 
-    ~WeakAsyncHttpServer(){
+    void run(){
+      // Run the I/O service on the requested number of threads
+      this->all_threads = new vector<std::jthread>();
+      this->all_threads->reserve(n_threads);
+      for(auto i = n_threads; i > 0; --i)
+        this->all_threads->emplace_back([this] {this->ioc->run();});
+    }
+
+    virtual ~WeakAsyncHttpServerBase(){
       BOOST_LOG_TRIVIAL(debug) << "👋🐸 Server closed";
       this->ioc->stop();
       delete this->all_threads;   // join them all
     }
 
-  };                            // class WeakAsyncHttpServer
+  };                            // class WeakAsyncHttpServerBase
+
+  class WeakAsyncTcpHttpServer: public WeakAsyncHttpServerBase</*stream_t*/ beast::tcp_stream,
+                                                                            /*socket_t*/ tcp::socket,
+                                                                            /*acceptor_t*/ tcp::acceptor,
+                                                                            /*endpoint_t*/ tcp::endpoint
+                                                                            >{
+  public:
+    WeakAsyncTcpHttpServer(unsigned short port = 7777, const int threads = 4):
+      WeakAsyncHttpServerBase(threads){
+      BOOST_LOG_TRIVIAL(debug) <<  S_GREEN "\t🐸 TCP acceptor" S_NOR " starts listening on port " S_GREEN << port << S_NOR;
+      auto const address = asio::ip::make_address("0.0.0.0");
+      this->lstn = std::make_shared<listener>(this,*ioc, tcp::endpoint{address, port});
+      // this->lstn = std::make_shared<listener>(this,*ioc, unix_domain::stream_protocol::endpoint{"/tmp/hi.sock"});
+      this->lstn->run();
+      this->run();
+    }
+  };                            // class WeakAsyncTcpHttpServer
+
+  using std::filesystem::path;
+
+  // if unix, add unix domain socket support
+  #if defined(__unix__)
+  namespace unix_domain = boost::asio::local;
+  // using stream_t = beast::basic_stream<unix_domain::stream_protocol>;
+  // using socket_t = unix_domain::stream_protocol::socket;
+  // using acceptor_t = unix_domain::stream_protocol::acceptor;
+  // using endpoint_t = unix_domain::stream_protocol::endpoint;
+  class WeakAsyncUnixHttpServer: public WeakAsyncHttpServerBase< /*stream_t*/ beast::basic_stream<unix_domain::stream_protocol>,
+                                                                              /*socket_t*/ unix_domain::stream_protocol::socket,
+                                                                              /*acceptor_t*/ unix_domain::stream_protocol::acceptor,
+                                                                              /*endpoint_t*/ unix_domain::stream_protocol::endpoint
+                                                                              >{
+  public:
+    path pp;
+    WeakAsyncUnixHttpServer(path p = "/tmp/hi.sock", const int threads = 4):
+      WeakAsyncHttpServerBase(threads), pp(p){
+      BOOST_LOG_TRIVIAL(debug) <<  S_GREEN "\t🐸 Unix-domain socket acceptor" S_NOR " starts listening on  " S_GREEN << p << S_NOR;
+
+      // remove the file if it exists
+      if (std::filesystem::exists(p)){
+        BOOST_LOG_TRIVIAL(debug) <<  "🚮️ recreating socket file" << S_GREEN <<  p.string() << S_NOR;
+        std::filesystem::remove(p);
+      }
+
+      this->lstn = std::make_shared<listener>(this,*ioc, unix_domain::stream_protocol::endpoint{p.string()});
+      this->lstn->run();
+      this->run();
+    }
+
+    ~WeakAsyncUnixHttpServer(){
+      BOOST_LOG_TRIVIAL(debug) <<  "\t🚮️ removing socket file" << S_GREEN <<  pp.string() << S_NOR;
+      std::filesystem::remove(pp);
+    }
+  };                            // class WeakAsyncTcpHttpServer
+  #endif
 }

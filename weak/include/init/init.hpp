@@ -36,8 +36,13 @@
  *
  *  🐢 : Next we let the crew in. In particular:
  *
- *  1. We start the ::pure::WeakAsyncHttpServer from `pure-WeakAsyncHttpServer`. This
- *  should be started first, and stopped last. Other part will
+ *  1. We start the rpc server.
+ *
+ * Here we first start a `::pure::MultiStackHttpServer`, this is a container of
+ * Http-servers. Next we init and add `WeakAsyncTcpHttpServer` to it.
+ * Optionally, we add `::pure::WeakAsyncUnixHttpServer` if we have the option.
+ *
+ *  Other part will
  *  register/unregister listeners on it. (🦜 : Which part? 🐢 : I think for now
  *  it's just the Rpc and the httpAsstn, which is for cnsss (P2P). 🦜: Okay...)
  *
@@ -105,8 +110,9 @@
  *
  *          4.1.1.2 `ITxExecutable`, the class that can execute one Tx and
  *          returns the state changes and result. Serious implementation is
- *          `EvmExecutor` (evmExecutor.hpp). This instance don't need anything
- *          to initialize.
+ *          `Div2Executor` (div2Executor.hpp). This instance don't need anything
+ *          to initialize. ([2024-1-3] 🦜 : This use to be EvmExecutor, but now
+ *          it's Div2Executor, it can switch between VMs.)
  *
  *       4.1.2 an `IPoolSettable`: this is where exe can throw `Tx` in. Serious
  *       implementation is `Mempool` (cnsss/mempool.hpp).
@@ -256,7 +262,7 @@
 #include "net/pure-httpNetAsstn.hpp"
 #include "net/pure-udpNetAsstn.hpp"
 
-#include "evmExecutor.hpp"
+#include "div2Executor.hpp"
 #include "execManager.hpp"
 #include "cnsss/mempool.hpp"
 #include "cnsss/exeForCnsss.hpp"
@@ -504,24 +510,22 @@ namespace weak{
   }
 
   struct LightExeAndPartners{
-    unique_ptr<EvmExecutor> tx_exe;
+    unique_ptr<Div2Executor> tx_exe; // <! [2024-01-03] change to Div2Executor
     unique_ptr<BlkExecutor> blk_exe;
     unique_ptr<LightExecutorForCnsss> exe;
 
-    LightExeAndPartners(
-                        IWorldChainStateSettable* w1,
+    LightExeAndPartners(IWorldChainStateSettable* w1,
                         IAcnGettable * w2,
                         uint64_t next_blk_number=0,
                         hash256 previous_hash = {},
                         int optimization_level = 2,
                         IPoolSettable * p = nullptr,
                         IForSealerTxHashesGettable * m = nullptr){
-      this->tx_exe = make_unique<EvmExecutor>();
-      this->blk_exe = make_unique<BlkExecutor>(
-                                               w1,
+
+      this->tx_exe = make_unique<Div2Executor>();
+      this->blk_exe = make_unique<BlkExecutor>(w1,
                                                dynamic_cast<ITxExecutable*>(&(*this->tx_exe)),
-                                               w2
-                                               );
+                                               w2);
 
       // 🦜 : ^^ above copied from ExeAndPartners
       this->exe = make_unique<LightExecutorForCnsss>(
@@ -534,7 +538,7 @@ namespace weak{
   };
 
   struct ExeAndPartners{
-    unique_ptr<EvmExecutor> tx_exe;
+    unique_ptr<Div2Executor> tx_exe;
     unique_ptr<BlkExecutor> blk_exe;
     unique_ptr<ExecutorForCnsss> exe;
 
@@ -544,12 +548,12 @@ namespace weak{
                    IPoolSettable * p
                    ){
       /*
-        🦜 : I just realize that EvmExecutor is stateless...
+        🦜 : I just realize that Div2Executor is stateless...
 
         🐢 : It is, but we have to make it a class so that it can "implement" a
         method. A namespace can't.
       */
-      this->tx_exe = make_unique<EvmExecutor>();
+      this->tx_exe = make_unique<Div2Executor>();
       this->blk_exe = make_unique<BlkExecutor>(
                                                w1,
                                                dynamic_cast<ITxExecutable*>(&(*this->tx_exe)),
@@ -568,7 +572,32 @@ namespace weak{
       % o.consensus_name % o.port;
 
     {
-      ::pure::WeakAsyncHttpServer srv{boost::numeric_cast<uint16_t>(o.port)}; // throw bad_cast
+      struct {
+        unique_ptr<::pure::WeakAsyncTcpHttpServer> s_tcp;
+#if defined(__unix__)
+        unique_ptr<::pure::WeakAsyncUnixHttpServer> s_unix;
+#endif
+        unique_ptr<::pure::MultiStackHttpServer> stk;
+        ::pure::IHttpServable* iHttpServable;
+      } srv;
+
+      srv.stk = make_unique<::pure::MultiStackHttpServer>();
+
+      // 🦜 : add tcp
+      srv.s_tcp = make_unique<::pure::WeakAsyncTcpHttpServer>(boost::numeric_cast<uint16_t>(o.port));
+      srv.stk->srvs.push_back(dynamic_cast<::pure::IHttpServable *>(srv.s_tcp.get()));
+      // ::pure::WeakAsyncHttpServer srv{boost::numeric_cast<uint16_t>(o.port)}; // throw bad_cast
+
+#if defined(__unix__)           // 🦜 : Add unix socket if we are on unix
+      if (o.unix_socket != ""){
+        srv.s_unix = make_unique<::pure::WeakAsyncUnixHttpServer>(o.unix_socket);
+        srv.stk->srvs.push_back(dynamic_cast<::pure::IHttpServable *>(srv.s_unix.get()));
+      }
+#endif
+
+      // make the pointer
+      srv.iHttpServable = dynamic_cast<::pure::IHttpServable*>(srv.stk.get());
+
       // std::this_thread::sleep_for(std::chrono::seconds(1)); // wait until its up
       /* 🦜 : I doubt that.^^^ */
       {
@@ -730,7 +759,7 @@ namespace weak{
 
           if (o.consensus_name == "Solo"){
             BOOST_LOG_TRIVIAL(debug) <<  "\t 🌐️ Using " S_CYAN "http-based " S_NOR " p2p";
-            net.http = make_unique<IPBasedHttpNetAsstn>(dynamic_cast<::pure::IHttpServable*>(&srv),
+            net.http = make_unique<IPBasedHttpNetAsstn>(srv.iHttpServable,
                                                         msg_mgr.iMsgManageable);
             net.iEndpointBasedNetworkable = dynamic_cast<::pure::IEndpointBasedNetworkable*>(&(*net.http));
           }else if (o.consensus_name == "Rbft"){
@@ -863,7 +892,7 @@ namespace weak{
               {
                 // 6.
                 BOOST_LOG_TRIVIAL(info) << format("⚙️ Starting " S_CYAN "Rpc" S_NOR);
-                HttpRpcAsstn hra{dynamic_cast<::pure::IHttpServable*>(&srv)};
+                HttpRpcAsstn hra{srv.iHttpServable};
                 Rpc rpc{
                   dynamic_cast<IForRpcNetworkable*>(&hra),
                   dynamic_cast<IForRpcTxsAddable*>(&cnsss_asstn),

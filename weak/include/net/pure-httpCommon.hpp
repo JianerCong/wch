@@ -37,7 +37,7 @@
 
 
 namespace pure{
-  
+
   using boost::asio::buffer;
   using boost::asio::io_service;
   using boost::asio::ip::tcp;
@@ -316,4 +316,34 @@ namespace pure{
     }
   };                            // class WeakHttpBase
 
+  /**
+   * @brief A container for multiple http servers.
+   *
+   * 🦜 : These servers usually have different transport layers. For example,
+   * tcp and unix-domain socket.
+   *
+   */
+  class MultiStackHttpServer: public virtual IHttpServable{
+  public:
+    vector<IHttpServable*> srvs;
+    MultiStackHttpServer(vector<IHttpServable*> ssrvs = {}): srvs(ssrvs){}
+
+    void listenToGet(string k, getHandler_t f)noexcept override{
+      for (auto & srv : srvs)
+        srv->listenToGet(k,f);
+    }
+
+    void listenToPost(string k, postHandler_t f) noexcept override{
+      for (auto & srv : srvs)
+        srv->listenToPost(k,f);
+    }
+
+    int removeFromPost(string k) noexcept override{
+      int n = 0;
+      for (auto & srv : srvs)
+        n += srv->removeFromPost(k);
+      return n;
+    }
+
+  };
 } // namespace pure

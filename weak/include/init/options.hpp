@@ -55,6 +55,10 @@ namespace weak{
     string verbose{"yes"};
     string light_exe{"yes"};
 
+#if defined(__unix__)
+    string unix_socket;
+#endif
+
     string without_crypto{"yes"};
     struct {
       string ca_public_key_pem_file;
@@ -84,6 +88,10 @@ namespace weak{
       o2.add_options()
         ("without-sealer", program_options::value<string>(&(this->without_sealer))->implicit_value("yes"),
          "Enable sealer")
+#if defined(__unix__)
+        ("unix-socket", program_options::value<string>(&(this->unix_socket))->implicit_value("/tmp/weak.sock"),
+         "the unix-domain socket to listen on, default to /tmp/weak.sock")
+#endif
         ("mock-exe", program_options::value<string>(&(this->mock_exe))->implicit_value("yes"),
          "Disable concrete executor, used for testing communication layers.")
         ("verbose", program_options::value<string>(&(this->verbose))->implicit_value("yes"),
