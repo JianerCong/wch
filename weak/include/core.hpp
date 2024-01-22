@@ -468,7 +468,7 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
       BOOST_THROW_EXCEPTION(std::runtime_error((format("Invalid Tx type: %1%") % s).str()));
     }
     // --------------------------------------------------
-    
+
     Tx(const address f,const address t,const bytes d,const uint64_t n,
         Type type = Type::evm):
       from(f),to(t),data(d),nonce(n){
@@ -490,7 +490,16 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
       hash = ethash::keccak256(reinterpret_cast<uint8_t*>(b), size + 20);
     };
 
+    /* [2024-01-22] 🐢 : Let's do some serious tx-check.
+
+       🦜 : Currently, only 
+     */
+    string pk_pem;                  // [2024-01-22] the sender's public key in pem format
+    bytes signature;               // [2024-01-22] the signature 
+    bytes pk_crt;
+
     Type type = Type::evm;
+    // --------------------------------------------------
 
     address from;
     /// if to is empty, create contract, else call
