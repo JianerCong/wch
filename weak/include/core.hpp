@@ -492,11 +492,48 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
 
     /* [2024-01-22] 🐢 : Let's do some serious tx-check.
 
-       🦜 : Currently, only 
+       🦜 : Currently, every user (http client) can send Tx in behalf of any
+       user, i.e. I just just say: "I'm addr 0x2, and I wanna send ..." This is
+       not that useful in serious cases.
+
+       🐢 : Em. So let's add this cmdline option
+
+       --serious-tx-check-level [0-3]
+
+        0,no-check: no check (default, same as now, good for testing)
+
+        1,public-chain-mode: public chain mode, in this mode we check the `pk_pem` and `signature`
+        of a tx. In this mode, we derive the `from` address from the `pk_pem` by
+        sha3 (keccak256) the raw public key and take the last 20 bytes. (similar
+        to Ethereum). The signature should be `sign(nonce,data)`. So in order to
+        send a tx, the client needs to generate a key pair.
+
+        2,private-chain-mode: private chain mode, the `pk_crt` is checked, which is the signature
+        of sender's pk_pem by the CA. As a result, only users allowed by CA can
+        send tx.
+
+        🦜 : Emmm... This seems enough. So we add three optional fields to Tx
+        right?
+
+        🐢 : Yeah. And I think these should only be checked when transforming a
+        Tx into an `evmc_msg`.(or similar stage for other VM types.)
+
+        🦜 : Oh, so it's at the TxExecutor there right? What's the formal name?
+
+        🐢 : `Div2Executor` in `div2Executor.hpp`
+
+        🦜 : Okay, so when serious-tx-check-level > 0, `from` field is ignored right?
+
+        🐢 : Yeah. Also , make sure that the pem file is not modified after
+        created by openssl...Because we are signing against the hash of the pem
+        file, so it's sensitive to things like `\n`
+
+        🦜 : Ohoh, dangerous...
      */
-    string pk_pem;                  // [2024-01-22] the sender's public key in pem format
-    bytes signature;               // [2024-01-22] the signature 
-    bytes pk_crt;
+    string pk_pem;                  // [2024-01-22] the sender's public key in
+                                    // pem format, if this is given, then `from` is derived from it.
+    bytes signature;               // [2024-01-22] the signature
+    bytes pk_crt;                  // [2024-01-22] the sender's crt
 
     Type type = Type::evm;
     // --------------------------------------------------
