@@ -43,11 +43,11 @@ BOOST_AUTO_TEST_CASE(test_makeTx){
   BOOST_CHECK_NE(addressToString(t.from),addressToString(a2));
 
   // Different nonces give different hashes
-  BOOST_CHECK_NE(t.hash,t2.hash);
+  BOOST_CHECK_NE(t.hash(),t2.hash());
   // Different address also gives different hashes
-  BOOST_CHECK_NE(t3.hash,t.hash);
+  BOOST_CHECK_NE(t3.hash(),t.hash());
   // But different data won't matter
-  BOOST_CHECK_EQUAL(t3.hash,t4.hash);
+  BOOST_CHECK_EQUAL(t3.hash(),t4.hash());
 
 
   // Same nonces, produce same hash
@@ -62,10 +62,8 @@ BOOST_AUTO_TEST_CASE(tx_toJsonString){
   // bytes data{size_t{2},uint8_t{0xff}}; // !called initializer
   bytes data(size_t{2},uint8_t{0xff}); // we would like this.
 
-  hash256 h;
-  std::fill(begin(h.bytes), end(h.bytes), 0xff);
   Tx t;
-  t.from=a1;t.to=a1;t.data=data;t.nonce=0;t.timestamp=0;t.hash=h;
+  t.from=a1;t.to=a1;t.data=data;t.nonce=0;t.timestamp=0;
 
   string s = t.toJsonString();
   cout << s << '\n';
@@ -75,7 +73,7 @@ BOOST_AUTO_TEST_CASE(tx_toJsonString){
                     "\"data\":\"ffff\","
                     "\"nonce\":0,"
                     "\"timestamp\":0,"
-                    "\"hash\":\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\""
+                    "\"hash\":\"" + hashToString(t.hash()) +"\""
                     "}",s);
 }
 
@@ -83,7 +81,7 @@ BOOST_AUTO_TEST_CASE(tx_fromJsonString){
   const char* s ="{"
     "\"data\":\"ffff\","
     "\"from\":\"0000000000000000000000000000000000000001\","
-    "\"hash\":\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\","
+    // "\"hash\":\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\","
     "\"nonce\":123,"
     "\"timestamp\":456,"
     "\"to\":\"0000000000000000000000000000000000000001\""
@@ -107,7 +105,7 @@ BOOST_AUTO_TEST_CASE(tx_fromJsonStringBadAddress){
   const char* s ="{"
     "\"data\":\"ffff\","
     "\"from\":\"bad\","
-    "\"hash\":\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\","
+    // "\"hash\":\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\","
     "\"nonce\":123,"
     "\"timestamp\":456,"
     "\"to\":\"0000000000000000000000000000000000000001\""
@@ -125,7 +123,7 @@ BOOST_AUTO_TEST_CASE(test_toJsonWithType){
   hash256 h;
   std::fill(begin(h.bytes), end(h.bytes), 0xff);
   Tx t;
-  t.from=a1;t.to=a1;t.data=data;t.nonce=0;t.timestamp=0;t.hash=h;
+  t.from=a1;t.to=a1;t.data=data;t.nonce=0;t.timestamp=0;
   t.type = Tx::Type::data;
 
   string s = t.toJsonString();
@@ -136,7 +134,7 @@ BOOST_AUTO_TEST_CASE(test_toJsonWithType){
                     "\"data\":\"ffff\","
                     "\"nonce\":0,"
                     "\"timestamp\":0,"
-                    "\"hash\":\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\","
+                    "\"hash\":\"" + hashToString(t.hash()) + "\","
                     "\"type\":\"data\""
                     "}",s);
   }
@@ -220,7 +218,7 @@ BOOST_AUTO_TEST_CASE(blk_toJson){
     BOOST_CHECK_EQUAL(value_to<string>(o["txs"].as_array()[i].at("data")),"ffff");
     BOOST_CHECK_EQUAL(value_to<string>(o["txs"].as_array()[i].at("from")),addressToString(a1));
     BOOST_CHECK_EQUAL(value_to<string>(o["txs"].as_array()[i].at("to")),addressToString(a2));
-    BOOST_CHECK_EQUAL(value_to<string>(o["txs"].as_array()[i].at("hash")),hashToString(txs[i].hash));
+    BOOST_CHECK_EQUAL(value_to<string>(o["txs"].as_array()[i].at("hash")),hashToString(txs[i].hash()));
     BOOST_CHECK_EQUAL(value_to<uint64_t>(o["txs"].as_array()[i].at("timestamp")),txs[i].timestamp);
 
     // Deprecated Jsoncpp --------------------------------------------------
@@ -230,7 +228,7 @@ BOOST_AUTO_TEST_CASE(blk_toJson){
     // BOOST_CHECK_EQUAL(v["txs"][i]["to"].as_string(),
     //                   addressToString(a2));
     // BOOST_CHECK_EQUAL(v["txs"][i]["hash"].as_string(),
-    //                   hashToString(txs[i].hash));
+    //                   hashToString(txs[i].hash()));
     // BOOST_CHECK_EQUAL(v["txs"][i]["timestamp"].as_uint64(),
                       // txs[i].timestamp);
   }
@@ -251,7 +249,7 @@ BOOST_AUTO_TEST_CASE(blk_fromJson){
     // 🐢 :U have mentioned it already.
     // 🦜 : I known, but this did save us from alot  of for-loop
   };
-
+  BOOST_LOG_TRIVIAL(info) <<  "🦜 : formed Blk";
   Blk b;
   bool ok = b.fromJson(v);
 

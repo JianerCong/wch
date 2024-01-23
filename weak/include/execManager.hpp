@@ -81,7 +81,7 @@ namespace weak{
 
         // Save the TxOnBlkInfo
         // k = (format("/tx/%s") % hashToString(tx.hash)).str();
-        k = "/tx/" + hashToString(tx.hash);
+        k = "/tx/" + hashToString(tx.hash());
         ok = world->setInChainDB(k, bi.toString());
 
 

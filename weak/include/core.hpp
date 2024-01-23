@@ -473,21 +473,6 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
         Type type = Type::evm):
       from(f),to(t),data(d),nonce(n){
       timestamp = std::time(nullptr);
-      // convert nonce to array
-      constexpr auto size = sizeof(uint64_t);
-      uint8_t a[size]{};
-      intx::be::store(a,nonce);
-
-      uint8_t b[size + 20];
-      // std::copy_n(std::begin(f.bytes)
-      //             ,20, std::begin(b));
-      // std::copy_n(std::begin(a),size,std::begin(b)+20);
-
-      std::copy_n(f.bytes ,20, b);
-      std::copy_n(a,size,b+20);
-
-      // Get the hash(nonce)
-      hash = ethash::keccak256(reinterpret_cast<uint8_t*>(b), size + 20);
     };
 
     /* [2024-01-22] 🐢 : Let's do some serious tx-check.
@@ -548,13 +533,35 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
     /// ms since Epoch
     std::time_t timestamp;
     // usually = std::time(nullptr);
-    /// Tx hash
-    hash256 hash;
 
     // For now, use UTF8 JSON for serialization. later we can change it to other
     string toString() const noexcept override {
       return IJsonizable::toJsonString();
     };
+
+    /// Tx hash
+    /**
+     * @brief the hash of the Tx.
+     *
+     * [2024-01-23] 🦜 it's used to be a field, now it's a method.
+     */
+    hash256 hash() const {
+      // convert nonce to array
+      constexpr auto size = sizeof(uint64_t);
+      uint8_t a[size]{};
+      intx::be::store(a,nonce);
+
+      uint8_t b[size + 20];
+      // std::copy_n(std::begin(f.bytes)
+      //             ,20, std::begin(b));
+      // std::copy_n(std::begin(a),size,std::begin(b)+20);
+
+      std::copy_n(this->from.bytes ,20, b);
+      std::copy_n(a,size,b+20);
+
+      // Get the hash(nonce)
+      return  ethash::keccak256(reinterpret_cast<uint8_t*>(b), size + 20);
+    }
 
     bool fromString(string_view s) noexcept override{
       BOOST_LOG_TRIVIAL(debug) <<  "Forming Tx from string.";
@@ -575,64 +582,88 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
       return a;
     }
 
+
+    /**
+     * @brief The fromJson function that can throw
+     */
+    void fromJson0(const json::object &o){
+      string s;
+      optional<bytes> ob;
+      optional<address> oa;
+
+      // --------------------------------------------------
+      // [2024-01-22] 🐢 : Add the optional field if they are given.
+      if (o.contains("pk_pem")){
+        this->pk_pem = value_to<string>(o.at("pk_pem"));
+        this->from = getFromFromPkPem();
+      }else{
+        // 🦜 : if pk_pem is not given, parse the `from`, otherwise it's ignored.
+        s= value_to<string>(o.at("from"));
+        optional<evmc::address> ffrom = evmc::from_hex<evmc::address>(s);
+        if (not from) BOOST_THROW_EXCEPTION(std::runtime_error("Invalid from = " + s));
+        this->from = ffrom.value();
+      }
+
+      if (o.contains("signature")){ // parse sig if exists
+        ob = evmc::from_hex(o.at("signature").as_string());
+        if (not ob) BOOST_THROW_EXCEPTION(std::runtime_error("Invalid `signature` format" + json::serialize(o.at("signature"))));
+        this->signature = ob.value();
+      }
+
+      if (o.contains("pk_crt")){ // parse pk_crt if exists
+        ob = evmc::from_hex(o.at("pk_crt").as_string());
+        if (not ob) BOOST_THROW_EXCEPTION(std::runtime_error("Invalid `pk_crt` format" + json::serialize(o.at("pk_crt"))));
+        this->pk_crt = ob.value();
+      }
+
+      // --------------------------------------------------
+      BOOST_LOG_TRIVIAL(trace) << format("parsing nonce");
+      this->nonce = value_to<uint64_t>(o.at("nonce"));
+      BOOST_LOG_TRIVIAL(trace) << format("parsing timestamp");
+      this->timestamp = static_cast<time_t>(value_to<uint64_t>(o.at("timestamp")));
+
+
+      // 🦜 if v has a `type` field, use it. Otherwise, use default (evm).
+      if (o.contains("type")){
+        string s = value_to<string>(o.at("type"));
+        this->type = typeFromString(s);
+      }else{
+        this->type = Type::evm;
+      }
+
+
+      /*
+        🐢 : parse<...>() will call std::terminate() on failure. So we
+        should only use it if we are sure.
+      */
+
+      s= value_to<string>(o.at("data"));
+      ob = evmc::from_hex(s);
+      if (not ob) BOOST_THROW_EXCEPTION(std::runtime_error("Invalid data = " + s));
+      this->data = ob.value();
+
+
+      s= value_to<string>(o.at("to"));
+      // this->from = evmc::literals::parse<address>(f); // 🦜 this do abort (not what we wan)
+      oa = evmc::from_hex<address>(s);
+      if (not oa) BOOST_THROW_EXCEPTION(std::runtime_error("Invalid to = " + s));
+      this->to = oa.value();
+
+      /// Decodes hex-encoded string into custom type T with .bytes array of
+      /// uint8_t. so ethash::hash256 is such type
+      // h= value_to<string>(o.at("hash"));
+      // optional<hash256> oh;
+      // oh = evmc::from_hex<hash256>(h);
+      // if (not oh) BOOST_THROW_EXCEPTION(std::runtime_error("Invalid hash = " + h));
+      // this->hash = oh.value();
+    }
+
     bool fromJson(const json::value &v) noexcept override {
       BOOST_LOG_TRIVIAL(debug) << format("Forming Tx from Json");
 
       try {
         json::object const& o = v.as_object();
-        string f,t,d,h;
-
-        // --------------------------------------------------
-        // [2024-01-22] 🐢 : Add the optional field if they are given.
-        if (o.contains("pk_pem")){
-          this->pk_pem = value_to<string>(o.at("pk_pem"));
-          this->from = getFromFromPkPem();
-        }else{                  // 🦜 : if pk_pem is not given, parse the `from`, otherwise it's ignored.
-          f= value_to<string>(o.at("from"));
-          this->from = evmc::from_hex<address>(f).value(); // 🦜 this throws, so we can catch it
-        }
-        if (o.contains("signature")){
-          this->signature = evmc::from_hex(o.at("signature").as_string()).value();
-        }
-        if (o.contains("pk_crt")){
-          this->pk_crt = evmc::from_hex(o.at("pk_crt").as_string()).value();
-        }
-
-        // --------------------------------------------------
-        BOOST_LOG_TRIVIAL(trace) << format("parsing nonce");
-        this->nonce = value_to<uint64_t>(o.at("nonce"));
-        BOOST_LOG_TRIVIAL(trace) << format("parsing timestamp");
-        this->timestamp = static_cast<time_t>(value_to<uint64_t>(o.at("timestamp")));
-
-        d= value_to<string>(o.at("data"));
-        h= value_to<string>(o.at("hash"));
-        t= value_to<string>(o.at("to"));
-        // TODO: check if these bytes are valid hex.
-
-        // 🦜 if v has a `type` field, use it. Otherwise, use default (evm).
-        if (o.contains("type")){
-          string s = value_to<string>(o.at("type"));
-          this->type = typeFromString(s);
-        }else{
-          this->type = Type::evm;
-        }
-
-
-        /*
-            🐢 : parse<...>() will call std::terminate() on failure. So we
-            should only use it if we are sure.
-         */
-
-        // this->from = evmc::literals::parse<address>(f); // 🦜 this do abort (not what we wan)
-        // this->to = evmc::literals::parse<address>(t);
-        this->to = evmc::from_hex<address>(t).value();
-
-        this->data = evmc::from_hex(d).value();
-        /// Decodes hex-encoded string into custom type T with .bytes array of
-        /// uint8_t. so ethash::hash256 is such type
-        this->hash = evmc::from_hex<hash256>(h).value();
-
-
+        this->fromJson0(o);
       }catch (std::exception &e){
         BOOST_LOG_TRIVIAL(error) << format("❌️ error parsing json: %s") % e.what();
         return false;
@@ -767,39 +798,50 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
       vector<Tx> txs;
       for (int i=0;i<a.size();i++){
         json::object o = a[i].as_object(); // the tx object
-        string f,t,d;
-        uint64_t n;
-        f = value_to<string>(o.at("from"));
-        t = value_to<string>(o.at("to"));
-        d = value_to<string>(o.at("data"));
-        n = value_to<uint64_t>(o.at("nonce"));
+        // string f,t,d;
+        // uint64_t n;
+        // f = value_to<string>(o.at("from"));
+        // t = value_to<string>(o.at("to"));
+        // d = value_to<string>(o.at("data"));
+        // n = value_to<uint64_t>(o.at("nonce"));
 
-        // string to specific type --------------------------------------------------
-        optional<evmc::address> from = evmc::from_hex<evmc::address>(f);
-        if (not from){
-          BOOST_THROW_EXCEPTION(std::runtime_error("Invalid from = " + f));
-        }
+        // // string to specific type --------------------------------------------------
+        // optional<evmc::address> from = evmc::from_hex<evmc::address>(f);
+        // if (not from){
+        //   BOOST_THROW_EXCEPTION(std::runtime_error("Invalid from = " + f));
+        // }
 
-        optional<evmc::address> to = evmc::from_hex<evmc::address>(t);
-        if (not to){
-          BOOST_THROW_EXCEPTION(std::runtime_error("Invalid to = " + t));
-        }
+        // optional<evmc::address> to = evmc::from_hex<evmc::address>(t);
+        // if (not to){
+        //   BOOST_THROW_EXCEPTION(std::runtime_error("Invalid to = " + t));
+        // }
 
-        optional<bytes> data = evmc::from_hex(d);
-        if (not data)
-          BOOST_THROW_EXCEPTION(std::runtime_error("Invalid data = " + d));
+        // optional<bytes> data = evmc::from_hex(d);
+        // if (not data)
+        //   BOOST_THROW_EXCEPTION(std::runtime_error("Invalid data = " + d));
 
-        BOOST_LOG_TRIVIAL(debug) << format("⚙️ Constructing Tx and back-to-client object");
-        Tx tx{from.value(),to.value(),data.value(),n};
+        // BOOST_LOG_TRIVIAL(debug) << format("⚙️ Constructing Tx and back-to-client object");
+        // Tx tx{from.value(),to.value(),data.value(),n};
+        // ^^ 🦜 : refactored
+        Tx tx;
+        tx.fromJson0(o);
+
         json::object o0;
-        o0["hash"] = hashToString(tx.hash);
-        if (t.empty()){
+        o0["hash"] = hashToString(tx.hash());
+        if (not bool(tx.to)){
+          /* 🦜 : Here we use the helper from evmc.hpp
+         /// Checks if the given address is the zero address.
+         inline constexpr bool is_zero(const address& a) noexcept
+         {return a == address{};}
+
+         inline constexpr address::operator bool() const noexcept
+         {return !is_zero(*this); }
+           */
           BOOST_LOG_TRIVIAL(debug) << format("Tx-" S_GREEN "%d" S_NOR " from " S_CYAN "%s"
                                              S_NOR " is " S_CYAN "CREATE" S_NOR) % tx.nonce
             %tx.from;
           o0["deployed_address"] = addressToString(Tx::getContractDeployAddress(tx));
         }
-
 
         os.emplace_back(o0);
         txs.push_back(tx);
@@ -819,7 +861,7 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
       {"data", evmc::hex(c.data)},
       {"nonce", c.nonce},
       {"timestamp",static_cast<uint64_t>(c.timestamp)},
-      {"hash",hashToString(c.hash)}
+      {"hash",hashToString(c.hash())}
     };
 
     if (c.type != Tx::Type::evm){
@@ -938,8 +980,8 @@ class ITxExecutable {
 
       for (const Tx& tx : txs){
         // BOOST_LOG_TRIVIAL(debug) << format("Hashing for tx-%d") % tx.nonce;
-        std::copy_n(std::begin(tx.hash.bytes),32,s);
-        std::copy_n(std::begin(h.bytes),32,s + 32);
+        std::copy_n(std::cbegin(tx.hash().bytes),32,s);
+        std::copy_n(std::cbegin(h.bytes),32,s + 32);
         // s[:32] = tx.hash; s[32:] = h
         h = ethash::keccak256(reinterpret_cast<uint8_t*>(s),64);
         // BOOST_LOG_TRIVIAL(debug) << format("Now hash is %s") % hashToString(h);
@@ -1104,12 +1146,14 @@ class ITxExecutable {
   public:
     virtual bool addTxs(vector<Tx> && txs) noexcept=0;
   };
+
 }
 
 /**
  * @brief Some helper functions for stl
  */
 namespace std {
+
 
   // 🦜: help std::less to use set<address>, converts to uint256 and compare.
   template<>

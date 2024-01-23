@@ -126,9 +126,48 @@ optional<tuple<string,vector<Tx>>> parse_txs_jsonString_for_rpc(string_view s)
 
 Em... I feels like we should move the hash calculation logic to a separate
 method....like:
+
 \begin{simplec}
-hash256 hash() const;
+hash256 getHash() const;
 \end{simplec}
+
+\emoji{parrot} : Yeah, I think that's better. 
+
+\emoji{turtle} : I feels like there're some duplication of code between the
+\texttt{parse\_txs\_json\_for\_rpc(json::array \&\& a)} and
+\texttt{fromJson(const json::value \&v)}. Let's merge it.
+
+\emoji{parrot} : Yeah, but I think it's more like a refactoring thing, because
+the method called by the Rpc is required to throw an informative exception, but
+\texttt{bool fromJson()} is marked as \texttt{noexcept} and uses its return
+value to indicate the success or failure of parsing.
+
+\emoji{turtle} : So we can refactor into something like:
+
+\begin{simplec}
+bool fromJson(const json::value &v) noexcept override {
+  try {
+    fromJson0(v);
+  }catch (const std::exception &e){
+    return false;
+  }
+}
+
+void fromJson0(const json::value &v) {
+  // here we can throw exceptions
+}
+\end{simplec}
+
+\emoji{parrot} : Ohh, I just remembered that why we seperated the two
+(\texttt{fromJson} and \texttt{parse\_txs\_json\_for\_rpc(json::array \&\& a)})... It's
+because that \texttt{fromJson} is supposed to be called to those string
+retrieved from the local db, which is supposed to be correct. But the latter is
+supposed to be called on user-supplied string, which can be anything....
+
+\emoji{turtle} : Oh, yeah. But I still think that we should refactor it. I think
+skipping error check in \texttt{fromJson} is not a good idea...
+
+\emoji{parrot} : Agree, let's do that.
 
 \end{document}
 

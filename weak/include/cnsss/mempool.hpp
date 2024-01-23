@@ -5,19 +5,27 @@
 #include <unordered_set>
 
 
+#if !defined(NDEBUG)
+#define BOOST_MULTI_INDEX_ENABLE_INVARIANT_CHECKING
+#define BOOST_MULTI_INDEX_ENABLE_SAFE_MODE
+#endif
+
 #include <mutex>
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/identity.hpp>
-#include <boost/multi_index/member.hpp>
+// #include <boost/multi_index/member.hpp>
+#include <boost/multi_index/mem_fun.hpp>
 
 namespace weak{
 
   namespace multi_index = boost::multi_index;
   using multi_index::ordered_unique;
   using multi_index::identity;
-  // using boost::multi_index::identity;
-  using multi_index::member;
+
+  using multi_index::const_mem_fun;
+  using boost::multi_index::identity;
+  // using multi_index::member;
   using multi_index::ordered_non_unique;
   using multi_index::multi_index_container;
   using multi_index::indexed_by;
@@ -44,6 +52,13 @@ namespace weak{
     ~Mempool(){
       BOOST_LOG_TRIVIAL(debug) << format("👋 pool closed");
     }
+    /* [2024-01-24]
+       🦜 : What's this ?
+
+       🐢 : It's just a set. But it allows us to fetch an element by its hash.
+       and sometimes by Tx's own operator<, which is sorted first by timestamp,
+       then by the pair (addr,nonce).
+     */
     typedef multi_index_container<
     Tx,
     indexed_by<
@@ -51,7 +66,8 @@ namespace weak{
       ordered_unique<identity<Tx>>,
       // sort by less<hash256> on Tx::
       // 🦜: We defined it in core.hpp.
-      ordered_unique<member<Tx,ethash::hash256,&Tx::hash>>
+      // ordered_unique<member<Tx,ethash::hash256,&Tx::hash>>
+      ordered_unique<const_mem_fun<Tx,ethash::hash256 ,&Tx::hash>>
       >
     > Tx_set;
 
@@ -109,7 +125,7 @@ namespace weak{
         for (auto it = this->txs.begin();
              it != this->txs.end() and max > 0;max--){
           // BOOST_LOG_TRIVIAL(debug) << format("iter");
-          txhs_out.push_back(it->hash);
+          txhs_out.push_back(it->hash());
           ++it;
         }
       }// unlocks here
@@ -121,7 +137,7 @@ namespace weak{
      */
     bool verifyTx(const Tx & t) const noexcept override{
       std::unique_lock g(this->lock_for_hs); // movable lock
-      return not this->hs->contains(t.hash);
+      return not this->hs->contains(t.hash());
     }
 
     /**
@@ -133,7 +149,7 @@ namespace weak{
     bool addTx(const Tx & t) noexcept override{
       std::unique_lock g(this->lock_for_txs); // movable lock
       std::unique_lock g1(this->lock_for_hs); // movable lock
-      if (not this->hs->insert(t.hash).second)
+      if (not this->hs->insert(t.hash()).second)
         return false;
 
       return txs.insert(t).second;
