@@ -599,9 +599,9 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
       }else{
         // 🦜 : if pk_pem is not given, parse the `from`, otherwise it's ignored.
         s= value_to<string>(o.at("from"));
-        optional<evmc::address> ffrom = evmc::from_hex<evmc::address>(s);
-        if (not from) BOOST_THROW_EXCEPTION(std::runtime_error("Invalid from = " + s));
-        this->from = ffrom.value();
+        optional<evmc::address> oa = evmc::from_hex<evmc::address>(s);
+        if (not oa) BOOST_THROW_EXCEPTION(std::runtime_error("Invalid from = " + s));
+        this->from = oa.value();
       }
 
       if (o.contains("signature")){ // parse sig if exists

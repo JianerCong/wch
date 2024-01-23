@@ -143,7 +143,7 @@ BOOST_AUTO_TEST_CASE(test_tx_fromJsonWithType){
   const char* s ="{"
     "\"data\":\"ffff\","
     "\"from\":\"0000000000000000000000000000000000000001\","
-    "\"hash\":\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\","
+    // "\"hash\":\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\","
     "\"nonce\":123,"
     "\"timestamp\":456,"
     "\"to\":\"0000000000000000000000000000000000000001\","
@@ -249,7 +249,7 @@ BOOST_AUTO_TEST_CASE(blk_fromJson){
     // 🐢 :U have mentioned it already.
     // 🦜 : I known, but this did save us from alot  of for-loop
   };
-  BOOST_LOG_TRIVIAL(info) <<  "🦜 : formed Blk";
+  BOOST_LOG_TRIVIAL(info) <<  "🦜 : formed Blk: " << v;
   Blk b;
   bool ok = b.fromJson(v);
 
