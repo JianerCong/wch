@@ -561,20 +561,50 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
       return IJsonizable::fromJsonString(s);
     };
 
+    /**
+     * @brief obtain the `from` address from the `pk_pem` field.
+     *
+     * 🦜 : This is the same as Ethereum: hash the pk_pem and take the last 20
+     * bytes. Sorry about the awkward name...
+     */
+    address getFromFromPkPem() const noexcept{
+      hash256 h = ethash::keccak256(reinterpret_cast<const uint8_t*>(pk_pem.data()), pk_pem.size());
+      address a;
+      // copy it
+      std::copy_n(h.bytes + 12, 20, a.bytes);
+      return a;
+    }
+
     bool fromJson(const json::value &v) noexcept override {
       BOOST_LOG_TRIVIAL(debug) << format("Forming Tx from Json");
 
       try {
         json::object const& o = v.as_object();
+        string f,t,d,h;
 
+        // --------------------------------------------------
+        // [2024-01-22] 🐢 : Add the optional field if they are given.
+        if (o.contains("pk_pem")){
+          this->pk_pem = value_to<string>(o.at("pk_pem"));
+          this->from = getFromFromPkPem();
+        }else{                  // 🦜 : if pk_pem is not given, parse the `from`, otherwise it's ignored.
+          f= value_to<string>(o.at("from"));
+          this->from = evmc::from_hex<address>(f).value(); // 🦜 this throws, so we can catch it
+        }
+        if (o.contains("signature")){
+          this->signature = evmc::from_hex(o.at("signature").as_string()).value();
+        }
+        if (o.contains("pk_crt")){
+          this->pk_crt = evmc::from_hex(o.at("pk_crt").as_string()).value();
+        }
+
+        // --------------------------------------------------
         BOOST_LOG_TRIVIAL(trace) << format("parsing nonce");
         this->nonce = value_to<uint64_t>(o.at("nonce"));
         BOOST_LOG_TRIVIAL(trace) << format("parsing timestamp");
         this->timestamp = static_cast<time_t>(value_to<uint64_t>(o.at("timestamp")));
 
-        string f,t,d,h;
         d= value_to<string>(o.at("data"));
-        f= value_to<string>(o.at("from"));
         h= value_to<string>(o.at("hash"));
         t= value_to<string>(o.at("to"));
         // TODO: check if these bytes are valid hex.
@@ -587,29 +617,21 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
           this->type = Type::evm;
         }
 
+
         /*
             🐢 : parse<...>() will call std::terminate() on failure. So we
             should only use it if we are sure.
-
-            🦜 : I think it's alright, because it is saved in the DB usually by
-            "our crew", right?
-
-            🐢 : Yeah. So we can't use the same approach when we are parsing
-            string from user Json.
-
-            🦜 : Agree. And I think in that case, we might gonna use
-            evmc::from_hex<evmc::address>(), which will return an optional<evmc::address>
          */
 
         // this->from = evmc::literals::parse<address>(f); // 🦜 this do abort (not what we wan)
         // this->to = evmc::literals::parse<address>(t);
-        this->from = evmc::from_hex<address>(f).value(); // 🦜 this throws, so we can catch it
         this->to = evmc::from_hex<address>(t).value();
 
         this->data = evmc::from_hex(d).value();
         /// Decodes hex-encoded string into custom type T with .bytes array of
         /// uint8_t. so ethash::hash256 is such type
         this->hash = evmc::from_hex<hash256>(h).value();
+
 
       }catch (std::exception &e){
         BOOST_LOG_TRIVIAL(error) << format("❌️ error parsing json: %s") % e.what();
@@ -802,6 +824,17 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
 
     if (c.type != Tx::Type::evm){
       jv.as_object()["type"] = Tx::typeToString(c.type);
+    }
+
+    // [2024-01-22] 🐢 : Add the optional field if they are given.
+    if (not c.pk_pem.empty()){
+      jv.as_object()["pk_pem"] = c.pk_pem;
+    }
+    if (not c.signature.empty()){
+      jv.as_object()["signature"] = evmc::hex(c.signature);
+    }
+    if (not c.pk_crt.empty()){
+      jv.as_object()["pk_crt"] = evmc::hex(c.pk_crt);
     }
   }
 

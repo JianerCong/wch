@@ -108,6 +108,13 @@ BoldItalicFont=*CodePLItalic
 \newcommand{\colc}[1]{\textcolor{\mycolc}{#1}}
 \newcommand{\Cola}[1]{\textcolor{\mycola}{\emph{#1}}}
 
+% 🦜 : \textcolor doesn't allow multiple paragraphs in it, so we used {\color{...}}
+\newcommand{\colZ}[1]{
+{\color{black}#1}
+} %go back
+\newcommand{\colz}[1]{
+{\color{gray}#1}
+}
 
 \newcommand{\myTwo}[2]{\texttt{#1}为\texttt{#2}}
 
@@ -209,3 +216,4 @@ row sep=1cm,column sep=2cm]
 % U need to define both crefname and Crefname , else it will cause fatal error.
 \crefname{myCListing}{代码}{代码}
 \Crefname{myCListing}{代码}{代码}
+

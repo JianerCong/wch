@@ -1,0 +1,141 @@
+\documentclass[dvipsnames]{article}
+% \documentclass[dvipsnames]{ctexart}
+\title{weak-chain memo}
+\usepackage{geometry}\geometry{
+  a4paper,
+  total={170mm,257mm},
+  left=20mm,
+  top=20mm,
+}
+
+
+\usepackage{adjustbox}          %to narrower the caption
+\newlength\mylength
+% \usepackage{hyperref}
+\usepackage{svg}
+\usepackage[skip=5pt plus1pt, indent=0pt]{parskip}
+\usepackage{emoji}
+% \setemojifont{NotoColorEmoji.ttf}[Path=C:/Users/congj/repo/myFonts/]
+% \setemojifont{TwitterColorEmoji-SVGinOT.ttf}[Path=C:/Users/congj/repo/myFonts/]
+
+\usepackage{booktabs}
+\input{h-lua}
+\date{\today}
+\author{HiAaa}
+\tcbuselibrary{breakable}
+\newtcolorbox{blackbox}{tile,colback=black,colupper=white,nobeforeafter,halign=flush center}
+
+\newcommand{\mycolaa}{\mycola!20}
+
+\usepackage{placeins}
+
+% \usepackage{lscape}             %for landscape env
+\usepackage{pdflscape} %uncomment this  and comment above line to see the difference
+% --------------------------------------------------
+
+\usepackage{tabularx}
+\begin{document}
+\maketitle
+\tableofcontents{}
+\newpage{}
+
+\section*{2024-01-23}
+
+\subsection*{serious tx verification @ \texttt{class Tx} \cola{\texttt{core.hpp}}}
+\emoji{parrot} : I just feels like it would make sense to include the methods
+about verifying Tx within the class \text{Tx} itself? Kinda OOP paradigm right?
+
+\emoji{turtle} : What you have in mind?
+
+\emoji{parrot} : I think the simplest way is just to define:
+
+\begin{simplec}
+bool verify() const;
+bool verify(caKey k) const;
+\end{simplec}
+
+The first one is used when we are using \texttt{--serious-tx-check
+  \{1|public-chain-mode\}}, in which we check the wether the \texttt{pk\_pem}
+and \texttt{signature} match (according to the contents).
+
+The second one is used when we are using \texttt{--serious-tx-check
+  \{2|private-chain-mode\}}, in which, in addition to what we check above, we
+also check the \texttt{pk\_crt} field to see if it is signed by the CA \texttt{k}.
+
+\emoji{turtle} : Sounds alright. So where do all those SSL stuff come from ? I
+remember currently \texttt{core.hpp} is not including any SSL related headers.
+And in order to reduce the footprint of OpenSSL, we have put all those crypto
+stuff in \text{class SslMsgMgr} in \texttt{net/pure-netAsstn.hpp}. Perhaps most
+importantly it contains a couple of static helper function (which is pretty much
+all we learnt from the OpenSSL tutorial) such as:
+\begin{simplec}
+static optional<UniquePtr<EVP_PKEY>> load_key_from_pem(const std::string& s, bool is_secret = true)
+static bool do_verify(EVP_PKEY *ed_key,const string msg, const string sig)
+\end{simplec}
+
+\emoji{parrot} : Oh.. I feels like these two functions are just what we need
+right? I mean, it feels like all we need is:
+
+\begin{simplec}
+// var: ca_key, tx
+do_verify(ca_key, tx.pk_pem, tx.pk_crt);
+
+UniquePtr<EVP_PKEY> pk = load_key_from_pem(tx.pk_pem, false).value(); // false means public key
+string msg = tx.nonce + tx.data; // this getter can be implemented in Tx
+do_verify(pk.get(), msg, tx.signature);
+\end{simplec}
+
+\emoji{turtle} : Great, it seems like the only two things we need are these two
+static methods right? Yeah. Let's do that.
+
+\subsection*{12:12 serious nonce check}
+
+\colz{
+  \emoji{parrot} : Ohhh, oh, also, I think the \texttt{SeriousDivExecutor} should
+  also check that wether each \texttt{Tx} has a unique \texttt{nonce}. More
+  specifically, the pair \texttt{<from, nonce>} should be unique. This is to
+  prevent the \texttt{from} from double spending.
+
+  \emoji{turtle} : I remember we did some check on this in the \texttt{Mempool}
+  (The Tx pool) right? Ohh, we checked the uniqueness of the \texttt{Tx.hash}.
+
+  \emoji{parrot} : Ohh..checking hash is better, because it depends on the whole
+  Tx including the \texttt{nonce} and \texttt{from}... Yeah, we were smarter back
+  then....
+}
+
+\emoji{turtle} : So, yeah, we should check the uniqueness of the
+\texttt{Tx.hash}. Emm. this can be done by passing the argument (obtained from
+\texttt{init.hpp}) of type \texttt{std::unordered\_set<hash256>;}, just like the
+way \texttt{Mempool} does.
+
+\emoji{parrot} : Let's do that. Wait, wait , wait... Why I don't see how the
+hash is calculated in \texttt{Tx}?
+
+\emoji{turtle} : Oh, it seems like the logic of calculating hash is within the ctor:
+
+\begin{simplec}
+Tx(const address f,const address t,const bytes d,const uint64_t n, Type type = Type::evm)
+\end{simplec}
+
+And the Rpc will call a special factory method to create a \texttt{Tx} object
+
+\begin{simplec}
+optional<tuple<string,vector<Tx>>> parse_txs_jsonString_for_rpc(string_view s)
+\end{simplec}
+
+Em... I feels like we should move the hash calculation logic to a separate
+method....like:
+\begin{simplec}
+hash256 hash() const;
+\end{simplec}
+
+\end{document}
+
+% Local Variables:
+% TeX-engine: luatex
+% TeX-command-extra-options: "-shell-escape"
+% TeX-master: "m.tex"
+% TeX-parse-self: t
+% TeX-auto-save: t
+% End:
