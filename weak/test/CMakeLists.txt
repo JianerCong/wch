@@ -63,10 +63,16 @@ foreach(t d IN ZIP_LISTS l l-deps)
   # [Solved]: 🐢: May be you should use: target_include_directories(test-all
   # PUBLIC ${PROJECT_SOURCE_DIR}/include)
 
+  if (WIN32)
+    set(exe ${PROJECT_BINARY_DIR}/test/Release/${t}.exe)
+  else()
+    set(exe ${PROJECT_BINARY_DIR}/test/${t})
+  endif()
+
   if(RUN_SELECTED_ONLY)
     ## Option 1: test-only test marked with MY_TEST_THIS see test-hi.cpp
     ## --------------------------------------------------
-    add_custom_target(run-${t} ALL ${PROJECT_BINARY_DIR}/test/${t}
+    add_custom_target(run-${t} ALL ${exe}
       # --random
       --run_test=@aaa
       --log_level=all
@@ -75,7 +81,7 @@ foreach(t d IN ZIP_LISTS l l-deps)
   else()
     ## Option 2: test-all
     ## --------------------------------------------------
-    add_custom_target(run-${t} ALL ${PROJECT_BINARY_DIR}/test/${t}
+    add_custom_target(run-${t} ALL ${exe}
       --log_level=all COMMENT "Testing Tests 🐸")
   endif()
   add_dependencies(run-${t} ${t})

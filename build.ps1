@@ -14,7 +14,15 @@ mv ~\Downloads\boost_1_84_0 .\.pre
 cd .\.pre\boost_1_84_0
 .\bootstrap.bat
 .\b2 --show-libraries
-.\b2 --with-json --with-program_options --with-test --with-headers --with-log -a link=static cxxflags="/utf-8"
+# .\b2 --with-json --with-program_options --with-test --with-headers --with-log -a link=static cxxflags="/utf-8 /MT" 
+.\b2 --with-json --with-program_options --with-test --with-headers --with-log -a link=static runtime-link=static cxxflags="/utf-8"
+# 🦜 : Windows offers two way to link to MSVC runtime, either dynamically (/MD)
+# or statically, (/Mt), here let's use /Mt, because that's what vcpkg used. But
+# instead of using the cxxflags, you should use the `runtime-link=static` when
+# calling `b2`, they are in almost equivalent, but the later does the current
+# renaming (by adding the `-s` to the lib)
+
+# build 
 # -a : rebuild all
 
 # The Boost C++ Libraries were successfully built!
@@ -45,30 +53,11 @@ cd ..
 
 # --------------------------------------------------
 # 3. make the proto
-# 🦜 : Kinda nightmare, we need to get the protoc and compile the .proto files
-# before we do anything
-
-# Create the ./.pre directory if it doesn't exist
-if (!(Test-Path -Path ./.pre )) {
-    New-Item -ItemType Directory -Force -Path ./.pre
-}
-# Download the protoc zip file
-Invoke-WebRequest -Uri https://github.com/protocolbuffers/protobuf/releases/download/v25.1/protoc-25.1-win64.zip -OutFile ./.pre/protoc-25.1-win64.zip
-# Unzip the protoc zip file
-Expand-Archive -Path ./.pre/protoc-25.1-win64.zip -DestinationPath ./.pre/protoc-25.1-win64
-
-# generate the protobuf files
-$s1 = '.\weak\include'
-$s2 = '.\weak\include\cnsss'
-$DST_DIR=".\weak\include\.generated_pb"
-md $DST_DIR
-.\.pre\protoc-25.1-win64\bin\protoc.exe "-I=$s1" "-I=$s2" "--cpp_out=$DST_DIR" `
-  "$s2/pure-rbft.proto" "$s2/pure-listenToOne.proto"
-Remove-Item .\build -Recurse -Force
+# 🦜 : nope, we solved it using cmake magic..
 
 # 4. build the project
 cmake -S weak -B build
-cmake --build build --config Release
+cmake --build build --config Release --verbose
 
 
 # --------------------------------------------------
