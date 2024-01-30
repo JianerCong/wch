@@ -104,7 +104,7 @@ namespace weak{
          )
         ("consensus,s",program_options::value<string>(&(this->consensus_name))->default_value("Solo"),
          "The name of consensus to use. Available options are:\n"
-         "  Solo, Rbft\n"
+         "  Solo, Solo-static, Rbft\n"
          )
         ("port,p",program_options::value<int>(&(this->port))->default_value(7777),
          "The port to listen")

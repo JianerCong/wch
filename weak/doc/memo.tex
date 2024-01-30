@@ -39,135 +39,39 @@
 \tableofcontents{}
 \newpage{}
 
-\section*{2024-01-23}
+\input{2024-01-23}
+\section*{2024-01-30}
 
-\subsection*{serious tx verification @ \texttt{class Tx} \cola{\texttt{core.hpp}}}
-\emoji{parrot} : I just feels like it would make sense to include the methods
-about verifying Tx within the class \text{Tx} itself? Kinda OOP paradigm right?
+\subsection*{10:10 diable \texttt{command\_history} \cola{[done at 11:26]}}
 
-\emoji{turtle} : What you have in mind?
+\emoji{parrot} : Let's add an option for the \texttt{ListenToOneConsensus} to
+disable the \texttt{command\_history}.
 
-\emoji{parrot} : I think the simplest way is just to define:
+\emoji{turtle} : Let's go. Then I think let's just make it a new consensus, what
+about \texttt{Solo-static}? That means no nodes can be dynamically added (after
+the some blks are made.)
 
-\begin{simplec}
-bool verify() const;
-bool verify(caKey k) const;
-\end{simplec}
+\subsection*{11:27 pb more}
 
-The first one is used when we are using \texttt{--serious-tx-check
-  \{1|public-chain-mode\}}, in which we check the wether the \texttt{pk\_pem}
-and \texttt{signature} match (according to the contents).
+\emoji{parrot} : I think now it's time to protobuf more. Such as \texttt{Tx} and
+\texttt{Blk}.
 
-The second one is used when we are using \texttt{--serious-tx-check
-  \{2|private-chain-mode\}}, in which, in addition to what we check above, we
-also check the \texttt{pk\_crt} field to see if it is signed by the CA \texttt{k}.
+\emoji{turtle} : Em... Yeah, let's do that, first, I think \texttt{Tx, Acn,
+  Blk}. But note that things are bit more complicated with \texttt{Blk}, because
+it inherits from \texttt{BlkHeader}, and also.. Oh, why it that?
 
-\emoji{turtle} : Sounds alright. So where do all those SSL stuff come from ? I
-remember currently \texttt{core.hpp} is not including any SSL related headers.
-And in order to reduce the footprint of OpenSSL, we have put all those crypto
-stuff in \text{class SslMsgMgr} in \texttt{net/pure-netAsstn.hpp}. Perhaps most
-importantly it contains a couple of static helper function (which is pretty much
-all we learnt from the OpenSSL tutorial) such as:
-\begin{simplec}
-static optional<UniquePtr<EVP_PKEY>> load_key_from_pem(const std::string& s, bool is_secret = true)
-static bool do_verify(EVP_PKEY *ed_key,const string msg, const string sig)
-\end{simplec}
+\emoji{parrot} : I remember it's for historical reason. Previously, we have two
+types of \texttt{Blk}, one is \texttt{Blk} which contains the Tx payloads, and
+another \texttt{BlkForConsensus} which only contains the hashes of \texttt{Tx}s.
+This is used when we have two kinds of consensus message: \texttt{AddTxs} and
+\texttt{ExecBlk}. However, since we have been using \texttt{light-exe} lately
+which doesn't need \texttt{BlkForConsensus}, we have almost forgot about it....
 
-\emoji{parrot} : Oh.. I feels like these two functions are just what we need
-right? I mean, it feels like all we need is:
+\emoji{turtle} : Yeah, let's still pb it. Also the \texttt{ExecBlk}, which is
+the executed Blk.
 
-\begin{simplec}
-// var: ca_key, tx
-do_verify(ca_key, tx.pk_pem, tx.pk_crt);
-
-UniquePtr<EVP_PKEY> pk = load_key_from_pem(tx.pk_pem, false).value(); // false means public key
-string msg = tx.nonce + tx.data; // this getter can be implemented in Tx
-do_verify(pk.get(), msg, tx.signature);
-\end{simplec}
-
-\emoji{turtle} : Great, it seems like the only two things we need are these two
-static methods right? Yeah. Let's do that.
-
-\subsection*{12:12 serious nonce check}
-
-\colz{
-  \emoji{parrot} : Ohhh, oh, also, I think the \texttt{SeriousDivExecutor} should
-  also check that wether each \texttt{Tx} has a unique \texttt{nonce}. More
-  specifically, the pair \texttt{<from, nonce>} should be unique. This is to
-  prevent the \texttt{from} from double spending.
-
-  \emoji{turtle} : I remember we did some check on this in the \texttt{Mempool}
-  (The Tx pool) right? Ohh, we checked the uniqueness of the \texttt{Tx.hash}.
-
-  \emoji{parrot} : Ohh..checking hash is better, because it depends on the whole
-  Tx including the \texttt{nonce} and \texttt{from}... Yeah, we were smarter back
-  then....
-}
-
-\emoji{turtle} : So, yeah, we should check the uniqueness of the
-\texttt{Tx.hash}. Emm. this can be done by passing the argument (obtained from
-\texttt{init.hpp}) of type \texttt{std::unordered\_set<hash256>;}, just like the
-way \texttt{Mempool} does.
-
-\emoji{parrot} : Let's do that. Wait, wait , wait... Why I don't see how the
-hash is calculated in \texttt{Tx}?
-
-\emoji{turtle} : Oh, it seems like the logic of calculating hash is within the ctor:
-
-\begin{simplec}
-Tx(const address f,const address t,const bytes d,const uint64_t n, Type type = Type::evm)
-\end{simplec}
-
-And the Rpc will call a special factory method to create a \texttt{Tx} object
-
-\begin{simplec}
-optional<tuple<string,vector<Tx>>> parse_txs_jsonString_for_rpc(string_view s)
-\end{simplec}
-
-Em... I feels like we should move the hash calculation logic to a separate
-method....like:
-
-\begin{simplec}
-hash256 getHash() const;
-\end{simplec}
-
-\emoji{parrot} : Yeah, I think that's better. 
-
-\emoji{turtle} : I feels like there're some duplication of code between the
-\texttt{parse\_txs\_json\_for\_rpc(json::array \&\& a)} and
-\texttt{fromJson(const json::value \&v)}. Let's merge it.
-
-\emoji{parrot} : Yeah, but I think it's more like a refactoring thing, because
-the method called by the Rpc is required to throw an informative exception, but
-\texttt{bool fromJson()} is marked as \texttt{noexcept} and uses its return
-value to indicate the success or failure of parsing.
-
-\emoji{turtle} : So we can refactor into something like:
-
-\begin{simplec}
-bool fromJson(const json::value &v) noexcept override {
-  try {
-    fromJson0(v);
-  }catch (const std::exception &e){
-    return false;
-  }
-}
-
-void fromJson0(const json::value &v) {
-  // here we can throw exceptions
-}
-\end{simplec}
-
-\emoji{parrot} : Ohh, I just remembered that why we seperated the two
-(\texttt{fromJson} and \texttt{parse\_txs\_json\_for\_rpc(json::array \&\& a)})... It's
-because that \texttt{fromJson} is supposed to be called to those string
-retrieved from the local db, which is supposed to be correct. But the latter is
-supposed to be called on user-supplied string, which can be anything....
-
-\emoji{turtle} : Oh, yeah. But I still think that we should refactor it. I think
-skipping error check in \texttt{fromJson} is not a good idea...
-
-\emoji{parrot} : Agree, let's do that.
+\emoji{parrot} : Emm. Also, I think \texttt{WITH\_PROTOBUF} directive is not
+neccesary, let's just make pb a requirement.
 
 \end{document}
 

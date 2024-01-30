@@ -1,12 +1,6 @@
 # 🦜 : USE_STATIC_LIBS is important, because by default, the loader cannot load
 # dynamic library from non-default locations.
 set(Boost_USE_STATIC_LIBS ON)
-set(Boost_USE_STATIC_RUNTIME ON)
-# set(Boost_VERBOSE ON)
-set(Boost_DEBUG ON)
-
-set(Boost_USE_DEBUG_LIBS OFF)        # Use release libraries
-set(Boost_USE_DEBUG_RUNTIME OFF)        # Use release libraries
 
 # Boost_VERBOSE:            Enable verbose output
 # Boost_DEBUG:              Enable debug (even more verbose) output
@@ -24,6 +18,13 @@ if(WIN32)
   3. MultiThreadedDLL
   4. MultiThreadedDebugDLL
   #]=]
+
+  set(Boost_USE_STATIC_RUNTIME ON)
+  # set(Boost_VERBOSE ON)
+  set(Boost_DEBUG ON)
+
+  set(Boost_USE_DEBUG_LIBS OFF)        # Use release libraries
+  set(Boost_USE_DEBUG_RUNTIME OFF)        # Use release libraries
 endif()
 
 # try to find Boost on system
@@ -65,25 +66,23 @@ else()
 endif()
 
 
-if (WITH_PROTOBUF)
-  if (WIN32)
-    # manually import the libs
-    message("🐸 manually making protobuf on windows")
-    # set(x ${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg/installed/x64-windows-static/lib/)
-    # add_library(protobuf::libprotobuf STATIC IMPORTED)
-    # set_target_properties(protobuf::libprotobuf PROPERTIES
-    #   IMPORTED_LOCATION "${x}/libprotobuf.lib"
-    # )
+if (WIN32)
+  # manually import the libs
+  message("🐸 manually making protobuf on windows")
+  # set(x ${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg/installed/x64-windows-static/lib/)
+  # add_library(protobuf::libprotobuf STATIC IMPORTED)
+  # set_target_properties(protobuf::libprotobuf PROPERTIES
+  #   IMPORTED_LOCATION "${x}/libprotobuf.lib"
+  # )
 
-    # set(x "${PROJECT_SOURCE_DIR}/../.pre/installed-pb")
-    set(Protobuf_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg/installed/x64-windows-static/share/protobuf)
-    set(Protobuf_PROTOC_EXECUTABLE ${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg/installed/x64-windows-static/tools/protobuf/protoc.exe)
-  else()
-    set(x "${PROJECT_SOURCE_DIR}/../.pre/installed-pb")
-    set(utf8_range_DIR "${x}/lib/cmake/utf8_range")
-    set(absl_DIR "${x}/lib/cmake/absl")
-    set(Protobuf_DIR "${x}/lib/cmake/protobuf")
-  endif()
+  # set(x "${PROJECT_SOURCE_DIR}/../.pre/installed-pb")
+  set(Protobuf_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg/installed/x64-windows-static/share/protobuf)
+  set(Protobuf_PROTOC_EXECUTABLE ${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg/installed/x64-windows-static/tools/protobuf/protoc.exe)
+else()
+  set(x "${PROJECT_SOURCE_DIR}/../.pre/installed-pb")
+  set(utf8_range_DIR "${x}/lib/cmake/utf8_range")
+  set(absl_DIR "${x}/lib/cmake/absl")
+  set(Protobuf_DIR "${x}/lib/cmake/protobuf")
 endif()
 
 find_package(Protobuf CONFIG REQUIRED)

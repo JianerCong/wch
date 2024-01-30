@@ -4,8 +4,9 @@
 *** TODO https
 *** TODO nbft
 *** TODO pb Tx and Blks
+*** TODO make pb a requirement
 *** py vm
-*** TODO pure data Tx
+*** DONE pure data Tx <2024-01-30 Tue>
 🦜 : How to we support this.
 
 🐢 : The first thing we're gonna do is to add a field to our `Tx`.
@@ -30,4 +31,4 @@ executor will just return `ok` for this kinda Tx.
 
 🐢 : And if user did pass a `type` field in a Tx, then we add that to our Tx,
 else, we leave it blank.
-*** TODO unix domain socket
+*** DONE unix domain socket

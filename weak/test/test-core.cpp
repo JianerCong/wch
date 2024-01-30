@@ -157,7 +157,7 @@ BOOST_AUTO_TEST_CASE(test_tx_fromJsonWithType){
 
 BOOST_AUTO_TEST_CASE(test_tx_fromJsonWithPkPem){
   
-  }
+}
 
 BOOST_AUTO_TEST_CASE(test_makeBlk){
   auto [a1,a2,data] = get_example_address_and_data();

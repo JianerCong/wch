@@ -543,7 +543,7 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
     /**
      * @brief the hash of the Tx.
      *
-     * [2024-01-23] 🦜 it's used to be a field, now it's a method.
+     * [2024-01-23] 🦜 it's used to be a field, now it's a method. 
      */
     hash256 hash() const {
       // convert nonce to array
@@ -585,6 +585,19 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
 
     /**
      * @brief The fromJson function that can throw
+     *
+     * 🐢 : In fact there are many kinds of valid Tx json. But the most common two are
+     *
+     * 1. Json from the client rpc. (the minimal of such json is {from,to,data,nonce}). We need to give it a timestamp.
+     *
+     * 2. Json from other sources (e.g. the chainDB). This json should contain
+     * all fields, including a hash. However, the hash is not read, because
+     * since 2024-01-22, we have changed to make hash a method. 
+     *
+     * 🦜 : Oh, so the only difference is that if the `timestamp` field is present or not?
+     *
+     * 🐢 : Yeah, I think as long as we add that in the rpc endpoint, then we are good
+     * to share the `fromJson0` function with other sources.
      */
     void fromJson0(const json::object &o){
       string s;
@@ -616,12 +629,13 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
         this->pk_crt = ob.value();
       }
 
+      // [2024-01-22]
       // --------------------------------------------------
       BOOST_LOG_TRIVIAL(trace) << format("parsing nonce");
       this->nonce = value_to<uint64_t>(o.at("nonce"));
+
       BOOST_LOG_TRIVIAL(trace) << format("parsing timestamp");
       this->timestamp = static_cast<time_t>(value_to<uint64_t>(o.at("timestamp")));
-
 
       // 🦜 if v has a `type` field, use it. Otherwise, use default (evm).
       if (o.contains("type")){
@@ -636,12 +650,10 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
         🐢 : parse<...>() will call std::terminate() on failure. So we
         should only use it if we are sure.
       */
-
       s= value_to<string>(o.at("data"));
       ob = evmc::from_hex(s);
       if (not ob) BOOST_THROW_EXCEPTION(std::runtime_error("Invalid data = " + s));
       this->data = ob.value();
-
 
       s= value_to<string>(o.at("to"));
       // this->from = evmc::literals::parse<address>(f); // 🦜 this do abort (not what we wan)
@@ -823,6 +835,8 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
         // BOOST_LOG_TRIVIAL(debug) << format("⚙️ Constructing Tx and back-to-client object");
         // Tx tx{from.value(),to.value(),data.value(),n};
         // ^^ 🦜 : refactored
+        // 🦜 : but we need to add a `timestamp` field for the client
+        o.emplace("timestamp",std::time(nullptr));
         Tx tx;
         tx.fromJson0(o);
 

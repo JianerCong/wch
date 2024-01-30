@@ -784,7 +784,7 @@ namespace weak{
 
             unordered_map<string,PeerCryptoInfo> peers; // <! the peers crypto info, empty if --without_crypto=yes (default)
 
-            if (o.consensus_name == "Solo"){
+            if (o.consensus_name == "Solo" or o.consensus_name == "Solo-static"){
               string endpoint_node_to_connect;
 
               if (not o.Solo_node_to_connect.empty()){
@@ -809,9 +809,13 @@ namespace weak{
                 BOOST_LOG_TRIVIAL(info) << format("\t⚙️ Starting as Solo primary");
               }
 
+              bool remember = (o.consensus_name == "Solo");
+              if (not remember){
+                BOOST_LOG_TRIVIAL(info) << format("\t⚙️ Solo started in " S_CYAN "static mode (command_history won't be remembered)" S_NOR);
+              }
               cnsss.listenToOne = ::pure::ListenToOneConsensus::create(net.iEndpointBasedNetworkable
                                                                ,exe.iForConsensusExecutable,
-                                                               endpoint_node_to_connect);
+                                                                       endpoint_node_to_connect, remember);
 
               cnsss.iCnsssPrimaryBased = dynamic_cast<ICnsssPrimaryBased*>(&(*cnsss.listenToOne));
             }else if (o.consensus_name == "Rbft"){

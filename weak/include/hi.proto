@@ -1,10 +1,7 @@
 syntax = "proto3";
 package hiPb;
 
-enum TxType{
-  EVM = 0;
-  DATA = 1;
-}
+enum TxType{EVM = 0; DATA = 1;}
 
 message Tx {
   TxType type = 1;
@@ -13,5 +10,27 @@ message Tx {
   bytes data = 4;
   uint64 timestamp = 5;
   uint64 nonce = 6;
-  bytes hash = 7;
+  bytes hash = 7;               // will be serialized, but not parsed
+
+  string pk_pem = 8;
+  bytes signature = 9;          // key.sign(hash)
+  bytes pk_crt = 10;            // ca_key.sign(pk_pem)
+}
+
+message BlkHeader {uint64 number = 1; bytes parentHash = 2; bytes hash = 3;}
+
+message Blk {BlkHeader header = 1; repeated Tx txs = 2;}
+
+message BlkForConsensus {BlkHeader header = 1; repeated bytes txhs = 2;}
+
+message StateChange {bool del = 1; bytes key = 2; bytes value = 3;}
+message StateChanges {repeated StateChange changes = 1;}
+
+message TxReceipt {bool ok = 1; bytes result = 2;}
+
+// executed Blk
+message ExecBlk {
+  Blk blk = 1;
+  repeated TxReceipt txReceipts = 2;
+  repeated StateChanges stateChanges = 3;
 }

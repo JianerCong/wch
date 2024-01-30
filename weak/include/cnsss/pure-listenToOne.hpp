@@ -122,10 +122,13 @@ namespace pure{
      */
     ListenToOneConsensus(IEndpointBasedNetworkable *  const n,
                          IForConsensusExecutable *  const e,
-                         const string & nodeToConnect = ""
+                         const string & nodeToConnect = "",
+                         bool remember_cmds = true
                          ): exe(e), net(n),
                             primary_is_me(nodeToConnect == ""),
-                            primary(nodeToConnect){
+                            primary(nodeToConnect),
+                            remember(remember_cmds)
+    {
       if (not primary_is_me){
         this->ask_primary_for_entry();
         this->start_listening_as_sub();
@@ -142,9 +145,11 @@ namespace pure{
     // shared_from_this() return nullptr. (🦜 this is recommanded code from c++ official website)
     [[nodiscard]] static shared_ptr<ListenToOneConsensus> create(IEndpointBasedNetworkable *  const n,
                                                                  IForConsensusExecutable *  const e,
-                                                                 const string & nodeToConnect = ""){
+                                                                 const string & nodeToConnect = "",
+                                                                  bool remember_cmds = true
+                                                                 ){
       // Not using std::make_shared<B> because the c'tor is private.
-      return shared_ptr<ListenToOneConsensus>(new ListenToOneConsensus(n,e,nodeToConnect));
+      return shared_ptr<ListenToOneConsensus>(new ListenToOneConsensus(n,e,nodeToConnect, remember_cmds));
     }
     IForConsensusExecutable * const exe;
     IEndpointBasedNetworkable * const net;
@@ -152,6 +157,7 @@ namespace pure{
     // 🦜 : In listenToOne, primary is fixed.
     const bool primary_is_me;
     const string primary;
+    const bool remember;
 
     /**
      * @brief The method required by interface. Check primary.
@@ -193,7 +199,8 @@ namespace pure{
                                                 string data) override{
 
       this->exe->execute(data); // This may modify the `data`
-      this->command_history.push_back(string(data));
+      if (this->remember)
+        this->command_history.push_back(string(data));
 
 
       vector<string> & l = this->known_subs; // reference
