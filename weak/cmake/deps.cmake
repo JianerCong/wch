@@ -82,39 +82,55 @@ else()
   set(x "${PROJECT_SOURCE_DIR}/../.pre/installed-pb")
   set(utf8_range_DIR "${x}/lib/cmake/utf8_range")
   set(absl_DIR "${x}/lib/cmake/absl")
+  #[=[ 🦜 : It will complain about not finding protobuf::gmock, but it's kinda
+  buggy circular dependency, so we might just ignore it
+  #]=]
   set(Protobuf_DIR "${x}/lib/cmake/protobuf")
 endif()
 
 find_package(Protobuf CONFIG REQUIRED)
 # 🦜 : will this work ?
 # 🦜 : Here we generate the required pb files
-    # --------------------------------------------------
-    # 1. the proto for the cnsss
-    set(o0 "${PROJECT_SOURCE_DIR}/include")
-    add_library(hi_pb
-      "${o0}/cnsss/pure-rbft.proto"
-      "${o0}/cnsss/pure-listenToOne.proto"
-    )
-    set(o "${o0}/.generated_pb")
-    # mkdir first
-    file(MAKE_DIRECTORY "${o}")
+# --------------------------------------------------
+# 1. the proto for the cnsss
+set(o0 "${PROJECT_SOURCE_DIR}/include")
+add_library(hi_pb
+  "${o0}/cnsss/pure-rbft.proto"
+  "${o0}/cnsss/pure-listenToOne.proto"
+)
+set(o "${o0}/.generated_pb")
+# mkdir first
+file(MAKE_DIRECTORY "${o}")
 
-    protobuf_generate(LANGUAGE cpp
-      TARGET hi_pb
-      OUT_VAR HI_PB_SRC
-      IMPORT_DIRS "${o0}/cnsss/"
-      # A common parent folder for the schema files. For example, if:
-      #
-      # schema file     = proto/hi/hi.proto
-      # import folder   = proto/
-      # generated files = ${PROTOC_OUT_DIR}/hi/hi.pb.h|cc
-      #
-      # 🦜 : So, the generated files are kinda in ${PROTOC_OUT_DIR} + <schama dir>
-      # - <import dir>
-      PROTOC_OUT_DIR "${o}"
-    )
-    target_link_libraries(hi_pb PUBLIC protobuf::libprotobuf)
-    message("🐸 HI_PB_SRC: ${HI_PB_SRC}")
+protobuf_generate(LANGUAGE cpp
+  TARGET hi_pb
+  OUT_VAR HI_PB_SRC
+  IMPORT_DIRS "${o0}/cnsss/"
+  # A common parent folder for the schema files. For example, if:
+  #
+  # schema file     = proto/hi/hi.proto
+  # import folder   = proto/
+  # generated files = ${PROTOC_OUT_DIR}/hi/hi.pb.h|cc
+  #
+  # 🦜 : So, the generated files are kinda in ${PROTOC_OUT_DIR} + <schama dir>
+  # - <import dir>
+  PROTOC_OUT_DIR "${o}"
+)
+message("🐸 HI_PB_SRC: ${HI_PB_SRC}")
+
+# --------------------------------------------------
+# the core pb's
+add_library(hi_pb_core "${o0}/hi.proto")
+protobuf_generate(LANGUAGE cpp
+  TARGET hi_pb_core
+  OUT_VAR HI_PB_SRC
+  IMPORT_DIRS "${o0}/"
+  PROTOC_OUT_DIR "${o}"
+)
+
+target_link_libraries(hi_pb_core PUBLIC protobuf::libprotobuf)
+target_link_libraries(hi_pb PUBLIC hi_pb_core)
+message("🐸 HI_PB_SRC: ${HI_PB_SRC}")
 
 #The core-dependencies (These should be cross-platform). 🦜 : These are the dependencies needed for most tests
 if (WIN32)

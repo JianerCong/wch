@@ -92,7 +92,6 @@ namespace pure{
     virtual string toString() const noexcept =0;
   };
 
-#ifdef WITH_PROTOBUF
   /**
    * @brief The interface for serializing to and from protobuf.
    *
@@ -107,7 +106,6 @@ namespace pure{
     virtual bool fromPbString(string_view s) noexcept =0;
     virtual string toPbString() const = 0;
   };
-#endif
 
   namespace json = boost::json;
   using json::value_to;

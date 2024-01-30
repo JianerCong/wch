@@ -12,9 +12,7 @@
 #define S_NOR "\x1b[0m"
 
 
-#ifdef WITH_PROTOBUF
 #include "./.generated_pb/pure-listenToOne.pb.h"
-#endif
 
 namespace pure{
 
@@ -22,9 +20,7 @@ namespace pure{
    * @brief The ticket to send to the newcomer:
    */
   class YouAreInTicket: virtual public IJsonizable,
-                        #ifdef WITH_PROTOBUF
                         virtual public ISerializableInPb,
-                        #endif
                         virtual public ISerializable
   {
   public:
@@ -36,7 +32,6 @@ namespace pure{
 
     ADD_TO_FROM_STR_WITH_JSON_OR_PB // defines the to/fromString() methods
 
-    #ifdef WITH_PROTOBUF
     /*
       🦜 : If we have protobuf, we can use that to serialize the object.
      */
@@ -60,9 +55,6 @@ namespace pure{
       }
       return pb.SerializeAsString();
     }
-
-    #endif
-
 
     json::value toJson() const noexcept override {
       return json::value_from(*this);

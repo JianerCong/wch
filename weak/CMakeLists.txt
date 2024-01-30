@@ -34,6 +34,7 @@ target_link_libraries(core-deps INTERFACE
   # evmc::loader evmc::instructions evmc::tooling
   Boost::unit_test_framework Boost::log Boost::json Boost::program_options
   intx::intx ethash::keccak
+  hi_pb
 )
 
 add_library(deps INTERFACE)     #the ALL dependency target = core + rdb (currently)

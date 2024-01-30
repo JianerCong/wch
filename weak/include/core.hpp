@@ -1,4 +1,5 @@
 #pragma once
+#include ".generated_pb/hi.pb.h"
 #include <algorithm>
 #include <string_view>
 // using std::string;
@@ -49,6 +50,7 @@ namespace weak {
 
   using pure::IJsonizable;
   using pure::ISerializable;
+  using pure::ISerializableInPb;
   using pure::pluralizeOn;
 
   // These two are actually very similar, all have member `uint8_t bytes[32]`
@@ -63,6 +65,21 @@ string resultToString(const evmc::Result& result){
   evmc::bytes o{result.output_data,result.output_size};
   return evmc::hex(o);
 }
+
+  /**
+   * @brief Convert a type with a member `uint8_t bytes[?]` to string.
+   *
+   * @param t The type to convert. Options include `evmc::address`, `evmc::bytes32`
+   */
+  template<typename T>
+  string toByteString(const T t){
+    return string(reinterpret_cast<const char*>(t.bytes),sizeof(t.bytes));
+  }
+
+  // bytes 2 string
+  string toString(const bytes & b){
+    return string(reinterpret_cast<const char*>(b.data()),b.size());
+  }
 
   evmc::address makeAddress(int x) noexcept {
     // string s = (format("0x%020x") % x).str();
@@ -447,9 +464,84 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
 
 
   class Tx: virtual public IJsonizable
+          , virtual public ISerializableInPb
           , virtual public ISerializable
   {
   public:
+/*
+  enum TxType{EVM = 0; DATA = 1;}
+
+  message Tx {
+  TxType type = 1;
+  bytes from_addr = 2;
+  bytes to_addr = 3;
+  bytes data = 4;
+  uint64 timestamp = 5;
+  uint64 nonce = 6;
+  bytes hash = 7;               // will be serialized, but not parsed
+
+  string pk_pem = 8;
+  bytes signature = 9;          // key.sign(hash)
+  bytes pk_crt = 10;            // ca_key.sign(pk_pem)
+  }                               // []
+ */
+    string toPbString() const override {
+      hiPb::Tx pb;
+
+      if (this->type == Type::data)
+        pb.set_type(hiPb::TxType::DATA);
+      else
+        pb.set_type(hiPb::TxType::EVM);
+
+      pb.set_from_addr(weak::toByteString<address>(this->from));
+      pb.set_to_addr(weak::toByteString<address>(this->to));
+      pb.set_data(weak::toString(this->data));
+      pb.set_timestamp(this->timestamp);
+      pb.set_nonce(this->nonce);
+      pb.set_hash(weak::toByteString<hash256>(this->hash()));
+
+      // 🦜 : The following may be empty, but that's fine.
+      if (this->pk_pem != "")
+        pb.set_pk_pem(this->pk_pem);
+
+      if (this->signature.size() > 0)
+        pb.set_signature(weak::toString(this->signature));
+
+      if (this->pk_crt.size() > 0)
+        pb.set_pk_crt(weak::toString(this->pk_crt));
+
+      return pb.SerializeAsString();
+    }
+
+    void fromPb0(const hiPb::Tx & pb){
+      string s;
+      optional<bytes> ob;
+      optional<address> oa;
+
+      /*
+        🦜 : Similar process ad in fromJson0
+       */
+
+      this->pk_pem = pb.pk_pem(); // maybe empty
+    }
+
+    bool fromPbString(string_view s) noexcept override {
+      hiPb::Tx pb;
+      if (!pb.ParseFromString(string(s))){
+        BOOST_LOG_TRIVIAL(error) << format( S_RED "❌️ error parsing Tx pb" S_NOR);
+        return false;
+      }
+
+      try {
+        this->fromPb0(pb);
+      }catch(std::exception &e){
+        BOOST_LOG_TRIVIAL(error) << format("❌️ error parsing Tx pb: %s") % e.what();
+        return false;
+      }
+
+      return true;
+    }
+
     Tx() = default; // Upon you make a constructor yourself, the build-in
                     // constructor is gone,use this to bring it back
 
@@ -585,7 +677,7 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
 
     /**
      * @brief The fromJson function that can throw
-     *
+     * <2024-01-30 Tue>
      * 🐢 : In fact there are many kinds of valid Tx json. But the most common two are
      *
      * 1. Json from the client rpc. (the minimal of such json is {from,to,data,nonce}). We need to give it a timestamp.

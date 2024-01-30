@@ -1,6 +1,18 @@
 syntax = "proto3";
 package hiPb;
 
+message Acn {
+  uint64 nonce = 1;
+  bytes code = 2;
+  bytes codehash = 3;
+  /*
+    🦜 : Because pb doesn't allow bytes as key, we kinda have to store the kv
+    separately... So we used the following for storage, which is map<byte32, byte32>
+   */
+  repeated bytes storage_ks = 4;
+  repeated bytes storage_vs = 5;
+} // []
+
 enum TxType{EVM = 0; DATA = 1;}
 
 message Tx {
@@ -15,22 +27,22 @@ message Tx {
   string pk_pem = 8;
   bytes signature = 9;          // key.sign(hash)
   bytes pk_crt = 10;            // ca_key.sign(pk_pem)
-}
+}                               // []
 
 message BlkHeader {uint64 number = 1; bytes parentHash = 2; bytes hash = 3;}
 
-message Blk {BlkHeader header = 1; repeated Tx txs = 2;}
+message Blk {BlkHeader header = 1; repeated Tx txs = 2;} // []
 
 message BlkForConsensus {BlkHeader header = 1; repeated bytes txhs = 2;}
 
-message StateChange {bool del = 1; bytes key = 2; bytes value = 3;}
-message StateChanges {repeated StateChange changes = 1;}
+message StateChange {bool del = 1; bytes key = 2; bytes value = 3;} // []
+message StateChanges {repeated StateChange changes = 1;}            // []
 
-message TxReceipt {bool ok = 1; bytes result = 2;}
+message TxReceipt {bool ok = 1; bytes result = 2;} // []
 
 // executed Blk
 message ExecBlk {
   Blk blk = 1;
   repeated TxReceipt txReceipts = 2;
   repeated StateChanges stateChanges = 3;
-}
+} // []

@@ -73,6 +73,14 @@ the executed Blk.
 \emoji{parrot} : Emm. Also, I think \texttt{WITH\_PROTOBUF} directive is not
 neccesary, let's just make pb a requirement.
 
+\emoji{turtle} : A sec. I think we should still keep the
+\texttt{WITH\_PROTOBUF}, because sometimes, we do wanna use json serialization,
+for example, when we are debugging. So let's just change the ``meaning'' of it.
+The protobuf is always required, but when we are \texttt{WITH\_PROTOBUF}, we
+serialize things with pb (as much as possible), otherwise, we use json.
+
+\emoji{parrot} : Yeah, key-word reuse, I like it. (kinda C-ish)
+
 \end{document}
 
 % Local Variables:
