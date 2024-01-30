@@ -17,7 +17,8 @@ endmacro()
 #[=[
 🦜 : Uncomment the following to enable tests.
 #]=]
-set_test(test-core core-deps)
+# set_test(test-core core-deps)
+set_test(test-core-20240130 core-deps)
 # set_test(test-pure-thrd-party core-deps)
 # set_test(test-executeEvmTx deps)
 # set_test(test-mempool core-deps)

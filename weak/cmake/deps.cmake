@@ -81,10 +81,10 @@ if (WIN32)
 else()
   set(x "${PROJECT_SOURCE_DIR}/../.pre/installed-pb")
   set(utf8_range_DIR "${x}/lib/cmake/utf8_range")
-  set(absl_DIR "${x}/lib/cmake/absl")
   #[=[ 🦜 : It will complain about not finding protobuf::gmock, but it's kinda
   buggy circular dependency, so we might just ignore it
   #]=]
+  set(absl_DIR "${x}/lib/cmake/absl")
   set(Protobuf_DIR "${x}/lib/cmake/protobuf")
 endif()
 

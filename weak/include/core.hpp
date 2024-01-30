@@ -76,9 +76,19 @@ string resultToString(const evmc::Result& result){
     return string(reinterpret_cast<const char*>(t.bytes),sizeof(t.bytes));
   }
 
-  // bytes 2 string
+  template<typename T>
+  T fromByteString(string_view s){
+    T t;
+    std::copy_n(reinterpret_cast<const uint8_t*>(s.data()),sizeof(t.bytes),std::begin(t.bytes));
+    return t;
+  }
+
+  // bytes 2 string<2024-01-30 Tue>  🦜 : They are needed when saving and reading in/from pb
   string toString(const bytes & b){
     return string(reinterpret_cast<const char*>(b.data()),b.size());
+  } // ^v a pair
+  bytes bytesFromString(string_view s){
+    return bytes(reinterpret_cast<const uint8_t*>(s.data()),s.size());
   }
 
   evmc::address makeAddress(int x) noexcept {
@@ -468,24 +478,9 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
           , virtual public ISerializable
   {
   public:
-/*
-  enum TxType{EVM = 0; DATA = 1;}
 
-  message Tx {
-  TxType type = 1;
-  bytes from_addr = 2;
-  bytes to_addr = 3;
-  bytes data = 4;
-  uint64 timestamp = 5;
-  uint64 nonce = 6;
-  bytes hash = 7;               // will be serialized, but not parsed
-
-  string pk_pem = 8;
-  bytes signature = 9;          // key.sign(hash)
-  bytes pk_crt = 10;            // ca_key.sign(pk_pem)
-  }                               // []
- */
-    string toPbString() const override {
+    // <2024-01-30 Tue>
+    hiPb::Tx toPb() const {
       hiPb::Tx pb;
 
       if (this->type == Type::data)
@@ -509,20 +504,59 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
 
       if (this->pk_crt.size() > 0)
         pb.set_pk_crt(weak::toString(this->pk_crt));
-
-      return pb.SerializeAsString();
+      return pb;
+    }
+    string toPbString() const override {
+      return this->toPb().SerializeAsString();
     }
 
+    // <2024-01-30 Tue>
     void fromPb0(const hiPb::Tx & pb){
       string s;
-      optional<bytes> ob;
-      optional<address> oa;
 
       /*
         🦜 : Similar process ad in fromJson0
        */
+      if (not pb.pk_pem().empty()){
+        this->pk_pem = pb.pk_pem();
+        this->from = this->getFromFromPkPem();
+      }else{
+        // parse the from
+        s = pb.from_addr();
+        // should be 20 bytes
+        if (s.size() != 20)
+          BOOST_THROW_EXCEPTION(std::runtime_error((format("Invalid from_addr size: %d, should be 20") % s.size()).str()));
+        this->from = weak::fromByteString<address>(s);
+      }
 
-      this->pk_pem = pb.pk_pem(); // maybe empty
+      // parse sig if exists
+      if (not pb.signature().empty()){
+        this->signature = weak::bytesFromString(pb.signature());
+      }
+
+      // parse pk_crt if exists
+      if (not pb.pk_crt().empty()){
+        this->pk_crt = weak::bytesFromString(pb.pk_crt());
+      }
+
+      // parse the rest
+      this->nonce = pb.nonce();
+      this->timestamp = pb.timestamp();
+      this->data = weak::bytesFromString(pb.data());
+
+      // if it has a type field, use it , Otherwise set it to evm (default)
+      if (pb.type() == hiPb::TxType::DATA)
+        this->type = Type::data;
+      else
+        this->type = Type::evm;
+
+      // parse the to
+      s = pb.to_addr();
+      // should be 20 bytes
+      if (s.size() != 20)
+        BOOST_THROW_EXCEPTION(std::runtime_error((format("Invalid to_addr size: %d, should be 20") % s.size()).str()));
+
+      this->to = weak::fromByteString<address>(s);
     }
 
     bool fromPbString(string_view s) noexcept override {
@@ -626,10 +660,6 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
     std::time_t timestamp;
     // usually = std::time(nullptr);
 
-    // For now, use UTF8 JSON for serialization. later we can change it to other
-    string toString() const noexcept override {
-      return IJsonizable::toJsonString();
-    };
 
     /// Tx hash
     /**
@@ -654,11 +684,24 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
       // Get the hash(nonce)
       return  ethash::keccak256(reinterpret_cast<uint8_t*>(b), size + 20);
     }
-
-    bool fromString(string_view s) noexcept override{
-      BOOST_LOG_TRIVIAL(debug) <<  "Forming Tx from string.";
-      return IJsonizable::fromJsonString(s);
-    };
+    /*
+      For now, use UTF8 JSON for serialization. later we can change it to other
+      🦜 :<2024-01-30 Tue> now we use protobuf
+     */
+    ADD_TO_FROM_STR_WITH_JSON_OR_PB
+    /*
+      🐢 defines the to/fromString() methods according to WITH_PROTOBUF, so we
+      don't need to write the following...
+     */
+    // string toString() const noexcept override {
+    //   // return IJsonizable::toJsonString();
+    //   return toPbString();
+    // };
+    // bool fromString(string_view s) noexcept override{
+    //   BOOST_LOG_TRIVIAL(debug) <<  "Forming Tx from string.";
+    //   // return IJsonizable::fromJsonString(s);
+    //   return fromPbString(s);
+    // };
 
     /**
      * @brief obtain the `from` address from the `pk_pem` field.
@@ -1039,15 +1082,21 @@ class ITxExecutable {
 
       BOOST_LOG_TRIVIAL(debug) << format("Forming BlkHeader from Json");
       try {
+        optional<hash256> oh;
         // json::object const& o = v.as_object();
         this->number = value_to<uint64_t>(v.at("number"));
         string p,h;
         p= value_to<string>(v.at("parentHash"));
         h= value_to<string>(v.at("hash"));
 
-        // TODO: check if these bytes are valid hex.
-        this->hash = evmc::from_hex<hash256>(h).value();
-        this->parentHash = evmc::from_hex<hash256>(p).value();
+        // TODO[done]: check if these bytes are valid hex. 🦜 : done in <2024-01-30 Tue>
+        oh = evmc::from_hex<hash256>(h);
+        if (not oh) BOOST_THROW_EXCEPTION(std::runtime_error("Invalid hash = " + h));
+        this->hash = oh.value();
+
+        oh = evmc::from_hex<hash256>(p);
+        if (not oh) BOOST_THROW_EXCEPTION(std::runtime_error("Invalid hash = " + h));
+        this->parentHash = oh.value();
       }catch (std::exception &e){
         BOOST_LOG_TRIVIAL(error) << format("❌️ error parsing json: %s") % e.what();
         return false;
@@ -1058,12 +1107,87 @@ class ITxExecutable {
     }
   };
 
+  
 
-  class Blk: public BlkHeader,
-             virtual public IJsonizable,
-             virtual public ISerializable
+  class Blk: public BlkHeader
+           ,virtual public IJsonizable
+           ,virtual public ISerializableInPb
+           ,virtual public ISerializable
   {
   public:
+    /*
+      message BlkHeader {uint64 number = 1; bytes parentHash = 2; bytes hash = 3;}
+
+      message Blk {BlkHeader header = 1; repeated Tx txs = 2;} // []
+     */
+    // --------------------------------------------------
+    //<2024-01-30 Tue> 🦜 : let's add some pb
+    void fromPb0(const hiPb::Blk & pb){
+      BOOST_LOG_TRIVIAL(debug) << format("Forming Blk from pb");
+      // 1. form the BlkHeader part
+      // --------------------------------------------------
+      this->number = pb.header().number();
+      string s;
+      s = pb.header().hash();   // should be hash256 = 32 bytes
+      BOOST_ASSERT(s.size() == 32); // throws my_assertion_error
+      // if (s.size() != 32) BOOST_THROW_EXCEPTION(std::runtime_error(
+      //                                                              (format("Invalid hash size, should be 32, but got %d")
+      //                                                               % s.size()
+      //                                                               ).str()
+      //                                                              ));
+      this->hash = weak::fromByteString<hash256>(s);
+
+      s = pb.header().parenthash();   // should be hash256 = 32 bytes
+      BOOST_ASSERT(s.size() == 32); // throws my_assertion_error
+
+      this->parentHash = weak::fromByteString<hash256>(s);
+
+      // 2. form the txs part
+      // --------------------------------------------------
+      for (const hiPb::Tx & tx : pb.txs()){
+        Tx t;
+        t.fromPb0(tx);          // may throw
+        this->txs.push_back(t);
+      }
+    }
+    bool fromPbString(string_view s) noexcept override {
+      hiPb::Blk pb;
+      if (!pb.ParseFromString(string(s))){
+        BOOST_LOG_TRIVIAL(error) << format( S_RED "❌️ error parsing Tx pb" S_NOR);
+        return false;
+      }
+
+      try {
+        this->fromPb0(pb);
+      }catch(std::exception &e){
+        BOOST_LOG_TRIVIAL(error) << format("❌️ error parsing Tx pb: %s") % e.what();
+        return false;
+      }
+
+      return true;
+    }
+    hiPb::Blk toPb() const {
+      hiPb::Blk pb;
+
+      // set the header
+      pb.mutable_header()->set_number(this->number);
+      pb.mutable_header()->set_hash(weak::toByteString<hash256>(this->hash));
+      pb.mutable_header()->set_parenthash(weak::toByteString<hash256>(this->parentHash));
+
+      // set the txs
+      for (const Tx& tx : txs){
+        pb.add_txs()->CopyFrom(tx.toPb());
+      }
+      return pb;
+    }
+    string toPbString() const override {
+      return this->toPb().SerializeAsString();
+    }
+
+    //<2024-01-30 Tue> 
+    // --------------------------------------------------
+
+
     Blk() = default;
 
     /**
