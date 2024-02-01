@@ -23,19 +23,35 @@ namespace mockedPool{
   /**
    * @brief The get-OK pool
    *
-   * 🦜 : Answer Tx in `getTxByHash()` for any input hash, but it doesn't accept any Txs.
+   * 🦜 : Answer Tx in `getTxByHash()` for some input hash, but it doesn't accept any Txs.
    */
   class B: public virtual IPoolSettable{
   public:
-    optional<Tx> getTxByHash(hash256 h) noexcept override{
+    vector<Tx> txs;
+    vector<hash256> getTxhs(){
+      vector<hash256> r;
+      for (Tx t : this->txs){
+        r.push_back(t.hash());
+      }
+      return r;
+    }
+    B(){
       address a1 = makeAddress(1);
       address a2 = makeAddress(2);
-      // bytes data{size_t{2},uint8_t{0xff}}; // !called initializer
       bytes data(size_t{2},uint8_t{0xff}); // we would like this.
 
-      Tx t = Tx(a1,a2,data,123/*nonce*/);
-      t.hash = h;
-      return t;
+      this->txs.push_back(Tx(a1,a2,data,123/*nonce*/));
+      this->txs.push_back(Tx(a1,a2,data,234/*nonce*/));
+      this->txs.push_back(Tx(a1,a2,data,345/*nonce*/));
+    }
+
+    optional<Tx> getTxByHash(hash256 h) noexcept override{
+      for (Tx t : this->txs){
+        if (t.hash() == h)
+          return t;
+      }
+
+      return {};
     }
     bool verifyTx(const Tx & t) const noexcept override{
       return false;
@@ -137,23 +153,20 @@ BOOST_AUTO_TEST_CASE(test_dispath_to_Blk_parse_OK_exec_OK){
   hash256 h;
   std::fill(std::begin(h.bytes),std::end(h.bytes),uint8_t{0xaa});
 
-  vector<hash256> v;
-  for (uint8_t i : {0x11,0x22,0x33}){
-    hash256 h0;
-    std::fill(std::begin(h0.bytes),std::end(h0.bytes),i);
-    v.push_back(h0);
-  }
-
-  BlkForConsensus blk{123,h,v};
 
   // 2. --------------------------------------------------
   // prepare host
   mockedBlkExe::A bh;           // this host doesn't commit
   mockedPool::B ph;             // this host provides Tx
+  // --------------------------------------------------
+
+
   IBlkExecutable * b = dynamic_cast<IBlkExecutable*>(&bh);
   IPoolSettable * p = dynamic_cast<IPoolSettable*>(&ph);
   ExecutorForCnsss eh{b,p};
   IForConsensusExecutable * e = dynamic_cast<IForConsensusExecutable*>(&eh);
+  // --------------------------------------------------
+  BlkForConsensus blk{123,h,ph.getTxhs()};
 
   string cmd = static_cast<char>(ExecutorForCnsss::Cmd::EXECUTE_BLK) + blk.toString();
   string cmd_old = cmd;
@@ -168,19 +181,14 @@ BOOST_AUTO_TEST_CASE(test_dispath_to_Blk_parse_OK_exec_BAD){
   hash256 h;
   std::fill(std::begin(h.bytes),std::end(h.bytes),uint8_t{0xaa});
 
-  vector<hash256> v;
-  for (uint8_t i : {0x11,0x22,0x33}){
-    hash256 h0;
-    std::fill(std::begin(h0.bytes),std::end(h0.bytes),i);
-    v.push_back(h0);
-  }
+  mockedPool::B ph;             // this host provides Tx
+  vector<hash256> v = ph.getTxhs();
 
   BlkForConsensus blk{123,h,v};
 
   // 2. --------------------------------------------------
   // prepare host
   mockedBlkExe::B bh;           // this host doesn't commit
-  mockedPool::B ph;             // this host provides Tx
   IBlkExecutable * b = dynamic_cast<IBlkExecutable*>(&bh);
   IPoolSettable * p = dynamic_cast<IPoolSettable*>(&ph);
   ExecutorForCnsss eh{b,p};

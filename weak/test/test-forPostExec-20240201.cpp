@@ -43,6 +43,7 @@ vector<Tx> getFakeTxs(){
     Tx(a1,a2,data,234/*nonce*/)
   };
 }
+
 ExecBlk makeExecBlk(){
   vector<Tx> txs = getFakeTxs();
   // parent hash
@@ -88,6 +89,16 @@ BOOST_AUTO_TEST_CASE(test_exec_blk_to_pb){
 
   BOOST_CHECK_EQUAL(b2.txReceipts[0].ok, true);
   BOOST_CHECK_EQUAL(b2.txReceipts[1].ok, false);
+}
+
+BOOST_AUTO_TEST_CASE(test_tx_on_blk_info_pb){
+  TxOnBlkInfo i{1,2};           // 2nd tx on block 1
+  TxOnBlkInfo i2;
+
+  auto v = i.toPb();
+  i2.fromPb(v);
+  BOOST_CHECK_EQUAL(i2.blkNumber,1);
+  BOOST_CHECK_EQUAL(i2.onBlkId,2);
 }
 
 BOOST_AUTO_TEST_SUITE_END();

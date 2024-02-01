@@ -131,6 +131,7 @@ namespace weak{
    * 🦜 : Yeah, along with txReceipt and all the block data.
    */
     class TxOnBlkInfo: virtual public IJsonizable
+                     , virtual public ISerializableInPb<hiPb::TxOnBlkInfo>
                      , virtual public ISerializable{
     public:
       TxOnBlkInfo() = default;
@@ -161,15 +162,18 @@ namespace weak{
       }
 
 
-      // For now, use UTF8 JSON for serialization. later we can change it to other
-      string toString() const noexcept override {
-        return IJsonizable::toJsonString();
-      };
-      bool fromString(string_view s) noexcept override{
-        BOOST_LOG_TRIVIAL(debug) <<  "Forming Tx from string.";
-        return IJsonizable::fromJsonString(s);
-      };
+      hiPb::TxOnBlkInfo toPb() const override {
+        hiPb::TxOnBlkInfo pb;
+        pb.set_blknumber(this->blkNumber);
+        pb.set_onblkid(this->onBlkId);
+        return pb;
+      }
+      void fromPb(const hiPb::TxOnBlkInfo & pb) override{
+        this->blkNumber = pb.blknumber();
+        this->onBlkId = pb.onblkid();
+      }
 
+      ADD_TO_FROM_STR_WITH_JSON_OR_PB
     };
 
 
@@ -326,8 +330,8 @@ namespace weak{
       return this->toPb0().SerializeAsString();
     }
 
-    // // <2024-02-01 Thu>
-    // // --------------------------------------------------
+    // <2024-02-01 Thu>
+    // --------------------------------------------------
 
     ADD_TO_FROM_STR_WITH_JSON_OR_PB
   };

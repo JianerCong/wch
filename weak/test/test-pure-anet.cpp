@@ -14,7 +14,7 @@ BOOST_AUTO_TEST_CASE(test_one){
   BOOST_CHECK(1==1);
 }
 
-auto parse_query_param = WeakAsyncHttpServer::parse_query_param;
+auto parse_query_param = WeakAsyncTcpHttpServer::parse_query_param;
 // grab the function
 
 template<typename T>
@@ -80,7 +80,7 @@ void sleep_for(int i=1){
 
 BOOST_AUTO_TEST_SUITE(test_get_handler);
 BOOST_AUTO_TEST_CASE(test_register_a_handler){
-  WeakAsyncHttpServer sr{7777};
+  WeakAsyncTcpHttpServer sr{7777};
   sr.listenToGet("/aaa",
                  [](string /*from*/
                     ,uint16_t /*port*/
@@ -95,7 +95,7 @@ BOOST_AUTO_TEST_CASE(test_register_a_handler){
 
 
 BOOST_AUTO_TEST_CASE(test_call_registered_handler){
-  WeakAsyncHttpServer sr{7778};
+  WeakAsyncTcpHttpServer sr{7778};
   sr.listenToGet("/aaa",
                  [](string /*from*/
                     ,uint16_t /*port*/
@@ -111,7 +111,7 @@ BOOST_AUTO_TEST_CASE(test_call_registered_handler){
 } // server closed here
 
 BOOST_AUTO_TEST_CASE(test_call_registered_handler_with_query_param){
-  WeakAsyncHttpServer sr{7779};
+  WeakAsyncTcpHttpServer sr{7779};
   sr.listenToGet("/aaa",
                  [](string /*from*/
                     ,uint16_t /*port*/
@@ -154,7 +154,7 @@ BOOST_AUTO_TEST_CASE(test_call_dynamically_registered_handler_with_query_param){
 
   // 0. --------------------------------------------------
   // Start server
-  WeakAsyncHttpServer sr{PORT};
+  WeakAsyncTcpHttpServer sr{PORT};
   auto f = [](string /*from*/ ,uint16_t /*port*/ ,optional<unordered_map<string,string>> q)
     -> tuple<bool,string>{
     BOOST_LOG_TRIVIAL(debug) << format("handler called");

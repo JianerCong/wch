@@ -25,9 +25,8 @@ endmacro()
 # set_test(test-sealer core-deps)
 # set_test(test-storageManager deps)
 # set_test(test-forPostExec core-deps)
-set_test(test-forPostExec-20240201 core-deps)
+# set_test(test-forPostExec-20240201 core-deps)
 # set_test(test-execManager core-deps)
-
 
 # set_test(test-forCnsss core-deps)
 # set_test(test-pure-forCnsss core-deps)
@@ -47,7 +46,7 @@ set_test(test-forPostExec-20240201 core-deps)
 # set_test(test-pure-greenClient core-deps)
 # set_test(test-pure-rbft core-deps)
 # set_test(test-pure-udp core-deps)
-# set_test(test-udpNetAssnt core-deps)
+set_test(test-udpNetAssnt core-deps)
 
 # Add the above tests
 foreach(t d IN ZIP_LISTS l l-deps)

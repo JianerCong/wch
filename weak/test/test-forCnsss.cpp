@@ -95,16 +95,17 @@ BOOST_AUTO_TEST_CASE(test_BlkCns_from_json){
   BOOST_CHECK_EQUAL(hashToString(b.txhs[1]),string(32*2,'2'));
 }
 
-BlkForConsensus get_example_BlkForConsensus(){
+BlkForConsensus get_example_BlkForConsensus(vector<hash256> txhs = {}){
   // make BlkForConsensus
   hash256 h;
   std::fill(std::begin(h.bytes),std::end(h.bytes),uint8_t{0xaa});
 
-  vector<hash256> txhs;
-  for (uint8_t i : {0x11,0x22}){
-    hash256 h0;
-    std::fill(std::begin(h0.bytes),std::end(h0.bytes),i);
-    txhs.push_back(h0);
+  if (txhs.empty()){
+    for (uint8_t i : {0x11,0x22}){
+      hash256 h0;
+      std::fill(std::begin(h0.bytes),std::end(h0.bytes),i);
+      txhs.push_back(h0);
+    }
   }
 
   return BlkForConsensus{123,h,txhs};
@@ -131,21 +132,25 @@ void CHECK_BLK_EQUAL(const Blk & b0, const BlkForConsensus & b){
   BOOST_CHECK_EQUAL(b0.txs.size(), b.txhs.size());
 
   for (int i=0;i<b0.txs.size();i++){ // the hash matches
-    BOOST_CHECK_EQUAL(b0.txs[i].hash,b.txhs[i]);
+    BOOST_CHECK_EQUAL(b0.txs[i].hash(),b.txhs[i]);
   }
 }
 
 BOOST_AUTO_TEST_CASE(test_BlkCns_ToBlk_yes){
   // 1. --------------------------------------------------
-  BlkForConsensus b = get_example_BlkForConsensus();
-  // 2. --------------------------------------------------
-  // make hashtx source (the answer-all one)
+  /*
+    make hashtx source (the answer-all one)
+    <2024-02-01 Thu> 🦜 : Now B can only answer a few..
+   */
   mockedHashTxGetter::B ah;
   IByHashTxGettable* p = dynamic_cast<IByHashTxGettable*>(&ah);
+
+  // 2. --------------------------------------------------
+  BlkForConsensus b = get_example_BlkForConsensus({ah.txs[0].hash(), ah.txs[1].hash()});
   // 3. --------------------------------------------------
   // Try to turn into Blk
   auto r = b.toBlk(p);
-  BOOST_CHECK(r);
+  BOOST_REQUIRE(r);
   Blk b0 = r.value();
   CHECK_BLK_EQUAL(b0,b);
 }
@@ -165,7 +170,7 @@ BOOST_AUTO_TEST_CASE(test_BlkCns_ToBlk_real_mempool_yes){
   for (uint64_t i : {1,2,3}){
     Tx t{a1,a2,data,i/*nonce*/};
     ph.addTx(t);       // put the Tx into the pool
-    txhs.push_back(t.hash);
+    txhs.push_back(t.hash());
   }
 
 
@@ -195,7 +200,7 @@ BOOST_AUTO_TEST_CASE(test_BlkCns_ToBlk_real_mempool_no){
 
   Tx t{a1,a2,data,1/*nonce*/};
   Tx t2{a1,a2,data,2/*nonce*/};
-  txhs.push_back(t.hash);
+  txhs.push_back(t.hash());
   ph.addTx(t2);       // put the Tx into the pool
   // tx in the blk header but not in the pool
 

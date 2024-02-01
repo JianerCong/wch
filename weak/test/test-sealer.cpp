@@ -24,7 +24,7 @@ namespace mockedIForSealerTxHashesGettable{
         Tx(a1,a2,data,123/*nonce*/),
         Tx(a1,a2,data,234/*nonce*/)
       };
-      return {txs[0].hash, txs[1].hash};
+      return {txs[0].hash(), txs[1].hash()};
     }
   };
 
@@ -156,8 +156,8 @@ BOOST_AUTO_TEST_CASE(test_basic_sealer_addable_provider){
     mh.addTx(txs[0]);
     mh.addTx(txs[1]);
     std::this_thread::sleep_for(std::chrono::milliseconds(1500)); // seals here
-    mh.getTxByHash(txs[0].hash);
-    mh.getTxByHash(txs[1].hash);
+    mh.getTxByHash(txs[0].hash());
+    mh.getTxByHash(txs[1].hash());
     // 🦜 : Pop these two. Usually the executor does it.
 
     // a 1-tx Blk

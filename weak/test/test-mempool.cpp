@@ -150,12 +150,11 @@ BOOST_AUTO_TEST_CASE(test_mock_IByHashTxGettable_yes){
   mockedHashTxGetter::B ah;
   IByHashTxGettable* p = dynamic_cast<IByHashTxGettable*>(&ah);
 
-  hash256 h = {};
-  h.bytes[0] = 0x11;
+  hash256 h = ah.tx.hash();
 
   auto r = p->getTxByHash(h);
-  BOOST_CHECK(r);
-  BOOST_CHECK_EQUAL(r.value().hash,h);
+  BOOST_REQUIRE(r);
+  BOOST_CHECK_EQUAL(r.value().hash(),h);
 }
 
 BOOST_AUTO_TEST_CASE(test_getTxByHash_from_mempool){
@@ -170,12 +169,12 @@ BOOST_AUTO_TEST_CASE(test_getTxByHash_from_mempool){
   BOOST_CHECK(not p->getTxByHash({})); // non-existing hash
   BOOST_CHECK_EQUAL(ph.txs.size(),1);
 
-  auto r = p->getTxByHash(t.hash);
+  auto r = p->getTxByHash(t.hash());
   BOOST_CHECK(r);
   BOOST_CHECK_EQUAL(ph.txs.size(),0);
   BOOST_CHECK_EQUAL(r.value().nonce,t.nonce);
   BOOST_CHECK_EQUAL(r.value().from,a1);
-  BOOST_CHECK_EQUAL(r.value().hash,t.hash);
+  BOOST_CHECK_EQUAL(r.value().hash(),t.hash());
 }
 
 /*
@@ -192,7 +191,7 @@ BOOST_AUTO_TEST_CASE(test_given_previous_hashes_basic_verify){
   };
 
   Mempool p(
-            unique_ptr<unordered_set<hash256>>(new unordered_set<hash256>({txs[0].hash,txs[1].hash}))
+            unique_ptr<unordered_set<hash256>>(new unordered_set<hash256>({txs[0].hash(),txs[1].hash()}))
             ); // these two are executed previously
   // 🦜 Yep, we kinda have to initialize it this way..
 
@@ -217,7 +216,7 @@ vector<Tx> get_example_txs(){
 BOOST_AUTO_TEST_CASE(test_given_previous_hashes_verify){
   vector<Tx> txs = get_example_txs();
   Mempool p(
-            unique_ptr<unordered_set<hash256>>(new unordered_set<hash256>({txs[0].hash,txs[1].hash}))
+            unique_ptr<unordered_set<hash256>>(new unordered_set<hash256>({txs[0].hash(),txs[1].hash()}))
             ); // these two are executed previously
 
   BOOST_CHECK(not p.verifyTx(txs[0]));
@@ -230,7 +229,7 @@ BOOST_AUTO_TEST_CASE(test_given_previous_hashes_verify){
 BOOST_AUTO_TEST_CASE(test_given_previous_hashes_add_verify){
   vector<Tx> txs = get_example_txs();
   Mempool p(
-            unique_ptr<unordered_set<hash256>>(new unordered_set<hash256>({txs[0].hash,txs[1].hash}))
+            unique_ptr<unordered_set<hash256>>(new unordered_set<hash256>({txs[0].hash(),txs[1].hash()}))
             ); // these two are executed previously
 
   // 🦜 : verifyTx() should mean: "Whether the tx can be added"
@@ -245,7 +244,7 @@ BOOST_AUTO_TEST_CASE(test_given_previous_hashes_add_verify){
 BOOST_AUTO_TEST_CASE(test_given_previous_hashes_pop_verify){
   vector<Tx> txs = get_example_txs();
   Mempool p(
-            unique_ptr<unordered_set<hash256>>(new unordered_set<hash256>({txs[0].hash,txs[1].hash}))
+            unique_ptr<unordered_set<hash256>>(new unordered_set<hash256>({txs[0].hash(),txs[1].hash()}))
             ); // these two are executed previously
 
 
@@ -255,9 +254,9 @@ BOOST_AUTO_TEST_CASE(test_given_previous_hashes_pop_verify){
 
   // pop
   BOOST_CHECK_EQUAL(p.txs.size(),3);
-  BOOST_CHECK(not p.getTxByHash(txs[0].hash)); // hash doesn't exsit
+  BOOST_CHECK(not p.getTxByHash(txs[0].hash())); // hash doesn't exsit
   BOOST_CHECK_EQUAL(p.txs.size(),3);
-  BOOST_CHECK(p.getTxByHash(txs[2].hash)); // this exists
+  BOOST_CHECK(p.getTxByHash(txs[2].hash())); // this exists
   BOOST_CHECK_EQUAL(p.txs.size(),2);       // popped
   BOOST_CHECK(not p.verifyTx(txs[2]));     // but you can't add it back again.
   BOOST_CHECK(not p.addTx(txs[2]));
@@ -266,7 +265,7 @@ BOOST_AUTO_TEST_CASE(test_given_previous_hashes_pop_verify){
 BOOST_AUTO_TEST_CASE(test_mempool_info){
   vector<Tx> txs = get_example_txs();
   Mempool p(
-            unique_ptr<unordered_set<hash256>>(new unordered_set<hash256>({txs[0].hash,txs[1].hash}))
+            unique_ptr<unordered_set<hash256>>(new unordered_set<hash256>({txs[0].hash(),txs[1].hash()}))
             ); // these two are executed previously
 
   // add all txs

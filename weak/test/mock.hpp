@@ -225,15 +225,28 @@ namespace mockedHashTxGetter{
   // The constant source
   class B: public virtual weak::IByHashTxGettable{
   public:
-    optional<Tx> getTxByHash(hash256 h) noexcept override{
+    vector<Tx> txs;
+    Tx tx;
+    B(){
       address a1 = makeAddress(1);
       address a2 = makeAddress(2);
       bytes data(size_t{2},uint8_t{0xff}); // we would like this.
 
-      Tx t(a1,a2,data,123/*nonce*/);
+      this->tx = Tx(a1,a2,data,123/*nonce*/);
+      this->txs.push_back(this->tx);
+      this->txs.push_back(Tx(a1,a2,data,234/*nonce*/));
+      this->txs.push_back(Tx(a1,a2,data,345/*nonce*/));
+    }
+    optional<Tx> getTxByHash(hash256 h) noexcept override{
+      /*
+        🦜 : Now the hash has changed to a method, so ....
+       */
+      for (Tx t : this->txs){
+        if (t.hash() == h)
+          return t;
+      }
 
-      t.hash = h;        // Change the hash manually.
-      return t;
+      return {};
     }
   };
 }

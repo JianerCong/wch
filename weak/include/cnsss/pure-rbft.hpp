@@ -35,9 +35,7 @@
 #include <set>
 #include <thread>
 
-#ifdef WITH_PROTOBUF
 #include "./.generated_pb/pure-rbft.pb.h"
-#endif
 
 #include <mutex>
 namespace pure{

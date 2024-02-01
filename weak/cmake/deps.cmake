@@ -84,10 +84,19 @@ else()
   #[=[ 🦜 : It will complain about not finding protobuf::gmock, but it's kinda
   buggy circular dependency, so we might just ignore it
   #]=]
-  set(absl_DIR "${x}/lib/cmake/absl")
   set(Protobuf_DIR "${x}/lib/cmake/protobuf")
+  # set(absl_DIR "/usr/lib/x86_64-linux-gnu/cmake/absl/")
+  # find_package(absl CONFIG REQUIRED)
+  set(absl_DIR "${x}/lib/cmake/absl")
+  find_package(absl CONFIG COMPONENTS absl_check)
+  #[=[ 🦜 : According to the official doc, we need to have absl installed on our
+   PC in order to build pb. But is seems like another official team has already
+   done a good job in pb, which uses some cmake magic to download "just-enough
+   abseil" during the build process of pb. (so we don't need to install abseil).
+   However, it looks like this (building-without-absl feature) has not yet been
+   documented in the official doc yet.
+  #]=]
 endif()
-
 find_package(Protobuf CONFIG REQUIRED)
 # 🦜 : will this work ?
 # 🦜 : Here we generate the required pb files

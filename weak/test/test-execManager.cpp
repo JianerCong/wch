@@ -146,7 +146,7 @@ BOOST_AUTO_TEST_CASE(test_commit_blk){
 
 
   // Is tx hash: Tx Info there ?
-  auto r = w.getFromChainDB("/tx/" + hashToString(tx1.hash));
+  auto r = w.getFromChainDB("/tx/" + hashToString(tx1.hash()));
   BOOST_REQUIRE(bool{r});
   TxOnBlkInfo bi{1 /*block number*/,1/* the index (1-based)*/};
   // This represents the second Tx on Blk-1 ⇒ b1.txs[1]

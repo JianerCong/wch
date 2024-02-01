@@ -117,7 +117,7 @@ void sleep_for(int i=1){
 
 BOOST_AUTO_TEST_SUITE(test_http_assnt);
 BOOST_AUTO_TEST_CASE(test_handle_get){
-  ::pure::WeakAsyncHttpServer srv;   // listen 7777
+  ::pure::WeakAsyncTcpHttpServer srv;   // listen 7777
   sleep_for(1);
   HttpRpcAsstn nh{dynamic_cast<::pure::IHttpServable*>(&srv)};
   IForRpcNetworkable * n = dynamic_cast<IForRpcNetworkable*>(&nh);
@@ -134,7 +134,7 @@ BOOST_AUTO_TEST_CASE(test_handle_get){
 
 BOOST_AUTO_TEST_CASE(test_handle_post){
   constexpr uint16_t PORT = 7778;
-  ::pure::WeakAsyncHttpServer srv{PORT};
+  ::pure::WeakAsyncTcpHttpServer srv{PORT};
   sleep_for(1);
   HttpRpcAsstn nh{dynamic_cast<::pure::IHttpServable*>(&srv)};
   IForRpcNetworkable * n = dynamic_cast<IForRpcNetworkable*>(&nh);
@@ -426,7 +426,7 @@ BOOST_AUTO_TEST_CASE(test_handle_get_receipt_ok){
   // Get the tx by hash.
 
   // Now the tx-hashes and ExecBlk should be there
-  auto [ok, s] = rpc.handle_get_receipt(unordered_map<string,string>({{"hash",hashToString(txs[0].hash)}}));
+  auto [ok, s] = rpc.handle_get_receipt(unordered_map<string,string>({{"hash",hashToString(txs[0].hash())}}));
   BOOST_REQUIRE(ok);
   BOOST_TEST_MESSAGE((format("GOT:%s") % s).str());
   // 🦜 : `s` should be the json of TxReceipt

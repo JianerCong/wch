@@ -4,7 +4,8 @@
 src=weak
 bld=build-${src}
 # rm ${bld} -rf
-cmake -S ${src} -B ${bld}
+# cmake -S ${src} -B ${bld} -Wno-dev # 🦜 : Let's ignore the warning...
+cmake -S ${src} -B ${bld} 
 # 🦜 reconfigure each time，this will take into account the change in cmake
 # files.
 
