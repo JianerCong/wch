@@ -35,8 +35,22 @@ namespace weak{
   // {{{ class TxReceipt
 
   class TxReceipt: virtual public IJsonizable
+                 , virtual public ISerializableInPb<hiPb::TxReceipt>
                  , virtual public ISerializable{
   public:
+    void fromPb(const hiPb::TxReceipt & pb) override {
+      this->ok = pb.ok();
+      this->result = weak::bytesFromString(pb.result());
+    }
+
+    hiPb::TxReceipt toPb() const override {
+      hiPb::TxReceipt pb;
+      pb.set_ok(this->ok);
+      pb.set_result(weak::toString(this->result));
+      return pb;
+    }
+
+
     TxReceipt() = default;
     explicit TxReceipt(bool o): ok(o){
       if (o) throw std::invalid_argument("This constructor is used for Tx that failed to be executed.");

@@ -86,7 +86,7 @@ BOOST_AUTO_TEST_CASE(test_pb_to_tx){
 
   // 2. convert to Tx
   Tx t;
-  t.fromPb0(pb);
+  t.fromPb(pb);
   BOOST_CHECK_EQUAL(Tx::typeToString(t.type),
                     Tx::typeToString(Tx::Type::evm));
   BOOST_CHECK_EQUAL(addressToString(t.from), addressToString(a1));
@@ -102,9 +102,62 @@ BOOST_AUTO_TEST_CASE(test_pb_to_tx_bad){
   BOOST_CHECK_THROW(
                     {
                       Tx t;
-                      t.fromPb0(pb);
+                      t.fromPb(pb);
                     }
                     ,std::runtime_error);
 }
 
+BOOST_AUTO_TEST_CASE(test_blk_to_pb){
+  auto [a1,a2,data] = get_example_address_and_data();
 
+  Tx t1 = Tx(a1,a2,data,123/*nonce*/);
+  Tx t2 = Tx(a1,a2,data,234/*nonce*/);
+  vector<Tx> txs ={t1,t2};
+
+  // parent hash
+  hash256 p;
+  std::fill(std::begin(p.bytes),std::end(p.bytes),0x00);
+
+  // make block
+  Blk b = Blk(1,p,txs);
+
+  hiPb::Blk pb = b.toPb();
+  BOOST_CHECK_EQUAL(pb.header().number(), 1);
+  BOOST_CHECK_EQUAL(pb.header().parenthash(), toByteString<hash256>(p));
+  BOOST_CHECK_EQUAL(pb.txs_size(), 2);
+  BOOST_CHECK_EQUAL(pb.txs(0).nonce(), 123);
+  BOOST_CHECK_EQUAL(pb.txs(1).nonce(), 234);
+}
+
+BOOST_AUTO_TEST_CASE(test_pb_to_blk){
+  hiPb::Blk pb = hiPb::Blk();
+  auto [a1,a2,data] = get_example_address_and_data();
+  // header
+
+  // parent hash
+  hash256 p;
+  std::fill(std::begin(p.bytes),std::end(p.bytes),0x00);
+
+  pb.mutable_header()->set_number(1);
+  pb.mutable_header()->set_parenthash(toByteString<hash256>(p));
+  pb.mutable_header()->set_hash(toByteString<hash256>(p));
+
+  // txs
+  Tx t1 = Tx(a1,a2,data,123/*nonce*/);
+  Tx t2 = Tx(a1,a2,data,234/*nonce*/);
+  vector<Tx> txs ={t1,t2};
+  for (auto t : txs){
+    hiPb::Tx* pt = pb.add_txs();
+    pt->CopyFrom(t.toPb());
+  }
+
+  // convert to blk
+  Blk b;
+  b.fromPb(pb);
+
+  BOOST_CHECK_EQUAL(b.number, 1);
+  BOOST_CHECK_EQUAL(hashToString(b.parentHash), hashToString(p));
+  BOOST_CHECK_EQUAL(b.txs.size(), 2);
+  BOOST_CHECK_EQUAL(b.txs[0].nonce, 123);
+  BOOST_CHECK_EQUAL(b.txs[1].nonce, 234);
+}

@@ -20,7 +20,7 @@ namespace pure{
    * @brief The ticket to send to the newcomer:
    */
   class YouAreInTicket: virtual public IJsonizable,
-                        virtual public ISerializableInPb,
+                        virtual public ISerializableInPb<hiPb::YouAreInTicket>,
                         virtual public ISerializable
   {
   public:
@@ -35,25 +35,21 @@ namespace pure{
     /*
       🦜 : If we have protobuf, we can use that to serialize the object.
      */
-    bool fromPbString(string_view s) noexcept override {
-      hiPb::YouAreInTicket pb;
-      bool ok = pb.ParseFromString(string(s));
-      if (not ok)
-        return false;
+
+    void fromPb(const hiPb::YouAreInTicket & pb) override {
       this->msg = pb.msg();
       this->command_history.clear();
       this->command_history = vector<string>(pb.command_history().begin(),
                                              pb.command_history().end()); // copy
-      return true;
     }
 
-    string toPbString() const override {
+    hiPb::YouAreInTicket toPb() const override {
       hiPb::YouAreInTicket pb;
       pb.set_msg(this->msg);
       for (const string & s : this->command_history){
         pb.add_command_history(s);
       }
-      return pb.SerializeAsString();
+      return pb;
     }
 
     json::value toJson() const noexcept override {

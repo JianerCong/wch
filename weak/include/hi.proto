@@ -27,11 +27,11 @@ message Tx {
   string pk_pem = 8;
   bytes signature = 9;          // key.sign(hash)
   bytes pk_crt = 10;            // ca_key.sign(pk_pem)
-}                               // []
+}                               // [x]
 
 message BlkHeader {uint64 number = 1; bytes parentHash = 2; bytes hash = 3;}
 
-message Blk {BlkHeader header = 1; repeated Tx txs = 2;} // []
+message Blk {BlkHeader header = 1; repeated Tx txs = 2;} // [x]
 
 message BlkForConsensus {BlkHeader header = 1; repeated bytes txhs = 2;}
 

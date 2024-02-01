@@ -474,13 +474,13 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
 
 
   class Tx: virtual public IJsonizable
-          , virtual public ISerializableInPb
+          , virtual public ISerializableInPb<hiPb::Tx>
           , virtual public ISerializable
   {
   public:
 
     // <2024-01-30 Tue>
-    hiPb::Tx toPb() const {
+    hiPb::Tx toPb() const override {
       hiPb::Tx pb;
 
       if (this->type == Type::data)
@@ -506,14 +506,10 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
         pb.set_pk_crt(weak::toString(this->pk_crt));
       return pb;
     }
-    string toPbString() const override {
-      return this->toPb().SerializeAsString();
-    }
 
     // <2024-01-30 Tue>
-    void fromPb0(const hiPb::Tx & pb){
+    void fromPb(const hiPb::Tx & pb) override{
       string s;
-
       /*
         🦜 : Similar process ad in fromJson0
        */
@@ -557,23 +553,6 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
         BOOST_THROW_EXCEPTION(std::runtime_error((format("Invalid to_addr size: %d, should be 20") % s.size()).str()));
 
       this->to = weak::fromByteString<address>(s);
-    }
-
-    bool fromPbString(string_view s) noexcept override {
-      hiPb::Tx pb;
-      if (!pb.ParseFromString(string(s))){
-        BOOST_LOG_TRIVIAL(error) << format( S_RED "❌️ error parsing Tx pb" S_NOR);
-        return false;
-      }
-
-      try {
-        this->fromPb0(pb);
-      }catch(std::exception &e){
-        BOOST_LOG_TRIVIAL(error) << format("❌️ error parsing Tx pb: %s") % e.what();
-        return false;
-      }
-
-      return true;
     }
 
     Tx() = default; // Upon you make a constructor yourself, the build-in
@@ -1111,7 +1090,7 @@ class ITxExecutable {
 
   class Blk: public BlkHeader
            ,virtual public IJsonizable
-           ,virtual public ISerializableInPb
+           ,virtual public ISerializableInPb<hiPb::Blk>
            ,virtual public ISerializable
   {
   public:
@@ -1122,7 +1101,7 @@ class ITxExecutable {
      */
     // --------------------------------------------------
     //<2024-01-30 Tue> 🦜 : let's add some pb
-    void fromPb0(const hiPb::Blk & pb){
+    void fromPb(const hiPb::Blk & pb) override{
       BOOST_LOG_TRIVIAL(debug) << format("Forming Blk from pb");
       // 1. form the BlkHeader part
       // --------------------------------------------------
@@ -1146,27 +1125,12 @@ class ITxExecutable {
       // --------------------------------------------------
       for (const hiPb::Tx & tx : pb.txs()){
         Tx t;
-        t.fromPb0(tx);          // may throw
+        t.fromPb(tx);          // may throw
         this->txs.push_back(t);
       }
     }
-    bool fromPbString(string_view s) noexcept override {
-      hiPb::Blk pb;
-      if (!pb.ParseFromString(string(s))){
-        BOOST_LOG_TRIVIAL(error) << format( S_RED "❌️ error parsing Tx pb" S_NOR);
-        return false;
-      }
 
-      try {
-        this->fromPb0(pb);
-      }catch(std::exception &e){
-        BOOST_LOG_TRIVIAL(error) << format("❌️ error parsing Tx pb: %s") % e.what();
-        return false;
-      }
-
-      return true;
-    }
-    hiPb::Blk toPb() const {
+    hiPb::Blk toPb() const override {
       hiPb::Blk pb;
 
       // set the header
@@ -1180,11 +1144,8 @@ class ITxExecutable {
       }
       return pb;
     }
-    string toPbString() const override {
-      return this->toPb().SerializeAsString();
-    }
 
-    //<2024-01-30 Tue> 
+    //<2024-01-30 Tue>
     // --------------------------------------------------
 
 

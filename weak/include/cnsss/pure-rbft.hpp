@@ -91,9 +91,7 @@ namespace pure{
    */
   class LaidDownMsg:
     virtual public IJsonizable,
-#ifdef WITH_PROTOBUF
-    virtual public ISerializableInPb,
-#endif
+    virtual public ISerializableInPb<hiPb::LaidDownMsg>,
     virtual public ISerializable
   {
   public:
@@ -125,32 +123,22 @@ namespace pure{
 
     ADD_TO_FROM_STR_WITH_JSON_OR_PB // defines the to/fromString() methods
 
-#ifdef WITH_PROTOBUF
     /*
       🦜 : If we have protobuf, we can use that to serialize the object.
     */
-    bool fromPbString(string_view s) noexcept override {
-      hiPb::LaidDownMsg o;
-      bool ok = o.ParseFromString(string(s));
-      if (not ok){
-        BOOST_LOG_TRIVIAL(error) << "Failed to parse LaidDownMsg from string";
-        return false;
-      }
-
-      this->msg = o.msg();
-      this->epoch = o.epoch();
-      this->state = o.state();
-      return true;
+    void fromPb(const hiPb::LaidDownMsg & pb) override {
+      this->msg = pb.msg();
+      this->epoch = pb.epoch();
+      this->state = pb.state();
     }
 
-    string toPbString() const override {
+    hiPb::LaidDownMsg toPb() const override {
       hiPb::LaidDownMsg o;
       o.set_msg(this->msg);
       o.set_epoch(this->epoch);
       o.set_state(this->state);
-      return o.SerializeAsString();
+      return o;
     }
-#endif
 
   }; // class LaidDownMsg
 
@@ -177,9 +165,7 @@ namespace pure{
    */
   class NewViewCertificate:
     virtual public IJsonizable,
-#ifdef WITH_PROTOBUF
-    virtual public ISerializableInPb,
-#endif
+    virtual public ISerializableInPb<hiPb::NewViewCertificate>,
     virtual public ISerializable
   {
   public:
@@ -242,31 +228,24 @@ namespace pure{
 
     ADD_TO_FROM_STR_WITH_JSON_OR_PB // defines the to/fromString() methods
 
-#ifdef WITH_PROTOBUF
     /*
       🦜 : If we have protobuf, we can use that to serialize the object.
     */
-    bool fromPbString(string_view s) noexcept override {
-      hiPb::NewViewCertificate o;
-      bool ok = o.ParseFromString(string(s));
-      if (not ok){
-        BOOST_LOG_TRIVIAL(error) << "Failed to parse NewViewCertificate from string";
-        return false;
-      }
-      this->msg = o.msg();
-      this->epoch = o.epoch();
+
+    void fromPb(const hiPb::NewViewCertificate & pb) override {
+      this->msg = pb.msg();
+      this->epoch = pb.epoch();
 
       // copy
-      this->new_view_certificate = vector<string>(o.new_view_certificate().begin(),
-                                                  o.new_view_certificate().end());
-      this->sig_of_nodes_to_be_added = vector<string>(o.sig_of_nodes_to_be_added().begin(),
-                                                      o.sig_of_nodes_to_be_added().end());
-      this->cmds = vector<string>(o.cmds().begin(),
-                                  o.cmds().end());
-      return true;
+      this->new_view_certificate = vector<string>(pb.new_view_certificate().begin(),
+                                                  pb.new_view_certificate().end());
+      this->sig_of_nodes_to_be_added = vector<string>(pb.sig_of_nodes_to_be_added().begin(),
+                                                      pb.sig_of_nodes_to_be_added().end());
+      this->cmds = vector<string>(pb.cmds().begin(),
+                                  pb.cmds().end());
     }
 
-    string toPbString() const override {
+    hiPb::NewViewCertificate toPb() const override {
       hiPb::NewViewCertificate o;
       o.set_msg(this->msg);
       o.set_epoch(this->epoch);
@@ -281,9 +260,8 @@ namespace pure{
       for (auto s : this->cmds)
         o.add_cmds(s);
 
-      return o.SerializeAsString();
+      return o;
     }
-#endif
 
   };                          // class New_view_certificate
 

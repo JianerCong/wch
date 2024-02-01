@@ -97,14 +97,38 @@ namespace pure{
    *
    * 🦜 : The implementer just need to implement two methods:
    *
-   * + fromPbString() and toPb().
+   * + fromPb0() and toPb().
    *
    * Then it will get a method toPbString(). (for free.)
+   *
+   * 🦜 : the type T Should be a protobuf type such as hiPb::Tx
    */
+  template<typename T>
   class ISerializableInPb{
   public:
-    virtual bool fromPbString(string_view s) noexcept =0;
-    virtual string toPbString() const = 0;
+    virtual void fromPb(const T & pb) = 0;
+    virtual T toPb() const = 0;
+
+    bool fromPbString(string_view s) noexcept{
+      T pb;
+      if (!pb.ParseFromString(string(s))){
+        BOOST_LOG_TRIVIAL(error) << format( S_RED "❌️ error parsing pb" S_NOR);
+        return false;
+      }
+
+      try {
+        this->fromPb(pb);
+      }catch(std::exception &e){
+        BOOST_LOG_TRIVIAL(error) << format("❌️ error parsing pb: %s") % e.what();
+        return false;
+      }
+
+      return true;
+    }
+    string toPbString() const {
+      return this->toPb().SerializeAsString();
+    }
+
   };
 
   namespace json = boost::json;
