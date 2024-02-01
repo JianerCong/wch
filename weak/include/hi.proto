@@ -34,8 +34,8 @@ message BlkHeader {uint64 number = 1; bytes parentHash = 2; bytes hash = 3;}
 message Blk {BlkHeader header = 1; repeated Tx txs = 2;} // [x]
 
 message BlkForConsensus {BlkHeader header = 1; repeated bytes txhs = 2;}
-
-message StateChange {bool del = 1; bytes key = 2; bytes value = 3;} // []
+message TxOnBlkInfo {uint64 blkNumber = 1; uint64 onBlkId = 2;}
+message StateChange {bool del = 1; bytes k = 2; bytes v = 3;} // []
 message StateChanges {repeated StateChange changes = 1;}            // []
 
 message TxReceipt {bool ok = 1; bytes result = 2;} // []

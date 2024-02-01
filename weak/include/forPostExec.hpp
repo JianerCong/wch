@@ -82,14 +82,21 @@ namespace weak{
       return json::value_from(*this);
     }
 
-    // For now, use UTF8 JSON for serialization. later we can change it to other
-    string toString() const noexcept override {
-      return IJsonizable::toJsonString();
-    };
-    bool fromString(string_view s) noexcept override{
-      BOOST_LOG_TRIVIAL(debug) <<  "Forming Tx from string.";
-      return IJsonizable::fromJsonString(s);
-    };
+    ADD_TO_FROM_STR_WITH_JSON_OR_PB
+    /*
+      🐢 defines the to/fromString() methods according to WITH_PROTOBUF, so we
+      don't need to write the following...
+    */
+
+    // // For now, use UTF8 JSON for serialization. later we can change it to other
+    // string toString() const noexcept override {
+    //   return IJsonizable::toJsonString();
+    // };
+    // bool fromString(string_view s) noexcept override{
+    //   BOOST_LOG_TRIVIAL(debug) <<  "Forming Tx from string.";
+    //   return IJsonizable::fromJsonString(s);
+    // };
+
   };
 
   // json functions for TxReceipt
@@ -100,9 +107,6 @@ namespace weak{
       {"result", evmc::hex(c.result)},
     };
   };
-
-
-
 
   // TxReceipt tag_invoke(json::value_to_tag<TxReceipt>, json::value const& v){
   //   TxReceipt t;
@@ -196,6 +200,13 @@ namespace weak{
    * and `txReceipts` (the results).
    */
   class ExecBlk: virtual public IJsonizable
+               // , virtual public ISerializableInPb<hiPb::ExecBlk>
+  /*🦜 : Nope, because we can't override <T>toPb() using different type, so...
+    we kinda have to loose the interface... Next time maybe we should use a
+    `has-a` relationship for this kind.
+
+    🐢 : Yeah, ExecBlk already implemented ISerializableInPb<hiPb::Blk> ...
+   */
                    , virtual public ISerializable
                    , public Blk{
   public:
@@ -221,12 +232,6 @@ namespace weak{
                                 );
     }
 
-    // For now, use UTF8 JSON for serialization. later we can change it to other
-    string toString() const noexcept override {return IJsonizable::toJsonString();};
-    bool fromString(string_view s) noexcept override{
-      BOOST_LOG_TRIVIAL(debug) <<  "Forming ExecBlk from string.";
-      return IJsonizable::fromJsonString(s);
-    };
     json::value toJson() const noexcept override {return json::value_from(*this);};
     bool fromJson(const json::value &v) noexcept override {
 
@@ -251,6 +256,80 @@ namespace weak{
       BOOST_LOG_TRIVIAL(debug) << format("🐸 ExecBlk-%d fromed from Json") % this->number;
       return true;
     };
+
+    hiPb::ExecBlk toPb0() const {
+      hiPb::ExecBlk pb;
+      pb.mutable_blk()->CopyFrom(Blk::toPb());
+/*
+  message StateChange {bool del = 1; bytes key = 2; bytes value = 3;} // []
+  message StateChanges {repeated StateChange changes = 1;}            // []
+  message ExecBlk {Blk blk = 1; repeated TxReceipt txReceipts = 2; repeated StateChanges stateChanges = 3;} // []
+ */
+
+      // add stateChanges
+      for (auto & j : this->stateChanges){
+        hiPb::StateChanges * psc = pb.add_statechanges();
+        for (auto & sc : j){
+          hiPb::StateChange * psc0 = psc->add_changes();
+          psc0->set_del(sc.del);
+          psc0->set_k(sc.k);
+          psc0->set_v(sc.v);
+        }
+      }
+      // add txReceipts
+      for (auto & r : this->txReceipts){
+        pb.add_txreceipts()->CopyFrom(r.toPb());
+      }
+      return pb;
+    }
+
+    void fromPb0(const hiPb::ExecBlk & pb) {
+      Blk::fromPb(pb.blk());
+      // stateChanges
+      for (auto & scs : pb.statechanges()){
+        vector<StateChange> scv;
+        for (auto & sc : scs.changes()){
+          scv.push_back(StateChange{sc.del(),sc.k(),sc.v()});
+        }
+        this->stateChanges.push_back(scv);
+      }
+      // txReceipts
+      for (auto & r : pb.txreceipts()){
+        TxReceipt tr;
+        tr.fromPb(r);
+        this->txReceipts.push_back(tr);
+      }
+    }
+
+    /*
+      🦜 : Because we had trouble with the toPb() and fromPb() methods, we kinda
+      have to override these two methods. manually.. so that to make our
+      ADD_TO_FROM_STR_WITH_JSON_OR_PB works... ⚠️
+     */
+    bool fromPbString(string_view s) noexcept {
+      hiPb::ExecBlk pb;
+      if (!pb.ParseFromString(string(s))){
+        BOOST_LOG_TRIVIAL(error) << format( S_RED "❌️ error parsing pb" S_NOR);
+        return false;
+      }
+
+      try {
+        this->fromPb0(pb);
+      }catch(std::exception &e){
+        BOOST_LOG_TRIVIAL(error) << format("❌️ error parsing pb: %s") % e.what();
+        return false;
+      }
+
+      return true;
+    }
+    string toPbString() const {
+      return this->toPb0().SerializeAsString();
+    }
+
+    // // <2024-02-01 Thu>
+    // // --------------------------------------------------
+
+    ADD_TO_FROM_STR_WITH_JSON_OR_PB
   };
 
   // json functions for ExecBlk

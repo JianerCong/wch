@@ -8,7 +8,7 @@ cmake -S ${src} -B ${bld}
 inotifywait --monitor --recursive \
             --timefmt '%d/%m/%y %H:%M' \
             --format '%T %w %f' \
-            --excludei 'doc' \
+            --excludei '(doc|flycheck|#)' \
             -e close_write ${src} |
     while read -r date time dir file; do
         clear

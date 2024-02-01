@@ -1090,7 +1090,7 @@ class ITxExecutable {
 
   class Blk: public BlkHeader
            ,virtual public IJsonizable
-           ,virtual public ISerializableInPb<hiPb::Blk>
+           ,public ISerializableInPb<hiPb::Blk>
            ,virtual public ISerializable
   {
   public:
