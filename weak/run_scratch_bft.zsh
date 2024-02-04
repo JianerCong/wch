@@ -52,5 +52,7 @@ clear && pytest -s build-weak/test_with_mocked_exe_bft.py::test_serv_send_basic_
 clear && pytest -s build-weak/test_with_mocked_exe_bft.py::test_serv_send_add_txs
 clear && pytest -s build-weak/test_with_mocked_exe_bft.py::test_serv_two_nodes_add_txs
 clear && pytest -s build-weak/test_with_mocked_exe_bft.py::test_serv_three_nodes_add_txs
-clear && pytest -s build-weak/test_with_mocked_exe_bft.py::
+clear && pytest -s build-weak/test_with_mocked_exe_bft.py
+
+clear && pytest -s build-weak/test_with_light_exe_bft.py # 🦜 : Just open and close
 
