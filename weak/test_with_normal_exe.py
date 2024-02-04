@@ -4,11 +4,12 @@ port = 7777
 
 def stop_and_test(p,s : str ='Primary'):
     # send a get node status?
-    o1,e1 = p.communicate('\n')         # send a \n and wait for completion
-    print(f'OUT FOR {s}--------------------------------------------------')
-    print(o1)
-    print(f'ERR FOR {s}--------------------------------------------------')
-    print(e1)
+    o1,e1 = p.communicate(b'\n')         # send a \n and wait for completion
+    if p.returncode != 0:
+        print(f'OUT FOR {s}--------------------------------------------------')
+        print(o1)
+        print(f'ERR FOR {s}--------------------------------------------------')
+        print(e1)
     assert p.returncode == 0
     return o1
 
@@ -16,10 +17,10 @@ def test_serv_open_close(): #9
     # Does the program run ?
     # this wait for PIPEs  and port binding/unbinding
     global port
-    p = Popen([wc, '--port', str(port),'--light-exe','no'],stdin=PIPE,stdout=PIPE,stderr=PIPE,text=True)
+    p = Popen([wc, '--port', str(port),'--light-exe','no'],stdin=PIPE,stdout=PIPE,stderr=PIPE)
     port += 1
     o1 = stop_and_test(p)
-    assert '`normal exe`' in o1
+    assert b'`normal exe`' in o1
 
 
 def test_serv_send_add_txs():   # 32
@@ -27,7 +28,7 @@ def test_serv_send_add_txs():   # 32
     # this wait for PIPEs  and port binding/unbinding
     global port
     url = f'http://localhost:{port}/'
-    p = Popen([wc, '--port', str(port),'--light-exe','no' ],stdin=PIPE,stdout=PIPE,stderr=PIPE,text=True)
+    p = Popen([wc, '--port', str(port),'--light-exe','no' ],stdin=PIPE,stdout=PIPE,stderr=PIPE)
     port += 1
 
     time.sleep(2)                   #  wait until is up
@@ -61,7 +62,7 @@ def test_serv_send_add_txs():   # 32
     finally:
         # send a get node status?
         stop_and_test(p)
-        # o,e = p.communicate('\n')         # send a \n and wait for completion
+        # o,e = p.communicate(b'\n')         # send a \n and wait for completion
         # print(f'OUT--------------------------------------------------')
         # print(o)
         # print(f'ERR--------------------------------------------------')
@@ -73,7 +74,7 @@ def test_serv_send_add_txs_and_check_pool():   # 32
     # this wait for PIPEs  and port binding/unbinding
     global port
     url = f'http://localhost:{port}/'
-    p = Popen([wc, '--port', str(port), '--light-exe','no'],stdin=PIPE,stdout=PIPE,stderr=PIPE,text=True)
+    p = Popen([wc, '--port', str(port), '--light-exe','no'],stdin=PIPE,stdout=PIPE,stderr=PIPE)
     port += 1
 
     time.sleep(2)                   #  wait until is up
@@ -107,7 +108,7 @@ def test_serv_send_add_txs_and_check_pool():   # 32
     finally:
         # send a get node status?
         stop_and_test(p)
-        # o,e = p.communicate('\n')         # send a \n and wait for completion
+        # o,e = p.communicate(b'\n')         # send a \n and wait for completion
         # print(f'OUT--------------------------------------------------')
         # print(o)
         # print(f'ERR--------------------------------------------------')
@@ -123,13 +124,13 @@ def test_serv_two_nodes_add_txs():   # 44
 
     url = [f'http://localhost:{p}/' for p in ports]
 
-    p1 = Popen([wc, '--port', ports[0], '--light-exe','no'],stdin=PIPE,stdout=PIPE,stderr=PIPE,text=True)
+    p1 = Popen([wc, '--port', ports[0], '--light-exe','no'],stdin=PIPE,stdout=PIPE,stderr=PIPE)
     time.sleep(2)                   #  wait until is up
 
     p2 = Popen([wc, '--port', ports[1], '--consensus', 'Solo', '--Solo.node-to-connect','localhost:' + ports[0],
                 '--light-exe','no'
                 ],
-               stdin=PIPE,stdout=PIPE,stderr=PIPE,text=True)
+               stdin=PIPE,stdout=PIPE,stderr=PIPE)
     time.sleep(2)                   #  wait until is up
 
     try:
@@ -151,14 +152,14 @@ def test_serv_two_nodes_add_txs():   # 44
         # send a get node status?
         try:
             o1 = stop_and_test(p1)
-            # o1,e1 = p1.communicate('\n')         # send a \n and wait for completion
+            # o1,e1 = p1.communicate(b'\n')         # send a \n and wait for completion
             # print(f'OUT FOR Primary--------------------------------------------------')
             # print(o1)
             # print(f'ERR FOR Primary--------------------------------------------------')
             # print(e1)
             # assert p1.returncode == 0
             # 🦜 : o1 should have 'Exec: t' ⇒ This means the node has executed 'AddTx'
-            assert 'Adding parsed txs:' in o1
+            assert b'Adding parsed txs:' in o1
         finally:
             o2 = stop_and_test(p2,'sub')
-            assert 'Adding parsed txs:' in o2
+            assert b'Adding parsed txs:' in o2

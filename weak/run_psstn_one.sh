@@ -1,14 +1,14 @@
+#!/usr/bin/zsh -f
 
 w=./build-weak/wch
 
 # prepare the vars --------------------------------------------------
 t=$PWD/my-tmp
-mkdir $t -v
 dirs=($t/d1 $t/d2)
 
 # prepare the dirs --------------------------------------------------
-mkdir $dirs[1] -v
-mkdir $dirs[2] -v
+mkdir $dirs[1] -v -p
+mkdir $dirs[2] -v -p
 
 # start --------------------------------------------------
 $w --port 7777 --light-exe --data-dir=$dirs[1]               # start as Solo-primary at 7777
@@ -42,3 +42,5 @@ curl --data $txs $e:7777/add_txs
 curl $e:7777/get_latest_Blk
 
 rm $t -rv
+
+# do M-x sh-set-shell RET zsh RET

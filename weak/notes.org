@@ -1,10 +1,10 @@
 ** todos
-*** TODO grpc
+*** DONE grpc : rejected, grpc is too heavy...
 *** TODO disable command_history
-*** TODO https
+*** TODO https: delayed, maybe we can use other secure communication protocol such as noise?
 *** TODO nbft
 *** TODO pb Tx and Blks
-*** TODO make pb a requirement
+*** DONE make pb a requirement <2024-02-04 Sun>
 *** py vm
 *** DONE pure data Tx <2024-01-30 Tue>
 🦜 : How to we support this.

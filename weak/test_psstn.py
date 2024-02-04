@@ -56,7 +56,10 @@ def test_one(tmp_dirs):
     ports = [port + 1]
     port += 1
 
-    p = Popen([wc, '--port', str(port),'--light-exe', '--data-dir', tmp_dirs[0]],stdin=PIPE,stdout=PIPE,stderr=PIPE,text=True)
+    p = Popen([wc, '--port', str(port),'--light-exe', '--data-dir', tmp_dirs[0],'--verbose','no'],stdin=PIPE,stdout=PIPE,stderr=PIPE,text=True)
+    # p = Popen([wc, '--port', str(port),'--light-exe', '--data-dir', tmp_dirs[0]],stdin=PIPE,stdout=PIPE,stderr=PIPE)
+    # [2024-02-04] 🦜 : After we switched to protobuf serialization, the
+    # [debug] log is not valid utf8 string any more, so using `text=True` will cause exception...
     url = [f'http://localhost:{p}/' for p in ports]
 
     # send one
@@ -98,7 +101,7 @@ def test_one(tmp_dirs):
 
     ports = [port + 1]
     port += 1
-    p = Popen([wc, '--port', str(port),'--light-exe', '--data-dir', tmp_dirs[0]],stdin=PIPE,stdout=PIPE,stderr=PIPE,text=True)
+    p = Popen([wc, '--port', str(port),'--light-exe', '--data-dir', tmp_dirs[0],'--verbose','no'],stdin=PIPE,stdout=PIPE,stderr=PIPE,text=True)
     url = [f'http://localhost:{p}/' for p in ports]
 
     # 🐢 the latest Blk should still be there.
@@ -130,10 +133,11 @@ def test_one(tmp_dirs):
 def stop_and_test(p,s : str ='Primary'):
     # send a get node status?
     o1,e1 = p.communicate('\n')         # send a \n and wait for completion
-    print(f'OUT FOR {s}--------------------------------------------------')
-    print(o1)
-    print(f'ERR FOR {s}--------------------------------------------------')
-    print(e1)
+    if p.returncode != 0:
+        print(f'OUT FOR {s}--------------------------------------------------')
+        print(o1)
+        print(f'ERR FOR {s}--------------------------------------------------')
+        print(e1)
     assert p.returncode == 0
     return o1
 
@@ -148,15 +152,15 @@ def test_two(tmp_dirs):
     url = [f'http://localhost:{p}/' for p in ports]
     # Does the program run ?
     # this wait for PIPEs  and port binding/unbinding
-    p1 = Popen([wc, '--light-exe','--port', ports[0], '--data-dir', tmp_dirs[0]],
-               stdin=PIPE,stdout=PIPE,stderr=PIPE,text=True)
+    p1 = Popen([wc, '--light-exe','--port', ports[0], '--data-dir', tmp_dirs[0],'--verbose','no'],
+               stdin=PIPE,stdout=PIPE,stderr=PIPE, text=True)
     time.sleep(2)                   #  wait until is up
 
     p2 = Popen([wc, '--light-exe','--port', ports[1], '--consensus',
                 'Solo', '--Solo.node-to-connect','localhost:' + ports[0],
-               '--data-dir', tmp_dirs[1],
+               '--data-dir', tmp_dirs[1],'--verbose','no'
                 ],
-               stdin=PIPE,stdout=PIPE,stderr=PIPE,text=True)
+               stdin=PIPE,stdout=PIPE,stderr=PIPE, text=True)
     time.sleep(2)                   #  wait until is up
 
 
@@ -206,13 +210,13 @@ def test_two(tmp_dirs):
     url = [f'http://localhost:{p}/' for p in ports]
     port += 2
     # 🐢 : Now let's start them again.
-    p1 = Popen([wc, '--light-exe','--port', ports[0], '--data-dir', tmp_dirs[0]],
+    p1 = Popen([wc, '--light-exe','--port', ports[0], '--data-dir', tmp_dirs[0],'--verbose','no'],
                stdin=PIPE,stdout=PIPE,stderr=PIPE,text=True)
     time.sleep(2)                   #  wait until is up
 
     p2 = Popen([wc, '--light-exe','--port', ports[1], '--consensus',
                 'Solo', '--Solo.node-to-connect','localhost:' + ports[0],
-               '--data-dir', tmp_dirs[1]],
+               '--data-dir', tmp_dirs[1],'--verbose','no'],
                stdin=PIPE,stdout=PIPE,stderr=PIPE,text=True)
 
     time.sleep(2)                   #  wait until is up

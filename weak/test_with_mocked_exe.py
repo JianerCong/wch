@@ -3,7 +3,7 @@ from helpers import *
 port = 7777
 
 def close_and_check(p):
-    o,e = p.communicate('\n')         # send a \n and wait for completion
+    o,e = p.communicate(b'\n')         # send a \n and wait for completion
     print(f'OUT--------------------------------------------------')
     print(o)
     print(f'ERR--------------------------------------------------')
@@ -14,7 +14,7 @@ def test_serv_open_close(): #9
     # Does the program run ?
     # this wait for PIPEs  and port binding/unbinding
     global port
-    p = Popen([wc, '--port', str(port)],stdin=PIPE,stdout=PIPE,stderr=PIPE,text=True)
+    p = Popen([wc, '--port', str(port)],stdin=PIPE,stdout=PIPE,stderr=PIPE)
     close_and_check(p)
 
 # @pytest.mark.skip(​)
@@ -26,7 +26,7 @@ def test_serv_send_basic_node_status(): #19
 
     url = f'http://localhost:{port}/'
 
-    p = Popen([wc, '--port', str(port)],stdin=PIPE,stdout=PIPE,stderr=PIPE,text=True)
+    p = Popen([wc, '--port', str(port)],stdin=PIPE,stdout=PIPE,stderr=PIPE)
 
     time.sleep(2)                   #  wait until is up
     result = requests.get(url + 'get_node_status')
@@ -43,7 +43,7 @@ def test_serv_send_add_txs():   # 32
 
     url = f'http://localhost:{port}/'
 
-    p = Popen([wc, '--port', str(port),'--mock-exe'],stdin=PIPE,stdout=PIPE,stderr=PIPE,text=True)
+    p = Popen([wc, '--port', str(port),'--mock-exe'],stdin=PIPE,stdout=PIPE,stderr=PIPE)
 
     time.sleep(2)                   #  wait until is up
     txs = [
@@ -73,11 +73,11 @@ def test_serv_two_nodes_add_txs():   # 44
 
     url = [f'http://localhost:{p}/' for p in ports]
 
-    p1 = Popen([wc, '--mock-exe','--port', ports[0]],stdin=PIPE,stdout=PIPE,stderr=PIPE,text=True)
+    p1 = Popen([wc, '--mock-exe','--port', ports[0]],stdin=PIPE,stdout=PIPE,stderr=PIPE)
     time.sleep(2)                   #  wait until is up
 
     p2 = Popen([wc, '--mock-exe','--port', ports[1], '--consensus',
-                'Solo', '--Solo.node-to-connect','localhost:' + ports[0]],stdin=PIPE,stdout=PIPE,stderr=PIPE,text=True)
+                'Solo', '--Solo.node-to-connect','localhost:' + ports[0]],stdin=PIPE,stdout=PIPE,stderr=PIPE)
     time.sleep(2)                   #  wait until is up
 
     try:
@@ -111,14 +111,14 @@ def test_serv_three_nodes_add_txs(): #45
     url = [f'http://localhost:{p}/' for p in ports]
 
     # the primary
-    p1 = Popen([wc,'--mock-exe', '--port', ports[0]],stdin=PIPE,stdout=PIPE,stderr=PIPE,text=True)
+    p1 = Popen([wc,'--mock-exe', '--port', ports[0]],stdin=PIPE,stdout=PIPE,stderr=PIPE)
     time.sleep(2)                   #  wait until is up
 
     # the subs
     p2 = Popen([wc,'--mock-exe', '--port', ports[1],
-                '--consensus', 'Solo', '--Solo.node-to-connect','localhost:' + ports[0]],stdin=PIPE,stdout=PIPE,stderr=PIPE,text=True)
+                '--consensus', 'Solo', '--Solo.node-to-connect','localhost:' + ports[0]],stdin=PIPE,stdout=PIPE,stderr=PIPE)
     p3 = Popen([wc,'--mock-exe', '--port', ports[2],
-                '--consensus', 'Solo', '--Solo.node-to-connect','localhost:' + ports[0]],stdin=PIPE,stdout=PIPE,stderr=PIPE,text=True)
+                '--consensus', 'Solo', '--Solo.node-to-connect','localhost:' + ports[0]],stdin=PIPE,stdout=PIPE,stderr=PIPE)
     time.sleep(2)                   #  wait until is up
 
     try:
@@ -143,7 +143,7 @@ def test_serv_three_nodes_add_txs(): #45
 
 def stop_and_test(p,s : str ='Primary'):
     # send a get node status?
-    o1,e1 = p.communicate('\n')         # send a \n and wait for completion
+    o1,e1 = p.communicate(b'\n')         # send a \n and wait for completion
     print(f'OUT FOR {s}--------------------------------------------------')
     print(o1)
     print(f'ERR FOR {s}--------------------------------------------------')
@@ -151,5 +151,5 @@ def stop_and_test(p,s : str ='Primary'):
     assert p.returncode == 0
     # 🦜 : o1 should have 'Exec: t' ⇒ This means the node has executed
     # 'AddTx'. Note that this only exists for mocked exe.
-    assert 'Exec: ' in o1
+    assert b'Exec: ' in o1
 

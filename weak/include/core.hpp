@@ -866,15 +866,42 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
      * serialization is contained in this class.
      */
     static vector<Tx> parse_to_array(string_view arg){
+      // --------------------------------------------------
+      /* [2024-02-04]
+
+        🦜: In addition to `toString` and `fromString`, here we also need to
+        switch these two for Txs
+       */
+#ifdef WITH_PROTOBUF
+      hiPb::Txs txs;
+      txs.ParseFromString(string(arg));
+      vector<Tx> v;
+      for (const hiPb::Tx & tx : txs.txs()){
+        Tx t;
+        t.fromPb(tx);
+        v.push_back(t);
+      }
+      return v;
+#else
       // Parse the Json
       /* 🦜: std:string_view -> json::string_view is
          available in Boost 1.82.0*/
       // json::value v = json::parse(s);
       json::value v = json::parse(arg); // throw on fail
       return value_to<vector<Tx>>(v);
+#endif
+
     }
     static string serialize_from_array(const vector<Tx> & txs){
+#ifdef WITH_PROTOBUF
+      hiPb::Txs pb;
+      for (const Tx & t : txs){
+        pb.add_txs()->CopyFrom(t.toPb());
+      }
+      return pb.SerializeAsString();
+#else
       return json::serialize(json::value_from(txs));
+#endif
     }
 
     /**
@@ -1195,16 +1222,7 @@ class ITxExecutable {
     }
 
     vector<Tx> txs;
-
-    // For now, use UTF8 JSON for serialization. later we can change it to other
-    string toString() const noexcept override {
-      return IJsonizable::toJsonString();
-    }
-    bool fromString(string_view s) noexcept override{
-      BOOST_LOG_TRIVIAL(debug) <<  format("🌱 Forming Blk from string: " S_MAGENTA " %s" S_NOR) % s;
-      return IJsonizable::fromJsonString(s);
-    }
-
+    ADD_TO_FROM_STR_WITH_JSON_OR_PB
     json::value toJson() const noexcept override {
       return json::value_from(*this);
     }

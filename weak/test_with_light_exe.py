@@ -5,18 +5,19 @@ port = 7777
 
 def stop_and_test(p,s : str ='Primary'):
     # send a get node status?
-    o1,e1 = p.communicate('\n')         # send a \n and wait for completion
-    print(f'OUT FOR {s}--------------------------------------------------')
-    print(o1)
-    print(f'ERR FOR {s}--------------------------------------------------')
-    print(e1)
+    o1,e1 = p.communicate(b'\n')         # send a \n and wait for completion
+    if p.returncode != 0:
+        print(f'OUT FOR {s}--------------------------------------------------')
+        print(o1)
+        print(f'ERR FOR {s}--------------------------------------------------')
+        print(e1)
     assert p.returncode == 0
 
 def test_serv_open_close(): #9
     # Does the program run ?
     # this wait for PIPEs  and port binding/unbinding
     global port
-    p = Popen([wc, '--port', str(port),'--light-exe'],stdin=PIPE,stdout=PIPE,stderr=PIPE,text=True)
+    p = Popen([wc, '--port', str(port),'--light-exe'],stdin=PIPE,stdout=PIPE,stderr=PIPE)
     port += 1
     stop_and_test(p)
 
@@ -28,7 +29,7 @@ def test_single_primary_set_get_123(): #9
 
     # Does the program run ?
     # this wait for PIPEs  and port binding/unbinding
-    p = Popen([wc, '--port', str(port),'--light-exe'],stdin=PIPE,stdout=PIPE,stderr=PIPE,text=True)
+    p = Popen([wc, '--port', str(port),'--light-exe'],stdin=PIPE,stdout=PIPE,stderr=PIPE)
     url = [f'http://localhost:{p}/' for p in ports]
     try:
     # 1. deploy the contract --------------------------------------------------
@@ -125,11 +126,11 @@ def test_two_nodes_set_get_123(): #9
     url = [f'http://localhost:{p}/' for p in ports]
     # Does the program run ?
     # this wait for PIPEs  and port binding/unbinding
-    p1 = Popen([wc, '--light-exe','--port', ports[0]],stdin=PIPE,stdout=PIPE,stderr=PIPE,text=True)
+    p1 = Popen([wc, '--light-exe','--port', ports[0]],stdin=PIPE,stdout=PIPE,stderr=PIPE)
     time.sleep(2)                   #  wait until is up
 
     p2 = Popen([wc, '--light-exe','--port', ports[1], '--consensus',
-                'Solo', '--Solo.node-to-connect','localhost:' + ports[0]],stdin=PIPE,stdout=PIPE,stderr=PIPE,text=True)
+                'Solo', '--Solo.node-to-connect','localhost:' + ports[0]],stdin=PIPE,stdout=PIPE,stderr=PIPE)
     time.sleep(2)                   #  wait until is up
 
     try:
