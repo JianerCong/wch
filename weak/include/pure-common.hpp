@@ -47,6 +47,16 @@ namespace pure{
   using std::string_view;
   using std::string;
 
+
+  string get_data_for_log(string_view data){
+#if defined (WITH_PROTOBUF)
+    // return encode_base64(data);
+    return "<--binary-data-of size" + std::to_string(data.size()) + ">";
+#else
+    return string(data);
+#endif
+  }
+
   // /**
   //  * @brief 🦜 : [2024-0205] We added this function to show pb in log
   //  */

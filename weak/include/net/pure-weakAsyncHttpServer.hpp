@@ -252,7 +252,9 @@ namespace pure{
 
     }
 
+    bool run_called = false;
     void run(){
+      this->run_called = true;
       // Run the I/O service on the requested number of threads
       this->all_threads = new vector<std::jthread>();
       this->all_threads->reserve(n_threads);
@@ -262,8 +264,14 @@ namespace pure{
 
     virtual ~WeakAsyncHttpServerBase(){
       BOOST_LOG_TRIVIAL(debug) << "👋🐸 Server closed";
-      this->ioc->stop();
-      delete this->all_threads;   // join them all
+      if (this->run_called){
+        // 🦜 : we need to stop it only if it's running, otherwise we got
+        // memory-access-violation, the worst kind of error.
+        this->ioc->stop();
+        // BOOST_LOG_TRIVIAL(debug) <<  "👋🐸 ioc stopped";
+        this->all_threads->clear(); // join them all
+        // BOOST_LOG_TRIVIAL(debug) <<  "👋🐸 all threads joined";
+      }
     }
 
   };                            // class WeakAsyncHttpServerBase
@@ -283,6 +291,9 @@ namespace pure{
       this->lstn->run();
       this->run();
     }
+    // virtual ~WeakAsyncTcpHttpServer(){
+    //   BOOST_LOG_TRIVIAL(debug) <<  "👋🐸 TCP acceptor closed";
+    // }
   };                            // class WeakAsyncTcpHttpServer
 
   using std::filesystem::path;

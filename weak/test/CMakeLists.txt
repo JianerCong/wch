@@ -40,13 +40,14 @@ endmacro()
 ## instead ] set_test(test-pure-net core-deps)
 
 # set_test(test-pure-anet core-deps)
-set_test(test-rpc core-deps)
+# set_test(test-rpc core-deps)
+set_test(test-rpc-20240205 core-deps)
 # set_test(test-init deps)
 # set_test(test-inRamWrld deps)
 # set_test(test-pure-greenClient core-deps)
 # set_test(test-pure-rbft core-deps)
 # set_test(test-pure-udp core-deps)
-set_test(test-udpNetAssnt core-deps)
+# set_test(test-udpNetAssnt core-deps)
 
 # Add the above tests
 foreach(t d IN ZIP_LISTS l l-deps)

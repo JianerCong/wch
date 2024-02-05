@@ -119,13 +119,7 @@ namespace pure{
         }
 
         const auto [from,data] = r0.value();
-        // BOOST_LOG_TRIVIAL(debug) << format("\tmsg unpacked, from=" S_BLUE "%s" S_NOR ",data=" S_GREEN "%s" S_NOR) % from % data;
-#ifdef WITH_PROTOBUF
-        // data_for_show base64(data[1:])
-        BOOST_LOG_TRIVIAL(debug) << format("\tmsg unpacked, from=" S_BLUE "%s" S_NOR ",data=" S_GREEN "%s" S_NOR) % from % encode_base64(data);
-#else
-        BOOST_LOG_TRIVIAL(debug) << format("\tmsg unpacked, from=" S_BLUE "%s" S_NOR ",data=" S_GREEN "%s" S_NOR) % from % data;
-#endif
+        BOOST_LOG_TRIVIAL(debug) << format("\tmsg unpacked, from=" S_BLUE "%s" S_NOR ",data=" S_GREEN "%s" S_NOR) % from % get_data_for_log(data);
         /*🦜 : Do we need to launch a thread to handle it ?
 
           🐢 No. I think the UDP server would already have called this handler in a seperate 'handler thread'.

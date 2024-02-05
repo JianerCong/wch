@@ -116,16 +116,17 @@ void sleep_for(int i=1){
 #include "net/pure-weakHttpClient.hpp"
 
 BOOST_AUTO_TEST_SUITE(test_http_assnt);
-BOOST_AUTO_TEST_CASE(test_handle_get){
+BOOST_AUTO_TEST_CASE(test_handle_get, MY_TEST_THIS){
   ::pure::WeakAsyncTcpHttpServer srv;   // listen 7777
   sleep_for(1);
+  BOOST_TEST_MESSAGE("⚙️ Server started");
   HttpRpcAsstn nh{dynamic_cast<::pure::IHttpServable*>(&srv)};
+  BOOST_TEST_MESSAGE("⚙️ HttpRpcAsstn started");
   IForRpcNetworkable * n = dynamic_cast<IForRpcNetworkable*>(&nh);
 
   n->listenToGet("/aaa",[](om_t o) -> tuple<bool,string> {
       return make_tuple(true,"aaa");
     });
-
   BOOST_CHECK_EQUAL(srv.getLisnMap.size(),1);
   auto r = ::pure::weakHttpClient::get("localhost","/aaa",7777);
   BOOST_REQUIRE(r);
@@ -447,7 +448,7 @@ BOOST_AUTO_TEST_CASE(test_handle_get_receipt_ok){
   BOOST_REQUIRE(not ok);
 }
 
-BOOST_AUTO_TEST_CASE(test_get_latest_blk,MY_TEST_THIS){
+BOOST_AUTO_TEST_CASE(test_get_latest_blk){
   /*
     🦜 : Oh, what do we need to test the `get_latest_blk`?
 
