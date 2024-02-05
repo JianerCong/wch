@@ -70,10 +70,10 @@ BOOST_AUTO_TEST_CASE(tx_toJsonString){
   BOOST_CHECK_EQUAL("{"
                     "\"from\":\"0000000000000000000000000000000000000001\","
                     "\"to\":\"0000000000000000000000000000000000000001\","
-                    "\"data\":\"ffff\","
                     "\"nonce\":0,"
                     "\"timestamp\":0,"
-                    "\"hash\":\"" + hashToString(t.hash()) +"\""
+                    "\"hash\":\"" + hashToString(t.hash()) +"\","
+                    "\"data\":\"ffff\""
                     "}",s);
 }
 
@@ -118,7 +118,7 @@ BOOST_AUTO_TEST_CASE(tx_fromJsonStringBadAddress){
 BOOST_AUTO_TEST_CASE(test_toJsonWithType){
   address a1 = makeAddress(1);
   // bytes data{size_t{2},uint8_t{0xff}}; // !called initializer
-  bytes data(size_t{2},uint8_t{0xff}); // we would like this.
+  bytes data = bytesFromString("ffff");
 
   hash256 h;
   std::fill(begin(h.bytes), end(h.bytes), 0xff);
@@ -131,13 +131,13 @@ BOOST_AUTO_TEST_CASE(test_toJsonWithType){
   BOOST_CHECK_EQUAL("{"
                     "\"from\":\"0000000000000000000000000000000000000001\","
                     "\"to\":\"0000000000000000000000000000000000000001\","
-                    "\"data\":\"ffff\","
                     "\"nonce\":0,"
                     "\"timestamp\":0,"
                     "\"hash\":\"" + hashToString(t.hash()) + "\","
-                    "\"type\":\"data\""
+                    "\"type\":\"data\","
+                    "\"data\":\"ffff\""
                     "}",s);
-  }
+}
 
 BOOST_AUTO_TEST_CASE(test_tx_fromJsonWithType){
   const char* s ="{"
@@ -153,10 +153,6 @@ BOOST_AUTO_TEST_CASE(test_tx_fromJsonWithType){
   BOOST_REQUIRE(t.fromJsonString(s));
   BOOST_CHECK_EQUAL(t.nonce, 123);
   BOOST_CHECK(t.type == Tx::Type::data);
-  }
-
-BOOST_AUTO_TEST_CASE(test_tx_fromJsonWithPkPem){
-  
 }
 
 BOOST_AUTO_TEST_CASE(test_makeBlk){
@@ -230,7 +226,7 @@ BOOST_AUTO_TEST_CASE(blk_toJson){
     // BOOST_CHECK_EQUAL(v["txs"][i]["hash"].as_string(),
     //                   hashToString(txs[i].hash()));
     // BOOST_CHECK_EQUAL(v["txs"][i]["timestamp"].as_uint64(),
-                      // txs[i].timestamp);
+    // txs[i].timestamp);
   }
 }
 

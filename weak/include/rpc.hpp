@@ -66,6 +66,7 @@ namespace weak{
         BOOST_LOG_TRIVIAL(warning) << format( "⚠️ Warining: no " S_MAGENTA "IForRpc from pool" S_NOR " passed to rpc. Should be in unit-test");
 
       n->listenToPost("/add_txs",bind(&Rpc::handle_add_txs,this,_1));
+      n->listenToPost("/add_txs_pb",bind(&Rpc::handle_add_txs_pb,this,_1));
       n->listenToGet("/get_latest_Blk",bind(&Rpc::handle_get_latest_Blk,this,_1));
       n->listenToGet("/get_pool_status",bind(&Rpc::handle_get_pool_status,this,_1));
       n->listenToGet("/get_receipt",bind(&Rpc::handle_get_receipt,this,_1));
@@ -409,6 +410,7 @@ namespace weak{
 
       // return make_tuple(true,s);
     }
+
     tuple<bool,string> add_txs_and_return_this(const string & s, vector<Tx> && txs){
       // 🦜 : Here we can start a thread to post the JSON
       bool ok = this->cnsss->addTxs(move(txs));

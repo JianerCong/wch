@@ -754,7 +754,7 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
       // 🦜 if v has a `type` field, use it. Otherwise, use default (evm).
       if (o.contains("type")){
         string s = value_to<string>(o.at("type"));
-        this->type = typeFromString(s);
+        this->type = Tx::typeFromString(s);
       }else{
         this->type = Type::evm;
       }
@@ -765,9 +765,18 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
         should only use it if we are sure.
       */
       s= value_to<string>(o.at("data"));
-      ob = evmc::from_hex(s);
-      if (not ob) BOOST_THROW_EXCEPTION(std::runtime_error("Invalid data = " + s));
-      this->data = ob.value();
+      /* <2024-02-05 Mon> 🦜 :
+         If the type is evm, then data must be
+         hex-encoded. Otherwise, we don't check (for now). (and just save
+         whatever is stored in the json.)
+       */
+      if (this->type == Type::evm){
+        ob = evmc::from_hex(s);
+        if (not ob) BOOST_THROW_EXCEPTION(std::runtime_error("Invalid data = " + s));
+        this->data = ob.value();
+      }else{
+        this->data = weak::bytesFromString(s);
+      }
 
       s= value_to<string>(o.at("to"));
       // this->from = evmc::literals::parse<address>(f); // 🦜 this do abort (not what we wan)
@@ -1098,7 +1107,7 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
     jv = {
       {"from", addressToString(c.from)},
       {"to", addressToString(c.to)},
-      {"data", evmc::hex(c.data)},
+      // {"data", evmc::hex(c.data)}, <2024-02-05 Mon> 🦜 : We don't need to hex it unless it's evm
       {"nonce", c.nonce},
       {"timestamp",static_cast<uint64_t>(c.timestamp)},
       {"hash",hashToString(c.hash())}
@@ -1106,6 +1115,9 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
 
     if (c.type != Tx::Type::evm){
       jv.as_object()["type"] = Tx::typeToString(c.type);
+      jv.as_object()["data"] = toString(c.data);
+    }else{
+      jv.as_object()["data"] = evmc::hex(c.data);
     }
 
     // [2024-01-22] 🐢 : Add the optional field if they are given.

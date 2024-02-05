@@ -3,6 +3,10 @@ w=./build-weak/wch
 # start as Solo-primary at 7777
 $w --port 7777 --mock-exe --unix-socket /tmp/hi-weak.sock
 
+
+e=http:/localhost               # <- 🦜 `localhost` is set to the Host header.
+curl --unix-socket /tmp/hi-weak.sock $e/get_node_status
+
 # 🦜 : send a request via socket, to see
 txs='[
   {"from" : "01",
@@ -11,6 +15,21 @@ txs='[
    "nonce" : 123
   }
 ]'
-e=http:/localhost               # <- 🦜 `localhost` is set to the Host header.
 curl --unix-socket /tmp/hi-weak.sock $e/get_latest_Blk
 # => [] : no Blk
+
+clear &&  pytest -s build-weak/test_with_unix_and_pb.py::test_serv_open_close
+
+
+# --------------------------------------------------
+# python client
+pip install requests-unixsocket
+
+x='syntax = "proto3";
+package hi;
+message Parrot {
+  string name = 1;
+  int32 age = 2;
+}'
+echo "$x" > hi.proto
+protoc -I=. --pyi_out=. --python_out=. ./hi.proto

@@ -45,6 +45,7 @@ BOOST_AUTO_TEST_CASE(test_add_txs_pb){
   BOOST_CHECK_EQUAL(addressToString(txs[0].from), addressToString(a1));
   BOOST_CHECK_EQUAL(addressToString(txs[0].to), addressToString(a2));
   BOOST_CHECK_EQUAL(toString(txs[0].data), toString(data));
+  BOOST_CHECK_EQUAL(txs[0].nonce, 0);
 
   // 🦜 : The rpl should be hiPb::AddTxsReply
   hiPb::AddTxsReply rpl_pb;

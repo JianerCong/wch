@@ -141,6 +141,15 @@ target_link_libraries(hi_pb_core PUBLIC protobuf::libprotobuf)
 target_link_libraries(hi_pb PUBLIC hi_pb_core)
 message("🐸 HI_PB_SRC: ${HI_PB_SRC}")
 
+# 🦜 : Make the
+# the core's pb for python
+protobuf_generate(LANGUAGE python
+  TARGET hi_pb_core
+  OUT_VAR HI_PB_SRC_PY
+  IMPORT_DIRS "${o0}/"
+  PROTOC_OUT_DIR ${CMAKE_BINARY_DIR}
+)
+
 #The core-dependencies (These should be cross-platform). 🦜 : These are the dependencies needed for most tests
 if (WIN32)
   # manually import the libcrypto
