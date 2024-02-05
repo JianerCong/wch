@@ -1,6 +1,19 @@
 syntax = "proto3";
 package hiPb;
 
+service Greeter {
+  rpc AddTxs(Txs) returns (AddTxsReply) {}
+}
+
+message AddTxReply {
+  bytes hash = 1;
+  bytes deployed_addr = 2;
+}
+
+message AddTxsReply {
+  repeated AddTxReply txs = 1;
+}
+
 message Acn {
   uint64 nonce = 1;
   bytes code = 2;
@@ -20,10 +33,11 @@ message Tx {
   bytes from_addr = 2;
   bytes to_addr = 3;
   bytes data = 4;
-  uint64 timestamp = 5;
+  uint64 timestamp = 5;         // [not needed in rpc]
   uint64 nonce = 6;
   bytes hash = 7;               // will be serialized, but not parsed
 
+  // 🦜 : The following 3 are optional in rpc param
   string pk_pem = 8;
   bytes signature = 9;          // key.sign(hash)
   bytes pk_crt = 10;            // ca_key.sign(pk_pem)

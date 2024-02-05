@@ -402,6 +402,15 @@ namespace weak{
 
       // 🦜 : Here we can start a thread to post the JSON
       auto [s, txs] = r.value();
+      return add_txs_and_return_this(s,std::move(txs));
+      // bool ok = this->cnsss->addTxs(move(txs));
+      // if (not ok)
+      //   return make_tuple(false,"Sorry, we have encountered some error in our side."
+      //                     "So your requests to add Txs is failed. Please try again latter.");
+
+      // return make_tuple(true,s);
+    }
+    tuple<bool,string> add_txs_and_return_this(const string & s, vector<Tx> && txs){
       bool ok = this->cnsss->addTxs(move(txs));
       if (not ok)
         return make_tuple(false,"Sorry, we have encountered some error in our side."
@@ -409,7 +418,6 @@ namespace weak{
 
       return make_tuple(true,s);
     }
-
   };
 
 

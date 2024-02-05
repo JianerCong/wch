@@ -40,7 +40,7 @@ endmacro()
 ## instead ] set_test(test-pure-net core-deps)
 
 # set_test(test-pure-anet core-deps)
-# set_test(test-rpc core-deps)
+set_test(test-rpc core-deps)
 # set_test(test-init deps)
 # set_test(test-inRamWrld deps)
 # set_test(test-pure-greenClient core-deps)

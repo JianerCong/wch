@@ -976,14 +976,19 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
         // BOOST_LOG_TRIVIAL(debug) << format("⚙️ Constructing Tx and back-to-client object");
         // Tx tx{from.value(),to.value(),data.value(),n};
         // ^^ 🦜 : refactored
-        // 🦜 : but we need to add a `timestamp` field for the client
+
+        // 🦜 : but we need to add a `timestamp` field for the client, and
+        // because this is a required field, so we kinda need to add it here.
+        // This is unlike pb, where all fields are optional.
+
         o.emplace("timestamp",std::time(nullptr));
         Tx tx;
         tx.fromJson0(o);
+        // tx.timestamp = std::time(nullptr);
 
         json::object o0;
         o0["hash"] = hashToString(tx.hash());
-        if (not bool(tx.to)){
+        if (tx.type != Tx::Type::data and not bool(tx.to)){ // is a CREATE tx
           /* 🦜 : Here we use the helper from evmc.hpp
          /// Checks if the given address is the zero address.
          inline constexpr bool is_zero(const address& a) noexcept
@@ -1003,6 +1008,86 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
       }
 
       return make_tuple(json::serialize(os),txs);
+    }
+
+
+    /**
+     * @brief [2024-02-05] Help Rpc to parse the pbString that should represent an array of Txs.
+     *
+     * @param s The array of Tx in pbString, the serialized Txs.
+     *
+     * 🦜 This should mimic `parse_txs_jsonString_for_rpc()`
+     *
+     * message AddTxReply {
+     *   bytes hash = 1;
+     *   bytes deployed_addr = 2;
+     * }
+
+     * message AddTxsReply {
+     *   repeated AddTxReply txs = 1;
+     * }
+     *
+     *
+     * message Tx {
+     *   TxType type = 1;
+     *   bytes from_addr = 2;
+     *   bytes to_addr = 3;
+     *   bytes data = 4;
+     *   uint64 timestamp = 5;         // [not needed in rpc]
+     *   uint64 nonce = 6;
+     *   bytes hash = 7;               // will be serialized, but not parsed
+     *   // 🦜 : The following 3 are optional in rpc param
+     *   string pk_pem = 8;
+     *   bytes signature = 9;          // key.sign(hash)
+     *   bytes pk_crt = 10;            // ca_key.sign(pk_pem)
+     * }                               // [x]
+     * message Txs {repeated Tx txs = 1;} // [x]
+     */
+    static optional<tuple<string,vector<Tx>>> parse_txs_pbString_for_rpc(string_view s) noexcept {
+      hiPb::Txs pb;
+      if (not pb.ParseFromString(string(s))){
+        BOOST_LOG_TRIVIAL(debug) << format("❌️ Error parsing Txs pbString");
+        return {};
+      }
+
+      return Tx::parse_txs_pb_for_rpc(pb);
+    }
+
+    /**
+     * @brief The helper of parse_txs_pbString_for_rpc().
+     *
+     * @param pb The Txs in pb format.
+     *
+     * @return The pair (s,txs), where `s` is the string to be sent back to
+     * client and `txs` is the parse Txs. This function throws on error.(🦜 :
+     * The exception should be caught by `parse_txs_pbString_for_rpc()`).
+     */
+    static optional<tuple<string,vector<Tx>>> parse_txs_pb_for_rpc(const hiPb::Txs & pb) {
+      hiPb::AddTxsReply atx;    // the output object
+
+      vector<Tx> txs;
+      try{
+        for (const hiPb::Tx & tx : pb.txs()){
+          Tx t;
+          t.fromPb(tx);         // may throw
+
+          // 🦜 : similarly, add the `timestamp` field for the client
+          t.timestamp = std::time(nullptr);
+          txs.push_back(t);
+
+          hiPb::AddTxReply atx0;
+          atx0.set_hash(weak::toByteString<hash256>(t.hash()));
+          if (t.type != Tx::Type::data and not bool(t.to)){ // is a CREATE tx
+            atx0.set_deployed_addr(weak::toByteString<address>(Tx::getContractDeployAddress(t)));
+          }
+          atx.add_txs()->CopyFrom(atx0);
+        }
+      }catch (std::exception const & e){
+        BOOST_LOG_TRIVIAL(debug) << format("❌️ Error parsing Txs pbString:\n%s") % boost::diagnostic_information(e);
+        return {};
+      }
+
+      return make_tuple(atx.SerializeAsString(),txs);
     }
 
   };

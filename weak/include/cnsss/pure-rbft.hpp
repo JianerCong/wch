@@ -431,7 +431,9 @@ public:
     void  handle_new_primary(string endpoint, string data){
       NewViewCertificate o;
       if (not o.fromString(data)){
-        this->say(format("❌️Error parsing NewViewCertificate " S_RED "%s" S_NOR) % data);
+        this->say(format("❌️Error parsing NewViewCertificate " S_RED "%s" S_NOR) %
+                  get_data_for_log(data)
+                  );
         return ;
       }
       vector<string> newcomers = this->get_newcommers(o.sig_of_nodes_to_be_added);
@@ -742,8 +744,10 @@ public:
       std::unique_lock l(this->to_be_confirmed_commands.lock);
 
       if (not this->to_be_confirmed_commands.o.contains(data)){
+
         this->say(format("Adding " S_MAGENTA "%s " S_NOR " from  " S_MAGENTA "%s" S_NOR)
-                  % data % endpoint);
+                  % get_data_for_log(data)
+                  % endpoint);
         this->to_be_confirmed_commands.o[data] = make_shared<std::set<string>>();
       }
 
@@ -763,10 +767,11 @@ public:
       */
 
       long unsigned int x = this->N() - 1 - this->f();
+
       if (s->size() >= x){
         this->say(format("⚙️ command " S_CYAN "%s " S_NOR
                          " confirmed by " S_CYAN "%d " S_NOR " node%s, boardcasting commit")
-                  % data % s->size() % pluralizeOn(s->size())
+                  % get_data_for_log(data) % s->size() % pluralizeOn(s->size())
                   );
 
         this->boardcast_to_other_subs("/pleaseCommitThis", data);
@@ -778,7 +783,7 @@ public:
       }else{
         this->say(format("⚙️ command " S_CYAN "%s " S_NOR
                          " confirmed by " S_CYAN "%d " S_NOR " node%s, not yet.")
-                  % data % s->size() % pluralizeOn(s->size())
+                  % get_data_for_log(data) % s->size() % pluralizeOn(s->size())
                   );
       }
     }
@@ -820,9 +825,13 @@ public:
     void  add_to_to_be_committed_commands(string endpoint, string data){
       std::unique_lock l(this->to_be_committed_commands.lock);
 
+      string data_for_log = get_data_for_log(data);
       if (not this->to_be_committed_commands.o.contains(data)){
+        // this->say(format("Adding " S_MAGENTA "%s " S_NOR " from  " S_MAGENTA "%s" S_NOR)
+        //           % data % endpoint);
+
         this->say(format("Adding " S_MAGENTA "%s " S_NOR " from  " S_MAGENTA "%s" S_NOR)
-                  % data % endpoint);
+                  % data_for_log % endpoint);
         this->to_be_committed_commands.o[data] = make_shared<std::set<string>>();
       }
 
@@ -845,7 +854,7 @@ public:
       if (s->size() >= x){
         this->say(format("⚙️ command " S_CYAN "%s " S_NOR
                          " committed by " S_CYAN "%d " S_NOR " node%s, execute it and clear 🚮️")
-                  % data % s->size() % pluralizeOn(s->size())
+                  % data_for_log % s->size() % pluralizeOn(s->size())
                   );
         this->finally_execute_it(data);
         // remove the entry at all
@@ -853,7 +862,7 @@ public:
       }else{
         this->say(format("⚙️ command " S_CYAN "%s " S_NOR
                          " committed by " S_CYAN "%d " S_NOR " node%s, not yet.")
-                  % data % s->size() % pluralizeOn(s->size())
+                  % data_for_log % s->size() % pluralizeOn(s->size())
                   );
       }
     }
@@ -1097,7 +1106,7 @@ public:
       // this->say("3.");
       // 🦜 : This is the list that data (signed msg) will be added in.
       if (::pure::contains(to_be_added_list, data)){
-        this->say(format("🚮️ Ignoring duplicated msg:" S_CYAN "%s" S_NOR)% data);
+        this->say(format("🚮️ Ignoring duplicated msg:" S_CYAN "%s" S_NOR)% get_data_for_log(data));
         return;
       }
       to_be_added_list->push_back(data);
@@ -1587,15 +1596,10 @@ public:
 
     void send(string endpoint, string target, string data) noexcept override{
       string k = make_k(endpoint,target);
-      #if defined (WITH_PROTOBUF)
-      BOOST_LOG_TRIVIAL(debug) << format(" Calling handler:  " S_GREEN "%s" S_NOR
-                                         ) % k;
-      #else
       BOOST_LOG_TRIVIAL(debug) << format(" Calling handler:  " S_GREEN "%s" S_NOR
                                          "with data\n"
                                          S_CYAN "%s" S_NOR
-                                         ) % k % data;
-      #endif
+                                         ) % k % get_data_for_log(data);
 
       // write send()
       optional<string> r;

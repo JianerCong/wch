@@ -3,17 +3,16 @@ from helpers import *
 port = 7777
 
 def close_and_check(p):
-    o,e = p.communicate(b'\n')         # send a \n and wait for completion
-    if p.returncode != 0:
-        print(f'OUT--------------------------------------------------')
-        print(o)
-        print(f'ERR--------------------------------------------------')
-        print(e)
+    o,e = p.communicate('\n')         # send a \n and wait for completion
+    print(f'OUT--------------------------------------------------')
+    print(o)
+    print(f'ERR--------------------------------------------------')
+    print(e)
     assert p.returncode == 0
 
 def start_p(port: int,args: list[str]):
     return Popen([wc, '--port', str(port),'--mock-exe','--consensus','Rbft',] + args,
-                 stdin=PIPE,stdout=PIPE,stderr=PIPE)  # singleton
+                 stdin=PIPE,stdout=PIPE,stderr=PIPE,text=True)  # singleton
 
 def test_serv_open_close(): #9
     # Does the program run ?
@@ -31,7 +30,7 @@ def test_serv_send_basic_node_status(): #19
     port += 1
 
     url = f'http://localhost:{port}/'
-    # p = Popen([wc, '--port', str(port)],stdin=PIPE,stdout=PIPE,stderr=PIPE)
+    # p = Popen([wc, '--port', str(port)],stdin=PIPE,stdout=PIPE,stderr=PIPE,text=True)
     p = start_p(port,['--Bft.node-list', 'localhost:' + str(port)])
     time.sleep(3)                   #  wait until is up
     result = requests.get(url + 'get_node_status')
@@ -120,7 +119,7 @@ def test_serv_three_nodes_add_txs(): #45
     p1 = start_p(ports[0],args)
     time.sleep(2)                   #  wait until is up
 
-    # p1 = Popen([wc,'--mock-exe', '--port', ports[0]],stdin=PIPE,stdout=PIPE,stderr=PIPE)
+    # p1 = Popen([wc,'--mock-exe', '--port', ports[0]],stdin=PIPE,stdout=PIPE,stderr=PIPE,text=True)
     # time.sleep(2)                   #  wait until is up
 
     # the subs
@@ -148,16 +147,15 @@ def test_serv_three_nodes_add_txs(): #45
         stop_and_test(p2,'sub1')
         stop_and_test(p3,'sub2')
 
-def stop_and_test(p,s :str ='Primary'):
+def stop_and_test(p,s : str ='Primary'):
     # send a get node status?
-    o1,e1 = p.communicate(b'\n')         # send a \n and wait for completion
-    if p.returncode != 0:
-        print(f'OUT FOR {s}--------------------------------------------------')
-        print(o1)
-        print(f'ERR FOR {s}--------------------------------------------------')
-        print(e1)
+    o1,e1 = p.communicate('\n')         # send a \n and wait for completion
+    print(f'OUT FOR {s}--------------------------------------------------')
+    print(o1)
+    print(f'ERR FOR {s}--------------------------------------------------')
+    print(e1)
     assert p.returncode == 0
     # 🦜 : o1 should have 'Exec: t' ⇒ This means the node has executed
     # 'AddTx'. Note that this only exists for mocked exe.
-    assert b'Exec: ' in o1
+    assert 'Exec: ' in o1
 

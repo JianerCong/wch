@@ -95,7 +95,7 @@ namespace weak {
 
     bool setInChainDB(const string k, const string v) override{
       BOOST_LOG_TRIVIAL(debug) << format("Setting chainDB\n\t" S_CYAN "k=%s\n\tv=%s" S_NOR)
-        % k % v;
+        % k % pure::get_data_for_log(v);
       rocksdb::Status s = this->chainDB->Put(rocksdb::WriteOptions(), k, v);
       return checkStatus(s,"",false/*not fatal*/);
     };

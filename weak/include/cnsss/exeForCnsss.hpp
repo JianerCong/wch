@@ -282,7 +282,7 @@ namespace weak {
         % b.number % b.txs.size();
 
       cmd = static_cast<char>(Cmd::EXECUTE_BLK) + b.toString();
-      BOOST_LOG_TRIVIAL(debug) << format("cmd updated to : " S_MAGENTA " %s" S_NOR) % cmd;
+      BOOST_LOG_TRIVIAL(debug) << format("cmd updated to : " S_MAGENTA " %s" S_NOR) % pure::get_data_for_log(cmd);
 
       return "OK";
     }

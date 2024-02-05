@@ -34,6 +34,15 @@
 
 namespace pure {
 
+  string get_data_for_log(string_view data){
+#if defined (WITH_PROTOBUF)
+    // return encode_base64(data);
+    return "<--binary-data-of size" + std::to_string(data.size()) + ">";
+#else
+    return string(data);
+#endif
+  }
+
   using boost::format;
   using std::move;
   using std::vector;
@@ -169,8 +178,21 @@ namespace pure {
         this->id = i;
     };
     string execute(string & cmd) noexcept override{
+#ifdef WITH_PROTOBUF
+      // cmd_for_show = cmd[0] + base64(cmd[1:])
+      string cmd_for_log;
+      if (cmd.size() > 1){
+        cmd_for_log = cmd[0] + encode_base64(cmd.substr(1));
+      }else{
+        cmd_for_log = cmd;
+      }
+      BOOST_LOG_TRIVIAL(debug) << format(S_RED "🦜 [%s] Exec: %s" S_NOR)
+        % this->id % cmd_for_log;
+#else
       BOOST_LOG_TRIVIAL(debug) << format(S_RED "🦜 [%s] Exec: %s" S_NOR)
         % this->id % cmd;
+#endif
+
       return "OK";
     };
 

@@ -147,7 +147,7 @@ namespace pure{
                             "or the signature verification is failed.");
         const auto [from,data] = r0.value();
 
-        BOOST_LOG_TRIVIAL(debug) << format("\tmsg unpacked, from=" S_BLUE "%s" S_NOR ",data=" S_GREEN "%s" S_NOR) % from % data;
+        BOOST_LOG_TRIVIAL(debug) << format("\tmsg unpacked, from=" S_BLUE "%s" S_NOR ",data=" S_GREEN "%s" S_NOR) % from % get_data_for_log(data);
 
         optional<string> r = h(from,data);
         /*

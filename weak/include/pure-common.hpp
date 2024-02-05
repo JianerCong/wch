@@ -26,7 +26,14 @@
 #include <tuple>
 #include <unordered_map>
 
+#include <boost/beast/core/detail/base64.hpp>
+#include <string_view>
+using std::string_view;
+#include <string>
+using std::string;
+
 namespace pure{
+
   using std::vector;
   using std::shared_ptr;
   using std::optional;
@@ -39,6 +46,22 @@ namespace pure{
   using boost::format;
   using std::string_view;
   using std::string;
+
+  // /**
+  //  * @brief 🦜 : [2024-0205] We added this function to show pb in log
+  //  */
+  // string encode_base64(string_view s, int out_cap=100){
+  //   using boost::beast::detail::base64::encode;
+  //   using boost::beast::detail::base64::encoded_size;
+  //   char* out = new char[encoded_size(s.size())];
+  //   size_t out_size = encode((void*) out,(void const *)s.data(), s.size());
+  //   string s0 = string(out, out_size);
+  //   delete[] out;
+  //   if (s0.size() > out_cap)
+  //     return s0.substr(0,out_cap);
+  //   return s0;
+  // }
+
   namespace json = boost::json;
   using json::value_to;
   /**
