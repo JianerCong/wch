@@ -400,23 +400,32 @@ namespace weak{
       if (not r)
         return make_tuple(false,"Invalid input JSON format.");
 
-      // 🦜 : Here we can start a thread to post the JSON
       auto [s, txs] = r.value();
-      // return add_txs_and_return_this(s,txs);
+      return add_txs_and_return_this(s,std::move(txs));
+      // bool ok = this->cnsss->addTxs(move(txs));
+      // if (not ok)
+      //   return make_tuple(false,"Sorry, we have encountered some error in our side."
+      //                     "So your requests to add Txs is failed. Please try again latter.");
+
+      // return make_tuple(true,s);
+    }
+    tuple<bool,string> add_txs_and_return_this(const string & s, vector<Tx> && txs){
+      // 🦜 : Here we can start a thread to post the JSON
       bool ok = this->cnsss->addTxs(move(txs));
       if (not ok)
         return make_tuple(false,"Sorry, we have encountered some error in our side."
                           "So your requests to add Txs is failed. Please try again latter.");
 
+      // --------------------------------------------------
       return make_tuple(true,s);
     }
-    tuple<bool,string> add_txs_and_return_this(const string & s, vector<Tx> txs){
-      bool ok = this->cnsss->addTxs(move(txs));
-      if (not ok)
-        return make_tuple(false,"Sorry, we have encountered some error in our side."
-                          "So your requests to add Txs is failed. Please try again latter.");
 
-      return make_tuple(true,s);
+    tuple<bool,string> handle_add_txs_pb(string_view data){
+      optional<tuple<string,vector<Tx>>> r = Tx::parse_txs_pbString_for_rpc(data);
+      if (not r)
+        return make_tuple(false,"Invalid input Pb format.");
+      auto [s, txs] = r.value();
+      return add_txs_and_return_this(s,std::move(txs));
     }
   };
 
