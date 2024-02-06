@@ -139,7 +139,6 @@ BOOST_AUTO_TEST_CASE(test_pb_to_blk){
 
   pb.mutable_header()->set_number(1);
   pb.mutable_header()->set_parenthash(toByteString<hash256>(p));
-  pb.mutable_header()->set_hash(toByteString<hash256>(p));
 
   // txs
   Tx t1 = Tx(a1,a2,data,123/*nonce*/);

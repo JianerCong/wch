@@ -46,7 +46,7 @@ message Tx {
 
 message Txs {repeated Tx txs = 1;} // [x]
 
-message BlkHeader {uint64 number = 1; bytes parentHash = 2; bytes hash = 3;}
+message BlkHeader {uint64 number = 1; bytes parentHash = 2;}
 
 message Blk {BlkHeader header = 1; repeated Tx txs = 2;} // [x]
 

@@ -27,9 +27,12 @@ namespace weak{
         << format("Making BlkForConsensus-%d,\n\tparentHash=%s,\n\ttx size=%d")
         % number % parentHash % txhs.size();
 
+    }
+
+    hash256 hash() const noexcept override {
       // Calculate hash based on the hashes of txs
       // TODO: 🦜 For now, we use serial hashing, later should be changed to Merkle tree.
-      hash256 h = parentHash;
+      hash256 h = this->parentHash;
       static uint8_t s[64];     // a buffer for hashing
 
       for (const hash256& h1 : txhs){
@@ -40,7 +43,7 @@ namespace weak{
         h = ethash::keccak256(reinterpret_cast<uint8_t*>(s),64);
         // BOOST_LOG_TRIVIAL(debug) << format("Now hash is %s") % hashToString(h);
       }
-      this->hash = h;
+      return h;
     }
 
     /**

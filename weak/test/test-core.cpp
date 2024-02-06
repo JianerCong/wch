@@ -172,13 +172,10 @@ BOOST_AUTO_TEST_CASE(test_makeBlk){
 
   BOOST_CHECK_EQUAL(b.number,1);
   BOOST_CHECK_EQUAL(b.txs.size(),2);
-  for (int i=0;i<32;i++)
-    BOOST_CHECK_EQUAL(b.hash.bytes[i],b2.parentHash.bytes[i]);
 
-  BOOST_CHECK(!std::equal(std::begin(b.hash.bytes),
-                          std::end(b.hash.bytes),
-                          std::begin(b2.hash.bytes)
-                          ));
+  BOOST_CHECK_EQUAL(hashToString(b.hash()),hashToString(b2.parentHash));
+
+  BOOST_CHECK_NE(b.hash(),b2.hash());
 }
 
 
@@ -239,7 +236,6 @@ BOOST_AUTO_TEST_CASE(blk_fromJson){
   json::value v{
     {"number", 1},
     {"parentHash", string(32*2,'b')},
-    {"hash", string(32*2,'a')},
     {"txs", json::value_from(vector<Tx>({t1,t2}))}
     // 🦜 :json knows about vector and array
     // 🐢 :U have mentioned it already.
@@ -253,7 +249,6 @@ BOOST_AUTO_TEST_CASE(blk_fromJson){
 
   // Block info
   BOOST_CHECK_EQUAL(b.number,1);
-  BOOST_CHECK_EQUAL(hashToString(b.hash), value_to<string>(v.at("hash")));
   BOOST_CHECK_EQUAL(hashToString(b.parentHash), value_to<string>(v.at("parentHash")));
 
 

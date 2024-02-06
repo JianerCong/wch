@@ -1207,12 +1207,13 @@ class ITxExecutable {
   class BlkHeader: virtual public IJsonizable {
   public:
     uint64_t number;
-    hash256 hash;
     /// empty for genesis block
     hash256 parentHash;
     BlkHeader() = default;
     BlkHeader(const uint64_t n,const hash256 p): number(n),parentHash(p){};
 
+    // hash256 hash;
+    virtual hash256 hash() const noexcept = 0;
 
     json::value toJson() const noexcept override {
       return json::value_from(*this);
@@ -1227,12 +1228,12 @@ class ITxExecutable {
         this->number = value_to<uint64_t>(v.at("number"));
         string p,h;
         p= value_to<string>(v.at("parentHash"));
-        h= value_to<string>(v.at("hash"));
 
-        // TODO[done]: check if these bytes are valid hex. 🦜 : done in <2024-01-30 Tue>
-        oh = evmc::from_hex<hash256>(h);
-        if (not oh) BOOST_THROW_EXCEPTION(std::runtime_error("Invalid hash = " + h));
-        this->hash = oh.value();
+        // <2024-02-06 Tue> 🦜 : change hash to method
+        // h= value_to<string>(v.at("hash"));
+        // oh = evmc::from_hex<hash256>(h);
+        // if (not oh) BOOST_THROW_EXCEPTION(std::runtime_error("Invalid hash = " + h));
+        // this->hash = oh.value();
 
         oh = evmc::from_hex<hash256>(p);
         if (not oh) BOOST_THROW_EXCEPTION(std::runtime_error("Invalid hash = " + h));
@@ -1246,8 +1247,6 @@ class ITxExecutable {
       return true;
     }
   };
-
-  
 
   class Blk: public BlkHeader
            ,virtual public IJsonizable
@@ -1267,20 +1266,11 @@ class ITxExecutable {
       // 1. form the BlkHeader part
       // --------------------------------------------------
       this->number = pb.header().number();
-      string s;
-      s = pb.header().hash();   // should be hash256 = 32 bytes
-      BOOST_ASSERT(s.size() == 32); // throws my_assertion_error
-      // if (s.size() != 32) BOOST_THROW_EXCEPTION(std::runtime_error(
-      //                                                              (format("Invalid hash size, should be 32, but got %d")
-      //                                                               % s.size()
-      //                                                               ).str()
-      //                                                              ));
-      this->hash = weak::fromByteString<hash256>(s);
 
       s = pb.header().parenthash();   // should be hash256 = 32 bytes
-      BOOST_ASSERT(s.size() == 32); // throws my_assertion_error
 
-      this->parentHash = weak::fromByteString<hash256>(s);
+      // BOOST_ASSERT(s.size() == 32); // throws my_assertion_error
+      this->parentHash = weak::fromByteString<hash256>(s); // may throw
 
       // 2. form the txs part
       // --------------------------------------------------
@@ -1296,7 +1286,6 @@ class ITxExecutable {
 
       // set the header
       pb.mutable_header()->set_number(this->number);
-      pb.mutable_header()->set_hash(weak::toByteString<hash256>(this->hash));
       pb.mutable_header()->set_parenthash(weak::toByteString<hash256>(this->parentHash));
 
       // set the txs
@@ -1324,13 +1313,14 @@ class ITxExecutable {
     {
       BOOST_LOG_TRIVIAL(info) << format("Making block-%d,\n\tparentHash=%s,\n\ttx size=%d")
         % number % hashToString(parentHash) % txs.size();
+    }
 
+    hash256 hash() const noexcept override {
       // Calculate hash based on the hashes of txs
       // TODO: 🦜 For now, we use serial hash, later should be changed to Merkle tree.
-      hash256 h = parentHash;
+      hash256 h = this->parentHash;
       static uint8_t s[64];     // a buffer for hashing
-
-      for (const Tx& tx : txs){
+      for (const Tx& tx : this->txs){
         // BOOST_LOG_TRIVIAL(debug) << format("Hashing for tx-%d") % tx.nonce;
         std::copy_n(std::cbegin(tx.hash().bytes),32,s);
         std::copy_n(std::cbegin(h.bytes),32,s + 32);
@@ -1338,21 +1328,7 @@ class ITxExecutable {
         h = ethash::keccak256(reinterpret_cast<uint8_t*>(s),64);
         // BOOST_LOG_TRIVIAL(debug) << format("Now hash is %s") % hashToString(h);
       }
-      this->hash = h;
-    }
-
-
-    /**
-     * @brief The ctor that doesn't calculate the hash.
-     */
-    Blk(const uint64_t n,const hash256 h, const hash256 p,vector<Tx> t):
-      BlkHeader(n,p),
-      txs(t){
-      this->hash = h;
-      BOOST_LOG_TRIVIAL(info) << format("Making block-%d with given hash\n\t"
-                                        "hash=" S_GREEN "%s" S_NOR
-                                        ",\n\tparentHash=" S_GREEN "%s" S_NOR ",\n\ttx size=" S_GREEN "%d" S_NOR)
-        % number % hash % hashToString(parentHash) % txs.size();
+      return h;
     }
 
     vector<Tx> txs;
@@ -1392,7 +1368,7 @@ class ITxExecutable {
   void tag_invoke(json::value_from_tag, json::value& jv, BlkHeader const& b ){
     jv = {
       {"number", b.number},
-      {"hash", hashToString(b.hash)},
+      {"hash", hashToString(b.hash())},
       {"parentHash", hashToString(b.parentHash)},
       // {"txs", json::value_from(b.txs)}
       /* 🦜 : boost:json knows about std::vector, they turn it into array*/
