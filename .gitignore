@@ -524,3 +524,4 @@ rsconnect/
 *_pb2.py
 *_pb2.pyi
 
+flycheck_*

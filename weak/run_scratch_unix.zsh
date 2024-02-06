@@ -5,6 +5,8 @@ $w --port 7777 --mock-exe --unix-socket /tmp/hi-weak.sock
 
 # disable ram
 $w --port 7777 --consensus Solo-static --unix-socket /tmp/hi-weak.sock
+# disable log
+$w --port 7777 --consensus Solo-static --verbose=no --unix-socket /tmp/hi-weak.sock
 
 
 e=http:/localhost               # <- 🦜 `localhost` is set to the Host header.
@@ -20,3 +22,4 @@ clear &&  pytest -s build-weak/test_with_unix_and_pb.py::test_serv_send_basic_no
 clear &&  pytest -s build-weak/test_with_unix_and_pb.py::test_add_txs
 
 python ./weak/send_a_tx_pb.py      # try the pb
+python ./weak/weak_txs_tool.py      # try the tool
