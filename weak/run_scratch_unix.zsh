@@ -20,5 +20,6 @@ curl --unix-socket /tmp/hi-weak.sock $e/get_latest_Blk
 
 clear &&  pytest -s build-weak/test_with_unix_and_pb.py::test_serv_open_close
 clear &&  pytest -s build-weak/test_with_unix_and_pb.py::test_serv_send_basic_node_status
+clear &&  pytest -s build-weak/test_with_unix_and_pb.py::test_add_txs
 
 
