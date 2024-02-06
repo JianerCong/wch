@@ -69,6 +69,16 @@ target_link_libraries(wch PUBLIC deps)
 # configure_file(test_with_light_exe.py test_with_light_exe.py)
 # configure_file(test_psstn.py test_psstn.py)
 
+# 🦜 : Make the
+# the core's pb for python
+set(o "${CMAKE_CURRENT_SOURCE_DIR}")
+protobuf_generate(LANGUAGE python
+  TARGET hi_pb_core
+  OUT_VAR HI_PB_SRC_PY
+  IMPORT_DIRS "${o0}/"
+  PROTOC_OUT_DIR ${o}
+  PROTOC_OPTIONS "--pyi_out=${o}"
+)
 file(GLOB l ${CMAKE_CURRENT_SOURCE_DIR}/*.py)
 message(STATUS "got OOthon files: ${l}")
 foreach(X IN LISTS l)

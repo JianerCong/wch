@@ -1,5 +1,8 @@
 from helpers import *
+from hi_pb2 import Txs
 
+import requests_unixsocket
+session = requests_unixsocket.Session()
 port = 7777
 
 def close_and_check(p):
@@ -25,14 +28,14 @@ def test_serv_send_basic_node_status(): #19
     global port
     port += 1
 
-    url = f'http://localhost:{port}/'
-
+    url = f'http+unix://%2Ftmp%2Fhi-weak.sock/'
     p = Popen([wc, '--port', str(port), '--mock-exe','--unix-socket', '/tmp/hi-weak.sock'],
               stdin=PIPE,stdout=PIPE,stderr=PIPE,text=True)
 
     time.sleep(2)                   #  wait until is up
 
-    result = requests.get(url + 'get_node_status')
+    result = session.get(url + 'get_node_status')
     assert result.ok
 
     close_and_check(p)
+

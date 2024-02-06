@@ -107,6 +107,7 @@ add_library(hi_pb
   "${o0}/cnsss/pure-rbft.proto"
   "${o0}/cnsss/pure-listenToOne.proto"
 )
+
 set(o "${o0}/.generated_pb")
 # mkdir first
 file(MAKE_DIRECTORY "${o}")
@@ -133,7 +134,7 @@ add_library(hi_pb_core "${o0}/hi.proto")
 protobuf_generate(LANGUAGE cpp
   TARGET hi_pb_core
   OUT_VAR HI_PB_SRC
-  IMPORT_DIRS "${o0}/"
+  IMPORT_DIRS "${o0}"
   PROTOC_OUT_DIR "${o}"
 )
 
@@ -141,14 +142,10 @@ target_link_libraries(hi_pb_core PUBLIC protobuf::libprotobuf)
 target_link_libraries(hi_pb PUBLIC hi_pb_core)
 message("🐸 HI_PB_SRC: ${HI_PB_SRC}")
 
-# 🦜 : Make the
-# the core's pb for python
-protobuf_generate(LANGUAGE python
-  TARGET hi_pb_core
-  OUT_VAR HI_PB_SRC_PY
-  IMPORT_DIRS "${o0}/"
-  PROTOC_OUT_DIR ${CMAKE_BINARY_DIR}
-)
+
+#[=[
+🦜 : ⚠️There's a warning to this `protobuf_generate`... It's only generated at build-time.
+#]=]
 
 #The core-dependencies (These should be cross-platform). 🦜 : These are the dependencies needed for most tests
 if (WIN32)

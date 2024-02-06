@@ -19,17 +19,6 @@ curl --unix-socket /tmp/hi-weak.sock $e/get_latest_Blk
 # => [] : no Blk
 
 clear &&  pytest -s build-weak/test_with_unix_and_pb.py::test_serv_open_close
+clear &&  pytest -s build-weak/test_with_unix_and_pb.py::test_serv_send_basic_node_status
 
 
-# --------------------------------------------------
-# python client
-pip install requests-unixsocket
-
-x='syntax = "proto3";
-package hi;
-message Parrot {
-  string name = 1;
-  int32 age = 2;
-}'
-echo "$x" > hi.proto
-protoc -I=. --pyi_out=. --python_out=. ./hi.proto

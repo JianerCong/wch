@@ -359,3 +359,6 @@ rsconnect/
 .generated_pb
 
 .tmp/
+
+*_pb2.py
+*_pb2.pyi
