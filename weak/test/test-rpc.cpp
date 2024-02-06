@@ -530,7 +530,7 @@ BOOST_AUTO_TEST_CASE(test_get_latest_blk){
     vector<ExecBlk> vb = json::value_to<vector<ExecBlk>>(jv);
     BOOST_REQUIRE_EQUAL(vb.size(),expected_i);
     for (int i=0;i<expected_i;i++)
-      BOOST_CHECK_EQUAL(vb[i].hash,b.hash);
+      BOOST_CHECK_EQUAL(vb[i].hash(),b.hash());
   };
 
   // --------------------------------------------------
@@ -598,7 +598,7 @@ BOOST_AUTO_TEST_CASE(test_handle_get_latest_Blk){
     vector<ExecBlk> vb = json::value_to<vector<ExecBlk>>(jv);
     BOOST_REQUIRE_EQUAL(vb.size(),expected_i);
     for (int i=0;i<expected_i;i++)
-      BOOST_CHECK_EQUAL(vb[i].hash,b.hash);
+      BOOST_CHECK_EQUAL(vb[i].hash(),b.hash());
   };
 
   // test good

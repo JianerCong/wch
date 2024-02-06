@@ -275,7 +275,7 @@ namespace weak {
 
       // 🦜 : Looks like it's an okay blk, so we update the state.
       this->next_blk_number++;
-      this->previous_hash = b.hash;
+      this->previous_hash = b.hash();
 
       BOOST_LOG_TRIVIAL(debug) << format("Making " S_MAGENTA " EXECUTE_BLK() " S_NOR " cmd for "
                                          S_CYAN " Blk-%d, txs size: %d" S_NOR)

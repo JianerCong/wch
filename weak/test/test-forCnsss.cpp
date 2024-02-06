@@ -58,7 +58,7 @@ BOOST_AUTO_TEST_CASE(test_BlkCns_to_json){
 
   BOOST_CHECK_EQUAL(value_to<uint64_t>(o["number"]),123);
   BOOST_CHECK_EQUAL(value_to<string>(o["parentHash"]), hashToString(h));
-  BOOST_CHECK_EQUAL(value_to<string>(o["hash"]), hashToString(b.hash));
+  BOOST_CHECK_EQUAL(value_to<string>(o["hash"]), hashToString(b.hash()));
 
   // Check the hashes
   BOOST_CHECK_EQUAL(o["txhs"].as_array().size(),2);
@@ -79,7 +79,7 @@ BOOST_AUTO_TEST_CASE(test_BlkCns_from_json){
   json::value v = {
     {"number", 1},
     {"parentHash", string(32*2,'b')},
-    {"hash", string(32*2,'a')},
+    // {"hash", string(32*2,'a')},
     {"txhs", json::value_from(vector<hash256>(vh))}
   };
 
@@ -88,7 +88,8 @@ BOOST_AUTO_TEST_CASE(test_BlkCns_from_json){
 
   BOOST_CHECK_EQUAL(b.number,1);
   BOOST_CHECK_EQUAL(hashToString(b.parentHash), string(32*2,'b'));
-  BOOST_CHECK_EQUAL(hashToString(b.hash), string(32*2,'a'));
+  // BOOST_CHECK_EQUAL(hashToString(b.hash()), string(32*2,'a'));
+  // <2024-02-06 Tue> 🦜 : Nope, manually setting hash is no longer allowed.
 
   BOOST_CHECK_EQUAL(b.txhs.size(), 2);
   BOOST_CHECK_EQUAL(hashToString(b.txhs[0]),string(32*2,'1'));
@@ -127,7 +128,7 @@ BOOST_AUTO_TEST_CASE(test_BlkCns_ToBlk_no){
 
 void CHECK_BLK_EQUAL(const Blk & b0, const BlkForConsensus & b){
   BOOST_CHECK_EQUAL(b0.number,b.number);
-  BOOST_CHECK_EQUAL(b0.hash,b.hash);
+  BOOST_CHECK_EQUAL(b0.hash(),b.hash());
   BOOST_CHECK_EQUAL(b0.parentHash,b.parentHash);
   BOOST_CHECK_EQUAL(b0.txs.size(), b.txhs.size());
 

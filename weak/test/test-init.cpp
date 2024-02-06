@@ -144,7 +144,7 @@ BOOST_AUTO_TEST_CASE(test_get_required_things_from_ChainDB_ok){
   IChainDBGettable2 * w1 = dynamic_cast<IChainDBGettable2*>(&wh1);
   auto [n,h,vh] = get_required_things_from_ChainDB(w1,"1");
   BOOST_CHECK_EQUAL(*n,1);      // Got it
-  BOOST_CHECK_EQUAL(*h,wh1.b.hash); // the Blk hash
+  BOOST_CHECK_EQUAL(*h,wh1.b.hash()); // the Blk hash
   BOOST_REQUIRE(vh->empty());
 }
 
@@ -173,7 +173,7 @@ BOOST_AUTO_TEST_CASE(test_get_required_things_from_ChainDB_ok_and_get_some_hashe
   IChainDBGettable2 * w1 = dynamic_cast<IChainDBGettable2*>(&wh1);
   auto [n,h,vh] = get_required_things_from_ChainDB(w1,"1");
   BOOST_CHECK_EQUAL(*n,1);      // Got it
-  BOOST_CHECK_EQUAL(*h,wh1.b.hash); // the Blk hash
+  BOOST_CHECK_EQUAL(*h,wh1.b.hash()); // the Blk hash
   seq(*vh,
       {
         evmc::from_hex<hash256>(hs1).value(),

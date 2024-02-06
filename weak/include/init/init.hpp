@@ -491,7 +491,7 @@ namespace weak{
     }
     // 🐢 : Now we got the latest Blk. But we only need the hash, so:
     unique_ptr<int> n = make_unique<int>(rN.value());
-    unique_ptr<hash256> h =  make_unique<hash256>(rB.value().hash);
+    unique_ptr<hash256> h =  make_unique<hash256>(rB.value().hash());
 
     /*
       🦜 : Now what's left ?

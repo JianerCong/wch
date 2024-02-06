@@ -114,7 +114,7 @@ BOOST_FIXTURE_TEST_CASE(test_add_txs_ok,F){
   BOOST_CHECK_EQUAL(bh.blk_numbers_executed[0],b0.number);
   BOOST_CHECK_EQUAL(bh.blk_numbers_commited[0],b0.number);
   BOOST_CHECK_EQUAL(eh->next_blk_number,1);
-  BOOST_CHECK_EQUAL(eh->previous_hash,b0.hash);
+  BOOST_CHECK_EQUAL(eh->previous_hash,b0.hash());
 }
 
 BOOST_FIXTURE_TEST_CASE(test_add_txs_ok_twice,F){

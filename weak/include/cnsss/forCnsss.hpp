@@ -67,7 +67,7 @@ namespace weak{
         }
         txs.push_back(r.value());
       }
-      return Blk(this->number,this->hash,this->parentHash,txs);
+      return Blk(this->number,this->parentHash,txs);
     }
 
     // For now, use UTF8 JSON for serialization. later we can change it to other

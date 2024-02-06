@@ -164,9 +164,7 @@ BOOST_AUTO_TEST_CASE(test_ExecBlk_from_json){
   BOOST_CHECK_EQUAL(b1.txs.size(),b.txs.size());
   BOOST_CHECK_EQUAL(b1.txs[0].nonce,b.txs[0].nonce);
   BOOST_CHECK_EQUAL(b1.txs[1].nonce,b.txs[1].nonce);
-  BOOST_CHECK_EQUAL(b.hash,
-                    b1.hash
-                    );
+  BOOST_CHECK_EQUAL(b.hash(), b1.hash());
   // statechanges --------------------------------------
   BOOST_CHECK_EQUAL(b1.stateChanges.size(),b.stateChanges.size());
   BOOST_CHECK_EQUAL(b1.stateChanges[0].size(),2); // journal for tx1

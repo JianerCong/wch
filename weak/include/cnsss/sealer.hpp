@@ -79,7 +79,7 @@ namespace weak{
       BlkForConsensus b{this->next_blk_number++,
                         this->previous_hash,
                         txhs};
-      this->previous_hash = b.hash;
+      this->previous_hash = b.hash();
 
       this->consensus->postBlk(b);     // this is a long process
     }

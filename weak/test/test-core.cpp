@@ -168,7 +168,7 @@ BOOST_AUTO_TEST_CASE(test_makeBlk){
 
   // make block
   Blk b = Blk(1,h,txs);
-  Blk b2 = Blk(1,b.hash,txs);
+  Blk b2 = Blk(1,b.hash(),txs);
 
   BOOST_CHECK_EQUAL(b.number,1);
   BOOST_CHECK_EQUAL(b.txs.size(),2);
@@ -199,7 +199,7 @@ BOOST_AUTO_TEST_CASE(blk_toJson){
 
   BOOST_CHECK_EQUAL(value_to<uint64_t>(v.at("number")),1);
   BOOST_CHECK_EQUAL(value_to<string>(v.at("parentHash")), hashToString(p));
-  BOOST_CHECK_EQUAL(value_to<string>(v.at("hash")), hashToString(b.hash));
+  BOOST_CHECK_EQUAL(value_to<string>(v.at("hash")), hashToString(b.hash()));
 
   BOOST_CHECK_EQUAL(o["txs"].as_array().size(),2);
   BOOST_CHECK_EQUAL(value_to<uint64_t>(o["txs"].as_array()[0].at("nonce")),123);

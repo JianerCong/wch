@@ -1213,7 +1213,11 @@ class ITxExecutable {
     BlkHeader(const uint64_t n,const hash256 p): number(n),parentHash(p){};
 
     // hash256 hash;
-    virtual hash256 hash() const noexcept = 0;
+    virtual hash256 hash() const {
+      // 🦜 : we kinda have to provide a default implementation, because if we
+      // wanna jsonize it, it must have a default, ctor...
+      BOOST_THROW_EXCEPTION(std::runtime_error("hash() not implemented for BlkHeader"));
+    }
 
     json::value toJson() const noexcept override {
       return json::value_from(*this);
@@ -1267,7 +1271,7 @@ class ITxExecutable {
       // --------------------------------------------------
       this->number = pb.header().number();
 
-      s = pb.header().parenthash();   // should be hash256 = 32 bytes
+      string s = pb.header().parenthash();   // should be hash256 = 32 bytes
 
       // BOOST_ASSERT(s.size() == 32); // throws my_assertion_error
       this->parentHash = weak::fromByteString<hash256>(s); // may throw

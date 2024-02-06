@@ -171,5 +171,5 @@ BOOST_AUTO_TEST_CASE(test_basic_sealer_addable_provider){
   BOOST_CHECK_EQUAL(ch.bs[0].txhs.size(),2);
   BOOST_CHECK_EQUAL(ch.bs[1].number,1);
   BOOST_CHECK_EQUAL(ch.bs[1].txhs.size(),1);
-  BOOST_CHECK_EQUAL(ch.bs[1].parentHash, ch.bs[0].hash);
+  BOOST_CHECK_EQUAL(ch.bs[1].parentHash, ch.bs[0].hash());
 }
