@@ -757,7 +757,7 @@ namespace weak{
             ::pure::IAsyncEndpointBasedNetworkable* iAsyncEndpointBasedNetworkable;
           } net;
 
-          if (o.consensus_name == "Solo"){
+          if (o.consensus_name == "Solo" or o.consensus_name == "Solo-static"){
             BOOST_LOG_TRIVIAL(debug) <<  "\t 🌐️ Using " S_CYAN "http-based " S_NOR " p2p";
             net.http = make_unique<IPBasedHttpNetAsstn>(srv.iHttpServable,
                                                         msg_mgr.iMsgManageable);

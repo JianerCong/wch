@@ -119,10 +119,10 @@ namespace pure{
     tuple<bool,string> getPostResponseBody(string  target /*e.g. "/"*/ ,
                                            string clientAddr,uint16_t clientPort, string_view body){
 
-
       BOOST_LOG_TRIVIAL(debug) << format(" ❄ Handling POST\n\t"
-                                         "target: %s \t client: %s:%d\n\tbody:>>>%s<<<"
-                                         ) % target % clientAddr % clientPort % body;
+                                         "target: %s \t client: %s:%d\n\tbody:" S_CYAN "%s" S_NOR
+                                         ) % target % clientAddr % clientPort %
+        (target.ends_with("_pb") ? "<pb string of size " + std::to_string(body.size()) + ">" : body);
 
       postHandler_t f;
       {
@@ -177,11 +177,14 @@ namespace pure{
       BOOST_LOG_TRIVIAL(debug) << format("Handling request\n\tmethod: %s\n\ttarget: %s\n\tcontent type: %s\n\tFrom: %s:%d")
         % req.method_string() % req.target() % req[http::field::content_type] % a % p;
 
-      if (req.payload_size() and req.payload_size().value() > 0){
+      /*
+        if (req.payload_size() and req.payload_size().value() > 0){
         BOOST_LOG_TRIVIAL(debug) << format("payload_size:%d\n\tdata:%s")
-          % req.payload_size().value() % req.body();
+        % req.payload_size().value() % req.body();
         // body should be string for http::string_body
-      }
+        }
+        🦜 : Since we have already shown the body in POST, so we don't need to show it twice.
+       */
 
       // 2. make Response --------------------------------------------------
       response<http::string_body> res;
@@ -209,7 +212,9 @@ namespace pure{
       }
 
       // Got valid body
-      BOOST_LOG_TRIVIAL(debug) << format("Returning body " S_CYAN "%s" S_NOR) % body;
+      BOOST_LOG_TRIVIAL(debug) << format("Returning body " S_CYAN "%s" S_NOR) %
+        (req.target().ends_with("_pb") ? "<pb string of size " + std::to_string(body.size()) + ">" : body);
+
       res.body() = body;
 
       res.version(11);   // HTTP/1.1

@@ -51,7 +51,8 @@ namespace pure{
   string get_data_for_log(string_view data){
 #if defined (WITH_PROTOBUF)
     // return encode_base64(data);
-    return "<--binary-data-of size" + std::to_string(data.size()) + ">";
+
+    return "<--binary data of size " + std::to_string(data.size()) + ">";
 #else
     return string(data);
 #endif

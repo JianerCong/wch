@@ -88,9 +88,9 @@ message AddTxsReply {
     # port += 1
 
     # # 1. prepare the chain
-    p = Popen([wc, '--port', str(port), '--mock-exe','--unix-socket', '/tmp/hi-weak.sock'],
-              stdin=PIPE,stdout=PIPE,stderr=PIPE,text=True)
-    time.sleep(2)                   #  wait until is up
+    # p = Popen([wc, '--port', str(port), '--mock-exe','--unix-socket', '/tmp/hi-weak.sock'],
+    #           stdin=PIPE,stdout=PIPE,stderr=PIPE,text=True)
+    # time.sleep(2)                   #  wait until is up
 
     try:
         url = f'http+unix://%2Ftmp%2Fhi-weak.sock/'
@@ -104,4 +104,5 @@ message AddTxsReply {
         add_txs_reply.ParseFromString(result.content)
         print('Got add_txs_reply: ' + text_format.MessageToString(add_txs_reply))
     finally:
-        close_and_check(p)
+        print('done')
+        # close_and_check(p)

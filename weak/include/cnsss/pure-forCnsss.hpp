@@ -172,7 +172,7 @@ namespace pure {
       // cmd_for_show = cmd[0] + base64(cmd[1:])
       string cmd_for_log;
       if (cmd.size() > 1){
-        cmd_for_log = cmd[0] + get_data_for_log(cmd.substr(1));
+        cmd_for_log = cmd[0] + pure::get_data_for_log(cmd.substr(1));
       }else{
         cmd_for_log = cmd;
       }

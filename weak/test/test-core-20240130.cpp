@@ -45,7 +45,6 @@ BOOST_AUTO_TEST_CASE(test_Tx_to_pb){
   BOOST_CHECK_EQUAL(pb.to_addr(), toByteString<address>(a2));
   BOOST_CHECK_EQUAL(pb.data(), toString(data));
   BOOST_CHECK_EQUAL(pb.nonce(), 123);
-  BOOST_CHECK_EQUAL(pb.hash(), toByteString<hash256>(t.hash()));
 
   // timestamp should have been set, which is smaller than now
   std::time_t now = std::time(nullptr); // seconds since epoch

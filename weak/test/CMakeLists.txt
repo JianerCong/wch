@@ -18,7 +18,7 @@ endmacro()
 🦜 : Uncomment the following to enable tests.
 #]=]
 # set_test(test-core core-deps)
-# set_test(test-core-20240130 core-deps)
+set_test(test-core-20240130 core-deps)
 # set_test(test-pure-thrd-party core-deps)
 # set_test(test-executeEvmTx deps)
 # set_test(test-mempool core-deps)
@@ -40,7 +40,7 @@ endmacro()
 ## instead ] set_test(test-pure-net core-deps)
 
 # set_test(test-pure-anet core-deps)
-set_test(test-rpc core-deps)
+# set_test(test-rpc core-deps)
 # set_test(test-rpc-pb core-deps)
 # set_test(test-init deps)
 # set_test(test-inRamWrld deps)

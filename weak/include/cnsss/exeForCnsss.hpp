@@ -90,7 +90,7 @@ namespace weak {
     virtual string handle_EXECUTE_BLK(string & cmd) noexcept {
       string arg = cmd.substr(1);
       BOOST_LOG_TRIVIAL(debug) << format("⚙️ Handling " S_CYAN "EXECUTE_BLK()" S_NOR ",data to parse:\n\t"
-                                         S_CYAN "%s" S_NOR) % arg;
+                                         S_CYAN "%s" S_NOR) % pure::get_data_for_log(arg);
       BlkForConsensus b;
       if (not b.fromString(arg))
         return clear_cmd_and_complain(cmd, "Error parsing BlkForConsensus");
@@ -126,7 +126,7 @@ namespace weak {
       try{
         string arg = cmd.substr(1);
         BOOST_LOG_TRIVIAL(debug) << format("⚙️ Handling " S_CYAN "ADD_TXS" S_NOR ", data to parse:\n\t"
-                                           S_CYAN "%s" S_NOR) % arg;
+                                           S_CYAN "%s" S_NOR) % pure::get_data_for_log(arg);
 
         vector<Tx> txs = Tx::parse_to_array(arg);
         int n = txs.size();     // original size
@@ -244,7 +244,7 @@ namespace weak {
     string handle_EXECUTE_BLK(string & cmd) noexcept override{
       string_view arg( cmd.cbegin() + 1, cmd.cend());
       BOOST_LOG_TRIVIAL(debug) << format("⚙️ Handling " S_CYAN "EXECUTE_BLK()" S_NOR ",data to parse:\n\t"
-                                         S_CYAN "%s" S_NOR) % arg;
+                                         S_CYAN "%s" S_NOR) % pure::get_data_for_log(arg);
       Blk b;
       if (not b.fromString(arg))
         return clear_cmd_and_complain(cmd, "Error parsing Blk");
@@ -291,8 +291,7 @@ namespace weak {
       try{
         string_view arg(cmd.cbegin()+1,cmd.cend());
         BOOST_LOG_TRIVIAL(debug) << format("⚙️ Handling " S_CYAN "ADD_TXS" S_NOR ", data to parse:\n\t"
-                                           S_CYAN "%s" S_NOR) % arg;
-
+                                           S_CYAN "%s" S_NOR) % pure::get_data_for_log(arg);
         vector<Tx> txs = Tx::parse_to_array(arg);
         if (this->optimization_level < 2){
           verify_txs_and_filter_maybe(txs);

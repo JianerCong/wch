@@ -35,12 +35,13 @@ message Tx {
   bytes data = 4;
   uint64 timestamp = 5;         // [not needed in rpc]
   uint64 nonce = 6;
-  bytes hash = 7;               // will be serialized, but not parsed
+  // bytes hash = 7;
+  //<2024-02-06 Tue>: 🦜 : Nope, not needed in pb, we only store it in json.
 
   // 🦜 : The following 3 are optional in rpc param
-  string pk_pem = 8;
-  bytes signature = 9;          // key.sign(hash)
-  bytes pk_crt = 10;            // ca_key.sign(pk_pem)
+  string pk_pem = 7;
+  bytes signature = 8;          // key.sign(hash)
+  bytes pk_crt = 9;            // ca_key.sign(pk_pem)
 }                               // [x]
 
 message Txs {repeated Tx txs = 1;} // [x]

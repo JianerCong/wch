@@ -432,7 +432,7 @@ public:
       NewViewCertificate o;
       if (not o.fromString(data)){
         this->say(format("❌️Error parsing NewViewCertificate " S_RED "%s" S_NOR) %
-                  get_data_for_log(data)
+                  pure::get_data_for_log(data)
                   );
         return ;
       }
@@ -746,7 +746,7 @@ public:
       if (not this->to_be_confirmed_commands.o.contains(data)){
 
         this->say(format("Adding " S_MAGENTA "%s " S_NOR " from  " S_MAGENTA "%s" S_NOR)
-                  % get_data_for_log(data)
+                  % pure::get_data_for_log(data)
                   % endpoint);
         this->to_be_confirmed_commands.o[data] = make_shared<std::set<string>>();
       }
@@ -771,7 +771,7 @@ public:
       if (s->size() >= x){
         this->say(format("⚙️ command " S_CYAN "%s " S_NOR
                          " confirmed by " S_CYAN "%d " S_NOR " node%s, boardcasting commit")
-                  % get_data_for_log(data) % s->size() % pluralizeOn(s->size())
+                  % pure::get_data_for_log(data) % s->size() % pluralizeOn(s->size())
                   );
 
         this->boardcast_to_other_subs("/pleaseCommitThis", data);
@@ -783,7 +783,7 @@ public:
       }else{
         this->say(format("⚙️ command " S_CYAN "%s " S_NOR
                          " confirmed by " S_CYAN "%d " S_NOR " node%s, not yet.")
-                  % get_data_for_log(data) % s->size() % pluralizeOn(s->size())
+                  % pure::get_data_for_log(data) % s->size() % pluralizeOn(s->size())
                   );
       }
     }
@@ -825,7 +825,7 @@ public:
     void  add_to_to_be_committed_commands(string endpoint, string data){
       std::unique_lock l(this->to_be_committed_commands.lock);
 
-      string data_for_log = get_data_for_log(data);
+      string data_for_log = pure::get_data_for_log(data);
       if (not this->to_be_committed_commands.o.contains(data)){
         // this->say(format("Adding " S_MAGENTA "%s " S_NOR " from  " S_MAGENTA "%s" S_NOR)
         //           % data % endpoint);
@@ -1106,7 +1106,7 @@ public:
       // this->say("3.");
       // 🦜 : This is the list that data (signed msg) will be added in.
       if (::pure::contains(to_be_added_list, data)){
-        this->say(format("🚮️ Ignoring duplicated msg:" S_CYAN "%s" S_NOR)% get_data_for_log(data));
+        this->say(format("🚮️ Ignoring duplicated msg:" S_CYAN "%s" S_NOR)% pure::get_data_for_log(data));
         return;
       }
       to_be_added_list->push_back(data);
@@ -1599,7 +1599,7 @@ public:
       BOOST_LOG_TRIVIAL(debug) << format(" Calling handler:  " S_GREEN "%s" S_NOR
                                          "with data\n"
                                          S_CYAN "%s" S_NOR
-                                         ) % k % get_data_for_log(data);
+                                         ) % k % pure::get_data_for_log(data);
 
       // write send()
       optional<string> r;

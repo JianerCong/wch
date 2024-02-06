@@ -76,11 +76,55 @@ string resultToString(const evmc::Result& result){
     return string(reinterpret_cast<const char*>(t.bytes),sizeof(t.bytes));
   }
 
+  /**
+   * @brief Explicit specialization of `toByteString` for `evmc::address`, ignoring leading zeros.
+   *
+   * 🦜 : Often during testing, we encounter address such as '0x1' and '0x2'.
+   * And if we serialize/parse these as 20-byte long string, it would be a bit
+   * wasteful, so we provided this specialization, which skips the leading zeros.
+   */
+  template<>
+  string toByteString<address>(const address t){
+    // 1. find the first non-zero byte
+    size_t i = 0;
+    for (;i<sizeof(t.bytes);i++){
+      if (t.bytes[i] != 0) break;
+    }
+    // 2. copy the rest
+    return string(reinterpret_cast<const char*>(t.bytes+i),sizeof(t.bytes)-i);
+  }
+
   template<typename T>
   T fromByteString(string_view s){
+    if (s.size() != sizeof(T::bytes)){
+      BOOST_THROW_EXCEPTION(std::runtime_error((format("Invalid size for %1%, should be %2%, but got %3%") % typeid(T).name() % sizeof(T::bytes) % s.size()).str()));
+    }
+
     T t;
     std::copy_n(reinterpret_cast<const uint8_t*>(s.data()),sizeof(t.bytes),std::begin(t.bytes));
     return t;
+  }
+
+  /**
+   * @brief Explicit specialization of `fromByteString` for `evmc::address`,
+   * adding leading zeros maybe.
+   *
+   * 🦜 : Similarly, we would like strings like "\x01" to be parsed as '0x1'
+   * address, in that case, we need to add leading zeros.
+   */
+  template<>
+  address fromByteString<address>(string_view s){
+    // throw if there're more than 20 bytes
+    if (s.size() > 20){
+      BOOST_THROW_EXCEPTION(std::runtime_error((format("Invalid size for address, should be at most 20, but got %d") % s.size()).str()));
+    }
+    // 1. caculate how many zeros to add
+    size_t n = 20 - s.size();
+    // 2. loop
+    address a;
+    std::fill_n(a.bytes,n,0x00);
+    std::copy_n(reinterpret_cast<const uint8_t*>(s.data()),s.size(),std::begin(a.bytes)+n);
+    return a;
   }
 
   // bytes 2 string<2024-01-30 Tue>  🦜 : They are needed when saving and reading in/from pb
@@ -493,7 +537,6 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
       pb.set_data(weak::toString(this->data));
       pb.set_timestamp(this->timestamp);
       pb.set_nonce(this->nonce);
-      pb.set_hash(weak::toByteString<hash256>(this->hash()));
 
       // 🦜 : The following may be empty, but that's fine.
       if (this->pk_pem != "")
@@ -520,9 +563,7 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
         // parse the from
         s = pb.from_addr();
         // should be 20 bytes
-        if (s.size() != 20)
-          BOOST_THROW_EXCEPTION(std::runtime_error((format("Invalid from_addr size: %d, should be 20") % s.size()).str()));
-        this->from = weak::fromByteString<address>(s);
+        this->from = weak::fromByteString<address>(s); // might throw
       }
 
       // parse sig if exists
@@ -548,11 +589,7 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
 
       // parse the to
       s = pb.to_addr();
-      // should be 20 bytes
-      if (s.size() != 20)
-        BOOST_THROW_EXCEPTION(std::runtime_error((format("Invalid to_addr size: %d, should be 20") % s.size()).str()));
-
-      this->to = weak::fromByteString<address>(s);
+      this->to = weak::fromByteString<address>(s); // throws for bad lengths
     }
 
     Tx() = default; // Upon you make a constructor yourself, the build-in
