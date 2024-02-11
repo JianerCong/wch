@@ -1,6 +1,10 @@
 \documentclass[dvipsnames]{article}
 % \documentclass[dvipsnames]{ctexart}
 \title{weak-chain memo}
+
+
+\urlstyle{same}
+
 \usepackage{geometry}\geometry{
   a4paper,
   total={170mm,257mm},
@@ -8,6 +12,8 @@
   top=20mm,
 }
 
+\usepackage{tabularray}
+\UseTblrLibrary{booktabs,siunitx}
 
 \usepackage{adjustbox}          %to narrower the caption
 \newlength\mylength
@@ -34,62 +40,150 @@
 % --------------------------------------------------
 
 \usepackage{tabularx}
+
+
+\usepackage{hyperref}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=\mycola,
+  filecolor=\mycola,      
+  urlcolor=\mycola,
+  pdftitle={Weak-chain memp},
+  % pdfpagemode=FullScreen,
+}
+\urlstyle{same}
+
 \begin{document}
 \maketitle
 \tableofcontents{}
 \newpage{}
 
-\input{2024-01-23}
-\section*{2024-01-30}
+% \input{2024-01-23}
+% \input{2024-01-30}
 
-\subsection*{10:10 diable \texttt{command\_history} \cola{[done at 11:26]}}
+\section*{2024-02-11}
 
-\emoji{parrot} : Let's add an option for the \texttt{ListenToOneConsensus} to
-disable the \texttt{command\_history}.
+\subsection*{11:40 python as a vm}
+\emoji{parrot}: Let's talk about python as a VM.
 
-\emoji{turtle} : Let's go. Then I think let's just make it a new consensus, what
-about \texttt{Solo-static}? That means no nodes can be dynamically added (after
-the some blks are made.)
+\emoji{turtle} : First let's see a minimal python contract:
 
-\subsection*{11:27 pb more}
+\begin{simplepy}
+from typing import Any
 
-\emoji{parrot} : I think now it's time to protobuf more. Such as \texttt{Tx} and
-\texttt{Blk}.
+def hi() -> str:
+    return "hi"
 
-\emoji{turtle} : Em... Yeah, let's do that, first, I think \texttt{Tx, Acn,
-  Blk}. But note that things are bit more complicated with \texttt{Blk}, because
-it inherits from \texttt{BlkHeader}, and also.. Oh, why it that?
+\end{simplepy}
 
-\emoji{parrot} : I remember it's for historical reason. Previously, we have two
-types of \texttt{Blk}, one is \texttt{Blk} which contains the Tx payloads, and
-another \texttt{BlkForConsensus} which only contains the hashes of \texttt{Tx}s.
-This is used when we have two kinds of consensus message: \texttt{AddTxs} and
-\texttt{ExecBlk}. However, since we have been using \texttt{light-exe} lately
-which doesn't need \texttt{BlkForConsensus}, we have almost forgot about it....
+\emoji{parrot} : Okay, I think there're two things we should do:
 
-\emoji{turtle} : Yeah, let's still pb it. Also the \texttt{ExecBlk}, which is
-the executed Blk.
+\begin{enumerate}
+\item Check that the there's nothing dangerous.
+\item Parse the function definition, which includes each function's name and the
+  name of their arguments.
+\end{enumerate}
 
-\emoji{parrot} : Emm. Also, I think \texttt{WITH\_PROTOBUF} directive is not
-neccesary, let's just make pb a requirement.
+\emoji{turtle}: Yeah. These two steps are separate, and we discuss them one by one. But before that,
+let's talk about the contract's structure.
 
-\emoji{turtle} : A sec. I think we should still keep the
-\texttt{WITH\_PROTOBUF}, because sometimes, we do wanna use json serialization,
-for example, when we are debugging. So let's just change the ``meaning'' of it.
-The protobuf is always required, but when we are \texttt{WITH\_PROTOBUF}, we
-serialize things with pb (as much as possible), otherwise, we use json.
+A contract is just a python file, but with some restrictions. The content of the
+file is divided into two parts.
 
-\emoji{parrot} : Yeah, key-word reuse, I like it. (kinda C-ish)
+\begin{enumerate}
+\item the \cola{header}, where all the \texttt{import}'s are
+\item the \cola{body}, where all the function definitions are
+\end{enumerate}
 
-\subsection*{18:11 start testing Blk pb}
-\emoji{turtle} : How's your day?
+\begin{center}
+  \begin{tikzpicture}
+    % \draw[style=help lines] (0,0) grid +(10,-5);
+    \node[draw,rectangle,below right] (A) {
+      \begin{minipage}{10cm}
+\begin{simplepy}
+from typing import Any
+# --------------------------------------------------
+def hi() -> str:
+    return "hi"
+      \end{simplepy}
+    \end{minipage}
+  };
+  % \node[draw,rectangle,fill=\mycolaa,right of=header,xshift=3cm] (body) {body};
+  \draw[latex-latex] ([shift={(0.5cm,0)}]A.north east) -- +(0,-2em) coordinate
+  (B) node[midway,right,xshift=1em] {the header};
+  \draw[latex-latex] ([shift={(0.5cm,0)}]A.south east) -- (B)
+  node[midway,right,xshift=1em] {the body};
+\end{tikzpicture}
+\end{center}
 
-\emoji{parrot} : I just finished and tested the \texttt{Tx} pb (in the simplest form, no
-crypto stuff such as \texttt{pk\_pem} is involved). And I am about to test the
-\texttt{Blk} pb.
+The start of a \texttt{def} marks the end of the header.
 
-\emoji{turtle} : I see...No rush.
+In the header area, only \texttt{from ... import ...} is allowed, but star
+import is not allowed.
 
+And the allowed symbols currently are:
+\begin{center}
+  \begin{tblr}{|l|c|}
+    \hline
+    Symbol & {Description} \\
+    \hline
+    \texttt{math.*} & the standard math module \\
+    \texttt{cmath.*} & the standard complex math module \\
+    \texttt{typing.*} & the module for type hints \\
+    \texttt{hashlib.*} & the module for hashing \\
+    \texttt{hmac.*} & the module for hash-based message authentication code \\
+    \hline
+  \end{tblr}
+\end{center}
+
+\emoji{parrot} : I see. So the first step is to check the header. We need to
+make sure that there's no dangerous import. And next we check the rest (the
+body), right?
+
+\emoji{turtle} : Yeah. 
+
+
+\subsubsection*{Validity check}
+\emoji{turtle} : The first step is to check that the contract is safe to run. We
+check two things:
+
+\begin{enumerate}
+\item The header is safe
+\item The body is safe
+\end{enumerate}
+
+For the header, we just need to check those imports.
+
+For the body, we need to check that there's no ``dangerous statement''. In
+particular, we wanna make sure that
+
+\begin{enumerate}
+\item there's no \texttt{import} statement
+\item Some built-in functions are not allowed.
+\end{enumerate}
+
+\emoji{parrot} : Okay, so what are the built-in functions that are not allowed?
+
+\emoji{turtle} : The built-in functions can be found at
+\url{https://docs.python.org/3/library/functions.html}. Currently, the following
+are considered dangerous|inappropriate and therefore not allowed
+
+\begin{center}
+  \begin{tblr}{|l|c|}
+    \hline
+    Function & {Description} \\
+    \hline
+    \texttt{breakpoint} &  enter the debugger \\
+    \texttt{compile} &  compile a string into a code object \\
+    \texttt{eval} &  evaluate a string as a python expression \\
+    \texttt{exec} &  execute a string as a python statement \\
+    \texttt{globals} &  return the global symbol table \\
+    \texttt{open} &  open a file \\
+    \texttt{input} &  read a line from the standard input \\
+    \texttt{print} &  print to the standard output \\
+    \hline
+  \end{tblr}
+\end{center}
 
 \end{document}
 
