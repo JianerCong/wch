@@ -3,7 +3,6 @@
 \title{weak-chain memo}
 
 
-\urlstyle{same}
 
 \usepackage{geometry}\geometry{
   a4paper,
@@ -25,6 +24,7 @@
 % \setemojifont{TwitterColorEmoji-SVGinOT.ttf}[Path=C:/Users/congj/repo/myFonts/]
 
 \usepackage{booktabs}
+
 \input{h-lua}
 \date{\today}
 \author{HiAaa}
@@ -42,16 +42,6 @@
 \usepackage{tabularx}
 
 
-\usepackage{hyperref}
-\hypersetup{
-  colorlinks=true,
-  linkcolor=\mycola,
-  filecolor=\mycola,      
-  urlcolor=\mycola,
-  pdftitle={Weak-chain memp},
-  % pdfpagemode=FullScreen,
-}
-\urlstyle{same}
 
 \begin{document}
 \maketitle
@@ -165,7 +155,21 @@ particular, we wanna make sure that
 \emoji{parrot} : Okay, so what are the built-in functions that are not allowed?
 
 \emoji{turtle} : The built-in functions can be found at
-\url{https://docs.python.org/3/library/functions.html}. Currently, the following
+\url{https://docs.python.org/3/library/functions.html}. But if we need all
+``symbols'' in the default default namespace, we can use (Copilot told me):
+
+\begin{simplepy}
+import builtins
+
+# Get a list of all built-in functions and variables
+builtin_functions_and_variables = dir(builtins)
+
+# Print them out
+for name in builtin_functions_and_variables:
+    print(name)
+\end{simplepy}
+
+Currently, the following
 are considered dangerous|inappropriate and therefore not allowed
 
 \begin{center}
@@ -177,10 +181,17 @@ are considered dangerous|inappropriate and therefore not allowed
     \texttt{compile} &  compile a string into a code object \\
     \texttt{eval} &  evaluate a string as a python expression \\
     \texttt{exec} &  execute a string as a python statement \\
+    \texttt{execfile} & execute a file \\
+    \texttt{get\_ipython} &  get the current IPython instance \\
     \texttt{globals} &  return the global symbol table \\
+    \texttt{help} &  get help on an object \\
     \texttt{open} &  open a file \\
+    \texttt{runfile} &  run a file \\
     \texttt{input} &  read a line from the standard input \\
-    \texttt{print} &  print to the standard output \\
+    % \texttt{print} &  print to the standard output \\
+    \texttt{vars} & return the \texttt{\_\_dict\_\_} attribute of an object \\
+    \texttt{\_\_import\_\_} &  import a module \\
+    \texttt{quit / exit} &  exit the interpreter \\
     \hline
   \end{tblr}
 \end{center}

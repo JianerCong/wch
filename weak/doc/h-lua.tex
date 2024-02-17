@@ -195,6 +195,18 @@ row sep=1cm,column sep=2cm]
 \tikzstyle{every child node}=[myTreeNode]
 
 \usepackage{simpsons}
+
+\usepackage{hyperref}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=\mycola,
+  filecolor=\mycola,      
+  urlcolor=\mycola,
+  pdftitle={Weak-chain memp},
+  % pdfpagemode=FullScreen,
+}
+\urlstyle{same}
+% 🦜 : cleveref must be loaded after hyperref
 \usepackage{cleveref}
 \crefname{figure}{图}{图}
 %                    ^^^ plural
