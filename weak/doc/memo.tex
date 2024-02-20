@@ -69,7 +69,17 @@ specific (since we now know \texttt{ast}.):
 \item At the top level, only \texttt{def},\texttt{import} and \texttt{from .. import}
   are allowed. In particular, only those allowed modules are allowed.(see
   2024-02-11).
+\item The keywords listed in 2024-02-11 are banned. In particular, they cannot
+  appear as function name, variable name, argument name... (Pretty much every
+  where except for the comments and string literal.)
 \end{enumerate}
+
+\section*{2024-02-18}
+\subsection*{continued: the python contract verifier}
+\emoji{parrot} : Oh, so great. But I remember we need to write two tools: one
+for syntax verifying and one for function argument parsing.
+
+\emoji{turtle} : Yeah, \texttt{ast} can help us both.
 
 \end{document}
 

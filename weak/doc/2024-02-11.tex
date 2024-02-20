@@ -124,21 +124,24 @@ are considered dangerous|inappropriate and therefore not allowed
     \hline
     Function & {Description} \\
     \hline
+    % \texttt{print} &  print to the standard output \\
+    \texttt{\_\_import\_\_} &  import a module \\
     \texttt{breakpoint} &  enter the debugger \\
     \texttt{compile} &  compile a string into a code object \\
     \texttt{eval} &  evaluate a string as a python expression \\
-    \texttt{exec} &  execute a string as a python statement \\
     \texttt{execfile} & execute a file \\
+    \texttt{exec} &  execute a string as a python statement \\
     \texttt{get\_ipython} &  get the current IPython instance \\
     \texttt{globals} &  return the global symbol table \\
+    \texttt{memoryview} & create a memoryview object \\
     \texttt{help} &  get help on an object \\
-    \texttt{open} &  open a file \\
-    \texttt{runfile} &  run a file \\
+    \texttt{id} & get the identity of an object, usually the memory address.
+    This should be removed because the result is not predictable. \\
     \texttt{input} &  read a line from the standard input \\
-    % \texttt{print} &  print to the standard output \\
-    \texttt{vars} & return the \texttt{\_\_dict\_\_} attribute of an object \\
-    \texttt{\_\_import\_\_} &  import a module \\
+    \texttt{open} &  open a file \\
     \texttt{quit / exit} &  exit the interpreter \\
+    \texttt{runfile} &  run a file \\
+    \texttt{vars} & return the \texttt{\_\_dict\_\_} attribute of an object \\
     \hline
   \end{tblr}
 \end{center}
