@@ -21,14 +21,21 @@ def assert_bad_top_level_statements(s: str):
     assert str(e.value).startswith('verify_top_level_statements')
 
 def assert_ok_verify(s: str):
-    tree = verify_and_parse_func_str(s)
-    assert isinstance(tree, ast.AST)  # passed
+    ok = verify_and_parse_func_str(s)
+    assert ok
 
-def test_hi():
+def test_ok_top_level():
     s = """
 def hi() -> str:
     return "hi"
     """
+    assert_ok_verify(s)
+    s = """
+# I am a comment
+\"\"\" This is a doc string \"\"\"
+def f(x:int, y:int) -> int:
+    return x + y
+"""
     assert_ok_verify(s)
 
 def test_bad_top_levels():
@@ -75,7 +82,7 @@ def hi() -> str:
     from sys import api_version
     return str(api_version)
     """
-    assert_bad_imports(s)       # 🦜 : `import sys` is not allowed 
+    assert_bad_imports(s)       # 🦜 : `import sys` is not allowed
 
 def assert_bad_ids(s: str):
     with pytest.raises(AssertionError) as e:
@@ -107,3 +114,4 @@ def hi(f=open('hi.txt')):
     return f
    """
     assert_bad_ids(s)
+

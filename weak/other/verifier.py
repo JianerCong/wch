@@ -12,47 +12,36 @@ The allowed modules.
 """
 Allowed_modules : list[str] = ['math', 'cmath', 'typing', 'hashlib', 'hmac']
 
-"""
-The following identifiers are considered dangerous and are not allowed in the source code.
-
-    \texttt{\_\_import\_\_} &  import a module \\
-    \texttt{breakpoint} &  enter the debugger \\
-    \texttt{compile} &  compile a string into a code object \\
-    \texttt{eval} &  evaluate a string as a python expression \\
-    \texttt{execfile} & execute a file \\
-    \texttt{exec} &  execute a string as a python statement \\
-    \texttt{get\_ipython} &  get the current IPython instance \\
-    \texttt{globals} &  return the global symbol table \\
-    \texttt{memoryview} & create a memoryview object \\
-    \texttt{help} &  get help on an object \\
-    \texttt{id} & get the identity of an object, usually the memory address.
-    This should be removed because the result is not predictable. \\
-    \texttt{input} &  read a line from the standard input \\
-    \texttt{open} &  open a file \\
-    \texttt{quit / exit} &  exit the interpreter \\
-    \texttt{runfile} &  run a file \\
-    \texttt{vars} & return the \texttt{\_\_dict\_\_} attribute of an object \\
-"""
 Dangerous_identifiers : list[str] = ['__import__', 'breakpoint', 'compile', 'eval', 'execfile', \
                                      'exec', 'get_ipython', 'globals', 'memoryview', 'help', \
                                      'id', 'input', 'open', 'quit', 'exit', 'runfile', 'vars']
 
-def verify_and_parse_func(py_file : TextIO) -> ast.AST:
+def verify_and_parse_func(py_file : TextIO, parse_it: bool = False) -> dict[str, dict[str, list[str]]] | bool:
     """
     Verifies the source code. source should be the content of a python file.
     """
+
+    # 1. get tree
     py_code_content = py_file.read()
     py_file.seek(0)
     py_lines_for_debugging = py_file.readlines()
     tree = ast.parse(py_code_content)
-    verify(tree, py_lines_for_debugging)
-    return tree
 
-def verify_and_parse_func_str(py_code_content : str) -> ast.AST:
+    # 2. verify
+    verify(tree, py_lines_for_debugging)
+
+    # 3. parse_func
+    if parse_it:
+        return parse_func(tree, py_lines_for_debugging)
+    return True
+
+def verify_and_parse_func_str(py_code_content : str, parse_it : bool = False) -> dict[str, dict[str, list[str]]] | bool:
     py_lines_for_debugging = py_code_content.split('\n')
     tree = ast.parse(py_code_content)
     verify(tree, py_lines_for_debugging)
-    return tree
+    if parse_it:
+        return parse_func(tree, py_lines_for_debugging)
+    return True
 
 def verify(tree : ast, py_lines_for_debugging: list[str]):
     """
@@ -89,6 +78,10 @@ def debug_node_str(node: ast.AST, l: list[str]) -> str:
 def verify_top_level_statements(tree : ast, lines: list[str]):
     for node in tree.body:
         # the top-level nodes
+        # 🦜 : Also allow top-level const expr
+        if isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant):
+            continue
+
         if not any([isinstance(node, allowed_node) for allowed_node in Allowed_top_level_statements]):
             raise AssertionError(f'verify_top_level_statements: Only `import`, `import from` and `def` are allowed at the top level\n' +  \
                                  'Error processing:' + debug_node_str(node, lines))
@@ -131,3 +124,34 @@ def verify_identifiers(n: ast, lines: list[str]):
         return
     if n.id in Dangerous_identifiers:
         raise AssertionError(f'verify_identifiers: Identifier `{n.id}` is not allowed.\n' + debug_node_str(n, lines))
+
+
+# --------------------------------------------------
+def parse_func(tree : ast, py_lines_for_debugging: list[str]) -> dict[str, dict[str, list[str]]]:
+    """Parse the abi from the source code.
+
+    🦜 : This walk through the top-level `FunctionDef` object and try to get
+    the `method_name`, `args` and `special_args`.
+
+    Note that currently, there's no type checking. Also, default args are not
+    ignored, so don't bother setting them...
+
+    """
+    o = dict()
+
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef):
+            method_name = node.name
+            m = dict()
+            for a in [arg.arg for arg in node.args.args]:
+                # a : str
+                print(f'Processing arg {a}')
+                if a.startswith('_'):
+                    print(f'Adding to special_args {a}')
+                    m['special_args'] = m.get('special_args', []) + [a]
+                else:
+                    print(f'Adding to args {a}')
+                    m['args'] = m.get('args', []) + [a]
+            o[method_name] = m
+
+    return o
