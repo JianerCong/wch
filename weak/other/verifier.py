@@ -48,7 +48,7 @@ def verify(tree : ast, py_lines_for_debugging: list[str]):
     Verify the source code.
     Throws AssertionError if the source code is not valid.
     """
-    print(f'🦜 : Verifying tree:\n {S.GREEN}{ast.dump(tree, indent=4)}{S.NOR} ')
+    # print(f'🦜 : Verifying tree:\n {S.GREEN}{ast.dump(tree, indent=4)}{S.NOR} ')
     verify_top_level_statements(tree, py_lines_for_debugging)
     verify_imports_and_ids(tree, py_lines_for_debugging)
 
@@ -145,12 +145,12 @@ def parse_func(tree : ast, py_lines_for_debugging: list[str]) -> dict[str, dict[
             m = dict()
             for a in [arg.arg for arg in node.args.args]:
                 # a : str
-                print(f'Processing arg {a}')
+                print(f'Processing arg {S.GREEN} {a} {S.NOR}')
                 if a.startswith('_'):
-                    print(f'Adding to special_args {a}')
+                    print(f'\tAdding to {S.BLUE} special_args {S.NOR}')
                     m['special_args'] = m.get('special_args', []) + [a]
                 else:
-                    print(f'Adding to args {a}')
+                    print(f'\tAdding to {S.BLUE} args {S.NOR} ')
                     m['args'] = m.get('args', []) + [a]
             o[method_name] = m
 

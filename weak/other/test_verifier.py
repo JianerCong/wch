@@ -1,5 +1,5 @@
 import pytest, ast
-from verifier import verify_and_parse_func_str
+from verifier import verify_and_parse_func_str, verify_and_parse_func
 
 class S:
     HEADER = '\033[95m'
@@ -115,3 +115,68 @@ def hi(f=open('hi.txt')):
    """
     assert_bad_ids(s)
 
+def test_ok_parse_func():
+    s = """
+def hi() -> str:
+    return "hi"
+    """
+    o = verify_and_parse_func_str(s, parse_it=True)
+    print(f'🦜 : o:{S.CYAN} {o} {S.NOR}')
+    o0 = {'hi' : {}}
+    assert o == o0
+
+
+@pytest.mark.parametrize(
+    "s,o0",
+    [
+        ("""
+def set(key: str, value: Any, _storage: dict[str,Any]) -> None:
+    _storage[key] = value
+        """,
+        {'set' : {'args': ['key', 'value'], 'special_args' : ['_storage']}}
+            ),
+        # --------------------------------------------------
+
+        (
+            """
+def init(_storage: dict[str,Any], _tx_context : dict[str,Any]) -> None:
+    _storage["tx_origin"] = _tx_context["tx_origin"]  # address hex string
+            """,
+            {'init' : {'special_args' : ['_storage', '_tx_context']}}
+        ),
+
+        # --------------------------------------------------
+        (
+            """
+def plus_one(x : int) -> int:
+    return x + 1
+            """,
+            {'plus_one' : {'args': ['x']}}
+        ),
+
+        # --------------------------------------------------
+        (
+            """
+def get(key: str, _storage: dict[str,Any]) -> Any:
+    return _storage[key]
+            """,
+            {'get' : {'args': ['key'], 'special_args' : ['_storage']}}
+        ),
+    ])
+def test_more_ok_parse_func(s, o0):
+    o = verify_and_parse_func_str(s, parse_it=True)
+    print(f'🦜 : o:{S.CYAN} {o} {S.NOR}')
+    assert o == o0
+
+def test_example_files_parse():
+    f = open('example/ok-basic.py', 'r')
+    o0 = {
+    'hi' : {},
+    'plus_one' : {'args': ['x']},
+    'set' : {'args': ['key', 'value'], 'special_args' : ['_storage']},
+    'get' : {'args': ['key'], 'special_args' : ['_storage']},
+    'init' : {'special_args' : ['_storage', '_tx_context']}
+    }
+    o = verify_and_parse_func(f, parse_it=True)
+    print(f'🦜 : o:{S.CYAN} {o} {S.NOR}')
+    assert o == o0
