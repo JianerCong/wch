@@ -1,3 +1,4 @@
+
 \usepackage{tikz}
 \usetikzlibrary{shapes} % ellipse node shape
 \usetikzlibrary{shapes.multipart} % for line breaks in node text
@@ -5,7 +6,23 @@
 \usetikzlibrary{arrows}
 \usetikzlibrary{matrix}
 
-\usepackage{xeCJK}              
+\usepackage{amsmath}
+
+\usepackage{minted}
+\usepackage{tcolorbox}
+\tcbuselibrary{skins}
+\tcbuselibrary{minted}
+
+\usepackage{fontspec}
+\setmonofont{Cascadia}[
+Path=/usr/share/fonts/truetype/Cascadia_Code/,
+Scale=0.85,
+Extension = .ttf,
+UprightFont=*Code,              %find CascadiaCode.ttf
+BoldFont=*CodePL,               %find CascadiaCodePL.ttf ...
+ItalicFont=*CodeItalic,
+BoldItalicFont=*CodePLItalic
+]
 \usepackage{amsmath}
 
 \usepackage{minted}
@@ -28,36 +45,36 @@ BoldItalicFont=*CodePLItalic
 
 % Without this, there's a gap between the upper bbox and the node box
 
-\newtcblisting{simplec}{
-  listing engine=minted,
-  minted language=c++,
-  minted style=vs,
-  minted options={fontsize=\small,autogobble,
-  % framesep=1cm
-  },
-  tile,
-  listing only,
-  % bottom=0cm,
-  % nobeforeafter, 
-  boxsep=0mm,
-  left=1mm,
-  opacityback=0.5,
-  colback=gray!20
+\newcommand{\makeSimpleListing}[2]{
+  \newtcblisting{#1}{
+    listing engine=minted,
+    minted language=#2,
+    minted style=vs,
+    minted options={fontsize=\small,autogobble,
+      breaklines=true
+      % framesep=1cm
+    },
+    tile,
+    listing only,
+    % bottom=0cm,
+    % nobeforeafter,
+    boxsep=0mm,
+    left=1mm,
+    opacityback=0.5,
+    colback=gray!20,
+    breakable
+  }
 }
 
-\newtcblisting{simplepy}{
-  listing engine=minted,
-  minted language=python,
-  minted style=vs,
-  minted options={fontsize=\small,autogobble},
-  tile,
-  listing only,
-  % nobeforeafter, 
-  boxsep=0.5mm,
-  left=1mm,
-  opacityback=0.5,
-  colback=gray!20
-}
+% pygmentize -L lexers
+\makeSimpleListing{simplec}{c++}
+\makeSimpleListing{simplepy}{python}
+\makeSimpleListing{simpleyml}{yaml}
+\makeSimpleListing{simplesh}{bash}
+\makeSimpleListing{simplecf}{cfg}
+\makeSimpleListing{simplexml}{xml}
+\makeSimpleListing{simplejv}{java}
+\makeSimpleListing{simplejs}{js}
 
 
 \tcbset{enhanced, fontupper=\small,
@@ -186,11 +203,3 @@ row sep=1cm,column sep=2cm]
 \tcblower{}
 % \tcbfontsize{0.5}
 }{\end{tcolorbox}}
-% \newtcolorbox{commentBox}[1][]{
-%   tile,
-%   bicolor,sidebyside,
-%   righthand width=2cm,
-%   colback=gray!20,
-%   before lower={},
-%   fontupper=\footnotesize,
-%   left=0mm, #1}

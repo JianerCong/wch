@@ -75,12 +75,27 @@ be put into the \texttt{TxReceipt}.
 
 \emoji{parrot} : I think
 
-\begin{simplejson}
+\begin{simplejs}
 {
     "result" : 1
     "log" : "Here is some log printed by the methods"
 }
-\end{simplejson}
+\end{simplejs}
+
+The result can be any json object.
+
+And when things go wrong, it would be
+\begin{simplejs}
+{
+    "error" : "Here are some error messages"
+}
+\end{simplejs}
+
+\emoji{turtle} : Oh, so the boolean return value can acutally be inferred from
+the json object right?
+
+\emoji{parrot} : Yes, but I think it's better to have a boolean return
+value.(just for convenience)
 
 \end{document}
 
