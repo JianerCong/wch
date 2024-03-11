@@ -154,4 +154,15 @@ def parse_func(tree : ast, py_lines_for_debugging: list[str]) -> dict[str, dict[
                     m['args'] = m.get('args', []) + [a]
             o[method_name] = m
 
+    check_init_func(o)
+
     return o
+
+def check_init_func(o : dict[str, dict[str, list[str]]]):
+    """
+    The `init` method, if present, should only contain special_args.
+    """
+    if 'init' in o:
+        # assert 'args' not in o['init']
+        if 'args' in o['init']:
+            raise AssertionError(f'check_init_func: `init` method should not have any args, but found {o["init"]["args"]}')

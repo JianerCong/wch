@@ -180,3 +180,14 @@ def test_example_files_parse():
     o = verify_and_parse_func(f, parse_it=True)
     print(f'🦜 : o:{S.CYAN} {o} {S.NOR}')
     assert o == o0
+
+def test_bad_init_args():
+    s = """
+def init(_storage: dict[str,Any], _tx_context : dict[str,Any], x : int) -> None:
+    pass
+    """
+
+    with pytest.raises(AssertionError) as e:
+        o = verify_and_parse_func_str(s,parse_it=True)
+    print(f'🚮️: captured e.value:{S.CYAN} {e.value} {S.NOR}')
+    assert str(e.value).startswith('check_init_func')

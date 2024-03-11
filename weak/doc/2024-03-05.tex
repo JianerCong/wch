@@ -1,0 +1,96 @@
+\section*{2024-02-18}
+\subsection*{19:03 the python contract verifier}
+
+\emoji{parrot} : Yeah, after a journey to the \texttt{ast} standard library, I
+think now we can have a try to write a contract verifier in python.
+
+\emoji{turtle} : Yeah, so what are the rules?
+
+\emoji{parrot} : What do you think ? Are our rules unchanged?
+
+\emoji{turtle} : More or less.... But I think now we can make it more
+specific (since we now know \texttt{ast}.):
+
+\begin{enumerate}
+\item At the top level, only \texttt{def},\texttt{import} and \texttt{from .. import}
+  are allowed. In particular, only those allowed modules are allowed.(see
+  2024-02-11).
+\item The keywords listed in 2024-02-11 are banned. In particular, they cannot
+  appear as function name, variable name, argument name... (Pretty much every
+  where except for the comments and string literal.)
+\end{enumerate}
+
+\section*{2024-02-18}
+\subsection*{continued: the python contract verifier}
+\emoji{parrot} : Oh, so great. But I remember we need to write two tools: one
+for syntax verifying and one for function argument parsing.
+
+\emoji{turtle} : Yeah, \texttt{ast} can help us both.
+
+\section*{2024-03-05}
+\subsection*{start writing the function parser}
+\emoji{parrot} : I think we can start with the function parser.
+
+\emoji{turtle} : Yeah, so I think it's kinda like extracting the \cola{header}
+from the script right?
+
+\emoji{parrot} : Yeah, so I think a good start would be:
+
+\begin{enumerate}
+\item walk through the top level def
+\item extract the function name, argument names. During this, we should be able
+  to mark that if a function has required the \colz{magical argument}, for now,
+  they are \texttt{\_tx\_context : dict[str,Any]} and \texttt{\_tx\_storage :
+    dict[str,Any]}. These special args are supposed to be filled by the vm, and
+  are not exposed to the abi. (So when a user invoke a method, they don't
+  specify these arguments in their \cola{abi call})
+\end{enumerate}
+
+\emoji{turtle} : Why don't we just mark all the arguments that starts with
+underscore as \colz{magical arguments}?
+
+\emoji{parrot} : That's a good idea.
+
+\emoji{turtle} : Yeah, so that we can add more \colz{magical arguments} later..
+
+So given the contract
+\begin{simplepy}
+from typing import Any
+from math import sqrt
+
+def hi() -> str:
+    return "hi"
+
+def plus_one(x : int) -> int:
+    return x + 1
+
+def set(key: str, value: Any, _storage: dict[str,Any]) -> None:
+    _storage[key] = value
+
+def get(key: str, _storage: dict[str,Any]) -> Any:
+    return _storage[key]
+
+def init(_storage: dict[str,Any], _tx_contet : dict[str,Any]) -> None:
+    _storage["tx_origin"] = _tx_context["tx_origin"]  # address hex string
+    _storage["block_number"] = _tx_context["block_number"]  # int
+    _storage["tx_timestamp"] = _tx_context["tx_timestamp"]  # int
+    # 🦜 : storage is a dictionary that should be serializable into JSON
+
+## : So this should produce the abi object:
+"""
+a = {
+    'hi' : {},
+    'plus_one' : {'args': ['x']},
+    'set' : {'args': ['key', 'value'], 'special_args' : ['_storage']},
+    'get' : {'args': ['key'], 'special_args' : ['_storage']},
+    'init' : {'special_args' : ['_storage', '_tx_context']}
+}
+
+# : and to invoke a method, use something like:
+
+a = {
+    'method' : 'plus_one',
+    'args' : {'x' : 1}
+}
+"""
+\end{simplepy}

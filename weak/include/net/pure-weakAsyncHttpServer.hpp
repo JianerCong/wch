@@ -159,8 +159,7 @@ namespace pure{
 
     //------------------------------------------------------------------------------
     // Report a failure
-    static void fail(beast::error_code ec, char const* what)
-    {
+    static void fail(beast::error_code ec, char const* what){
       BOOST_THROW_EXCEPTION(std::runtime_error(string(what) + ": " + ec.message()));
     }
 
@@ -230,7 +229,6 @@ namespace pure{
       }
     };                            // class listener
     //------------------------------------------------------------------------------
-
 
     std::unique_ptr<asio::io_context> ioc;
     vector<std::jthread> * all_threads;
