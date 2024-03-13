@@ -19,8 +19,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # 🦜 : Enable the following
 option(WITH_TEST "build test" ON)
 option(WITH_PROTOBUF "build protobuf" ON)
+option(WITH_PYTHON "build with python" ON)
 
 include("cmake/deps.cmake")
+
 
 add_subdirectory(pkgs/intx-0.10.0 intx)        #brings in the intx
 add_subdirectory(pkgs/ethash-1.0.1 ethash)        #brings in ethash
@@ -41,6 +43,18 @@ add_library(deps INTERFACE)     #the ALL dependency target = core + rdb (current
 target_link_libraries(deps INTERFACE core-deps RocksDB::rocksdb
   evmweak
 )
+
+if (WITH_PYTHON)
+  file(READ other/verifier.py PY_VERIFIER_CONTENT)
+  # file(READ other/verifier.py PY_VERIFIER_CONTENT_HEX HEX)
+
+  # 2. replace \n with \\n
+  string(REPLACE "\n" "\\n" PY_VERIFIER_CONTENT "${PY_VERIFIER_CONTENT}")
+
+  configure_file(include/config.hpp.in config.hpp ESCAPE_QUOTES)
+  target_include_directories(deps INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
+endif()
+
 target_include_directories(deps INTERFACE
   ${PROJECT_SOURCE_DIR}/pkgs/
 )
