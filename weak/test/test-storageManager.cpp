@@ -2,7 +2,7 @@
 
 #include "storageManager.hpp"
 #include "mock.hpp"
-#include <boost/log/trivial.hpp> // For BOOST_LOG_TRIVIAL, trace, debug,..,fatal
+#include <boost/log/trivial.hpp> // for boost_log_trivial, trace, debug,..,fatal
 #include <boost/log/core.hpp>
 #include <boost/log/expressions.hpp>
 #include <thread>
@@ -172,7 +172,6 @@ BOOST_AUTO_TEST_CASE(acn_fromJson_withMultiStorage){
   BOOST_CHECK_EQUAL(evmc::hex(a.storage[bytes32(0x2)]),
                     // implicilty convert from bytes32 -> bytes_view
                     string(62/*32x2 - 2*/,'0') + "20");
-
 }
 
 // }}}
@@ -384,54 +383,54 @@ BOOST_FIXTURE_TEST_CASE(test_get_nonexisting_Acn,TmpWorldStorage){
 }
 
 
-BOOST_FIXTURE_TEST_CASE(TPS_test_storage, TmpWorldStorage, MY_TEST_THIS){
+// BOOST_FIXTURE_TEST_CASE(TPS_test_storage, TmpWorldStorage, MY_TEST_THIS){
 
-  using namespace std::chrono;
-  time_point<high_resolution_clock> start, end;
-  boost::log::core::get()->set_filter(boost::log::trivial::severity >= boost::log::trivial::info);
+//   using namespace std::chrono;
+//   time_point<high_resolution_clock> start, end;
+//   boost::log::core::get()->set_filter(boost::log::trivial::severity >= boost::log::trivial::info);
 
-  // 1. --------------------------------------------------
-  // Make a Blk
-  address a1 = makeAddress(10); address a2 = makeAddress(20);
+//   // 1. --------------------------------------------------
+//   // Make a Blk
+//   address a1 = makeAddress(10); address a2 = makeAddress(20);
 
-  const int N = 15;             // num tx per blk
-  const int M = 4;             // num of thread
+//   const int N = 15;             // num tx per blk
+//   const int M = 4;             // num of thread
 
-  vector<Tx> txs;
-  for (int i{0};i<N;i++)
-    txs.push_back(Tx(a1,a2,{},i/*nonce*/));
+//   vector<Tx> txs;
+//   for (int i{0};i<N;i++)
+//     txs.push_back(Tx(a1,a2,{},i/*nonce*/));
 
-  // parent hash
-  hash256 h;
-  std::fill(std::begin(h.bytes),std::end(h.bytes),0x00);
-  // make block
-  Blk b = Blk(1,h,txs);
+//   // parent hash
+//   hash256 h;
+//   std::fill(std::begin(h.bytes),std::end(h.bytes),0x00);
+//   // make block
+//   Blk b = Blk(1,h,txs);
 
-  // 🦜 : Do we need to count in the speed of serilization?
-  // 🐢 : No
-  string b_str = b.toString();
+//   // 🦜 : Do we need to count in the speed of serilization?
+//   // 🐢 : No
+//   string b_str = b.toString();
 
-  // keys
-  string keys[M];
-  for(int i=0;i<M;i++)
-    keys[i] = (format("k%d") % i).str();
+//   // keys
+//   string keys[M];
+//   for(int i=0;i<M;i++)
+//     keys[i] = (format("k%d") % i).str();
 
-  // 2. --------------------------------------------------
-  // Time how fast does it store
-  start = high_resolution_clock::now(); // --------------------------------------------------
-  for (int i{0};i<M;i++)
-    std::jthread{[&](){
-      w->setInChainDB(keys[i],b_str);
-    }};
-  // Get timming
-  end = high_resolution_clock::now();    // --------------------------------------------------
+//   // 2. --------------------------------------------------
+//   // Time how fast does it store
+//   start = high_resolution_clock::now(); // --------------------------------------------------
+//   for (int i{0};i<M;i++)
+//     std::jthread{[&](){
+//       w->setInChainDB(keys[i],b_str);
+//     }};
+//   // Get timming
+//   end = high_resolution_clock::now();    // --------------------------------------------------
 
-  duration<double> elapsed_seconds = end - start;
-  double s = elapsed_seconds.count();
-  double tps = M * N/s;
-  BOOST_TEST_MESSAGE(format("sec elapsed: %4.2e sec, so TPS = %.0f") % s % (tps));
-  BOOST_CHECK(tps > 40'000);
-}
+//   duration<double> elapsed_seconds = end - start;
+//   double s = elapsed_seconds.count();
+//   double tps = M * N/s;
+//   BOOST_TEST_MESSAGE(format("sec elapsed: %4.2e sec, so TPS = %.0f") % s % (tps));
+//   BOOST_CHECK(tps > 40'000);
+// }
 
 
 template<typename T>

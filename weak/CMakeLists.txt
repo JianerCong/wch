@@ -36,8 +36,14 @@ target_link_libraries(core-deps INTERFACE
   # evmc::loader evmc::instructions evmc::tooling
   Boost::unit_test_framework Boost::log Boost::json Boost::program_options
   intx::intx ethash::keccak
-  hi_pb
+  # hi_pb
 )
+
+if (WITH_PROTOBUF)
+  target_link_libraries(core-deps INTERFACE hi_pb)
+  # define WITH_PROTOBUF
+  target_compile_definitions(core-deps INTERFACE WITH_PROTOBUF)
+endif()
 
 add_library(deps INTERFACE)     #the ALL dependency target = core + rdb (currently)
 target_link_libraries(deps INTERFACE core-deps RocksDB::rocksdb

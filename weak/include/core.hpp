@@ -275,6 +275,9 @@ string resultToString(const evmc::Result& result){
   {
   public:
 
+    ADD_TO_FROM_STR_WITH_JSON_OR_PB
+    // ^^ 🦜 add the to/fromString method
+
     // <2024-03-15 Fri> 🦜 : Today we try to pb the Acn, and also make the
     // hashcode a caculated property
     hiPb::Acn toPb() const override {
@@ -329,7 +332,10 @@ string resultToString(const evmc::Result& result){
     bytes code;
     /// The account storage map.
     unordered_map<bytes32,bytes32> storage;
-    // The "disk" storage
+    /*
+      <2024-03-15 Fri> The "disk" storage. 🦜 : Different executors will use the
+      `disk_storage` differently.
+     */
     vector<string> disk_storage;
 
     /// The code hash. Can be a value not related to the actual code.
@@ -339,15 +345,6 @@ string resultToString(const evmc::Result& result){
 
     // methods
     // --------------------------------------------------
-    // For now, use UTF8 JSON for serialization. later we can change it to sth else.
-    string toString() const noexcept override {
-      return IJsonizable::toJsonString();
-    };
-
-    bool fromString(string_view s) noexcept override{
-      BOOST_LOG_TRIVIAL(debug) <<  "Forming Acn from string.";
-      return IJsonizable::fromJsonString(s);
-    };
 
     json::value toJson() const noexcept override {
       BOOST_LOG_TRIVIAL(debug) << format("📗Jsonizing Acn");

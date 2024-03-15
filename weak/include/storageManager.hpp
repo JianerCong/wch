@@ -114,8 +114,10 @@ namespace weak {
           BOOST_LOG_TRIVIAL(info) << format("Adding 🚮️ Deletion " S_MAGENTA "k=%s" S_NOR) % i.k;
           b.Delete(i.k);
         }else{
+          // <2024-03-15 Fri> 🦜 : Only log the content if not with pb
           BOOST_LOG_TRIVIAL(debug) << format("Adding ⚙️ Insertion "
-                                             S_CYAN "(k,v) = (%s,%s)" S_NOR) % i.k % i.v;
+                                             S_CYAN "(k,v) = (%s,%s)" S_NOR) % i.k
+            /*% i.v;*/ % pure::get_data_for_log(i.v); // <- 🦜 : considers pb
           b.Put(i.k,i.v);
         }
       }

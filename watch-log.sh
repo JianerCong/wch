@@ -10,6 +10,8 @@ inotifywait --monitor  \
         clear
         changed_abs=${dir}${file}
         echo "At ${time} on ${date}, file $changed_abs was changed" >&2
-        head o.log -n 20
+        # 🦜: remove everything between "\x1b[33m" (S_YELLOW) and "\x1b[0m" (S_NOR) [inclusive]
+        python3 ./process-log.py o.log > o-less.log
+        head o-less.log -n 20   # 🦜 : Ignore warning
         echo "Keep watching"
     done

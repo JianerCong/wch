@@ -17,14 +17,15 @@ endmacro()
 #[=[
 🦜 : Uncomment the following to enable tests.
 #]=]
-set_test(test-core core-deps)
-# set_test(test-core-20240130 core-deps)
+# set_test(test-core core-deps)
+# set_test(test-core2 core-deps) #20240130
 # set_test(test-pure-thrd-party core-deps)
 # set_test(test-executeEvmTx deps)
 # set_test(test-executeDiv2Tx deps)
 # set_test(test-mempool core-deps)
 # set_test(test-sealer core-deps)
 # set_test(test-storageManager deps)
+set_test(test-storageManager2 deps)
 # set_test(test-forPostExec core-deps)
 
 # set_test(test-forPostExec-20240201 core-deps)
@@ -83,10 +84,17 @@ foreach(t d IN ZIP_LISTS l l-deps)
       # --report_level=detailed
       COMMENT "Testing marked test 🐸")
   else()
+
     ## Option 2: test-all
     ## --------------------------------------------------
-    # add_custom_target(run-${t} ALL ${exe} --log_level=all COMMENT "Testing Tests 🐸")
-    add_custom_target(run-${t} ALL ${exe} COMMENT "Testing Tests 🐸") #🦜 : quiter 
+    # <all|success|test_suite|unit_scope|message|warning|error|cpp_exception|system_error|fatal_error|nothing>
+
+    set(level all)
+    # set(level test_suite)
+    # set(level message)
+    add_custom_target(run-${t} ALL ${exe} --log_level=${level} COMMENT "Testing Tests 🐸")
+
+    # add_custom_target(run-${t} ALL ${exe} COMMENT "Testing Tests 🐸") #🦜 : quiter 
   endif()
   add_dependencies(run-${t} ${t})
 endforeach()

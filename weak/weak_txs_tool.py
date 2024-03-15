@@ -69,5 +69,5 @@ def weak_benchmark(n_tx_per_batch : int = 2, n_batches : int = 2,
 # weak_benchmark()                # 1476
 # weak_benchmark(10,2)                # 7 566
 # weak_benchmark(100,2)                # 78 332
-# weak_benchmark(1000,2)                # 582 380
-weak_benchmark(1000,5)                # 1081 954
+weak_benchmark(1000,2)                # 582 380
+# weak_benchmark(1000,5)                # 1081 954

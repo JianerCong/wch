@@ -21,8 +21,20 @@ optional<tuple<vector<StateChange>,bytes>> executePyTx(IAcnGettable * const w, c
 
     // 1. Deploy the contract
     //   1.1 new account
+    /*
+      🦜 : For python-vm, let's store the following at `disk_storage`
+      [0] : abi.json
+      [1] : storage.json
+    */
     Acn a{t.nonce, t.data};
+    // 1.2 store the abi
+    // store the abi
+    a.disk_storage.push_back(abi.value());
 
+    // 1.3 parse the abi from json
+    json::object abi_json = json::parse(abi.value()).as_object();
+
+    // 1.3 execute the `init` function if it exists
   }else{
     // Contract call
   }
