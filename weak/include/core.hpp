@@ -62,7 +62,7 @@ namespace weak {
   using json::value_to;
 
 string resultToString(const evmc::Result& result){
-  evmc::bytes o{result.output_data,result.output_size};
+  bytes o{result.output_data,result.output_size};
   return evmc::hex(o);
 }
 
@@ -133,6 +133,20 @@ string resultToString(const evmc::Result& result){
   } // ^v a pair
   bytes bytesFromString(string_view s){
     return bytes(reinterpret_cast<const uint8_t*>(s.data()),s.size());
+  }
+
+  // byte32 <-> string
+  string toString(const bytes32 & b){
+    return string(reinterpret_cast<const char*>(b.bytes),sizeof(b.bytes));
+    // return string(reinterpret_cast<const char*>(
+  }
+  bytes32 bytes32FromString(string_view s){
+    if (s.size() < 32){
+      BOOST_THROW_EXCEPTION(std::runtime_error((format("Invalid size for bytes32, should be at least 32, but got %d") % s.size()).str()));
+    }
+    bytes32 b;
+    std::copy_n(reinterpret_cast<const uint8_t*>(s.data()),32,std::begin(b.bytes));
+    return b;
   }
 
   evmc::address makeAddress(int x) noexcept {
@@ -261,7 +275,8 @@ string resultToString(const evmc::Result& result){
   {
   public:
 
-    // <2024-03-15 Fri>
+    // <2024-03-15 Fri> 🦜 : Today we try to pb the Acn, and also make the
+    // hashcode a caculated property
     hiPb::Acn toPb() const override {
       hiPb::Acn pb;
       pb.set_nonce(this->nonce);
@@ -282,26 +297,45 @@ string resultToString(const evmc::Result& result){
         pb.add_disk_storage(s);
       }
 
+      return pb;
     }
 
+    void fromPb(const hiPb::Acn & pb) override{
+      this->nonce = pb.nonce();
+      this->code = weak::bytesFromString(pb.code());
+
+      // parse the storage
+      for (int i = 0;i<pb.storage_ks_size();i++){
+        bytes32 k = weak::bytes32FromString(pb.storage_ks(i));
+        bytes32 v = weak::bytes32FromString(pb.storage_vs(i));
+        this->storage[k] = v;
+      }
+
+      // parse the disk_storage
+      for (int i = 0;i<pb.disk_storage_size();i++){
+        this->disk_storage.push_back(pb.disk_storage(i));
+      }
+    }
+
+
+
     Acn() = default;
-    Acn(const uint64_t n,bytes c): nonce(n), code(c){
-      // get hash from code
-      codehash = ethash::keccak256(reinterpret_cast<const uint8_t*>(c.data()), c.size());
-      // 🦜 : I am not ganna even set the codehash, evmc said it can be irrelevent.
-    };
+    Acn(const uint64_t n,bytes c): nonce(n), code(c){};
 
     // data
     // --------------------------------------------------
     uint64_t nonce = 0; /// The account nonce.
     /// The account code.
     bytes code;
-    /// The code hash. Can be a value not related to the actual code.
-    hash256 codehash;
     /// The account storage map.
     unordered_map<bytes32,bytes32> storage;
     // The "disk" storage
     vector<string> disk_storage;
+
+    /// The code hash. Can be a value not related to the actual code.
+    hash256 codehash() const noexcept{
+      return ethash::keccak256(reinterpret_cast<const uint8_t*>(code.data()), code.size());
+    }
 
     // methods
     // --------------------------------------------------
@@ -328,14 +362,10 @@ string resultToString(const evmc::Result& result){
         this->nonce = value_to<uint64_t>(o.at("nonce"));
 
         // code and hashes
-        string h,c;
-        h = value_to<string>(v.at("codehash"));
+        string c;
         c = value_to<string>(v.at("code"));
 
         this->code = evmc::from_hex(c).value();
-        /// Decodes hex-encoded string into custom type T with .bytes array of
-        /// uint8_t. so ethash::hash256 is such a type
-        this->codehash = evmc::from_hex<hash256>(h).value();
         /* Implementation of from_hex:
 
            If the length of string is smaller than the target array copy the bytes
@@ -387,12 +417,12 @@ string resultToString(const evmc::Result& result){
 
         }
 
-        // the disk storage
-        for (const json::value & s : o.at("disk_storage").as_array()){
-          this->disk_storage.push_back(value_to<string>(s));
+        // get the disk storage if exists
+        if (o.contains("disk_storage")){
+          for (const json::value & s : o.at("disk_storage").as_array()){
+            this->disk_storage.push_back(value_to<string>(s));
+          }
         }
-
-        // get the disk storage
       }catch(std::exception &e){
         BOOST_LOG_TRIVIAL(error) << format("❌️ error parsing json: %s") % e.what();
         return false;
@@ -410,7 +440,7 @@ string resultToString(const evmc::Result& result){
     v = {
       {"nonce",a.nonce},
         {"code",evmc::hex(a.code)},
-        {"codehash",hashToString(a.codehash)}
+        {"codehash",hashToString(a.codehash())}
     };
 
     json::object s;             // storage
@@ -461,12 +491,14 @@ string resultToString(const evmc::Result& result){
 
     v.as_object()["storage"] = s;
 
-    // the disk_storage
-    json::array d;
-    for (const string & s : a.disk_storage){
-      d.push_back(s);
+    // <2024-03-15 Fri> the disk_storage
+    if (not a.disk_storage.empty()){
+      json::array d;
+      for (const string & s : a.disk_storage){
+        d.push_back(json::string(s));
+      }
+      v.as_object()["disk_storage"] = d;
     }
-    v.as_object()["disk_storage"] = d;
   }
 
   // This helper function deduces the type and assigns the value with the matching key

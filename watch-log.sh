@@ -10,6 +10,6 @@ inotifywait --monitor  \
         clear
         changed_abs=${dir}${file}
         echo "At ${time} on ${date}, file $changed_abs was changed" >&2
-        head o.log -n 60
+        head o.log -n 20
         echo "Keep watching"
     done

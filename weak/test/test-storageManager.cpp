@@ -38,11 +38,11 @@ BOOST_AUTO_TEST_CASE(acn_codehash){
   Acn a1{123,evmc::from_hex("0022").value()};
   Acn a2{234,evmc::from_hex("0011").value()};
 
-  BOOST_CHECK_NE(hashToString(a.codehash),
-                 hashToString(a1.codehash));
+  BOOST_CHECK_NE(hashToString(a.codehash()),
+                 hashToString(a1.codehash()));
   // different nonce dosen't matter
-  BOOST_CHECK_EQUAL(hashToString(a.codehash),
-                    hashToString(a2.codehash)
+  BOOST_CHECK_EQUAL(hashToString(a.codehash()),
+                    hashToString(a2.codehash())
                     );
 }
 
@@ -52,6 +52,7 @@ BOOST_AUTO_TEST_CASE(acn_toJson_noStorage){
   json::object v = a.toJson().as_object();
   BOOST_CHECK_EQUAL(v["nonce"].as_uint64(),123);
   BOOST_CHECK_EQUAL(v["code"].as_string(),"0011");
+  BOOST_CHECK_EQUAL(v["codehash"].as_string(), hashToString(a.codehash()));
   BOOST_CHECK_EQUAL(v["storage"].as_object().size(),0);
   // ^^^ throw is not an object
 }
@@ -116,7 +117,6 @@ BOOST_AUTO_TEST_CASE(acn_fromJson_noStorage){
 
   v["nonce"] = 123;
   v["code"] = "0011";
-  v["codehash"] = "aabb";
   // evmc::from_hex() will place these at the end of hex
 
   v["storage"] = json::object{};
@@ -124,8 +124,6 @@ BOOST_AUTO_TEST_CASE(acn_fromJson_noStorage){
   BOOST_REQUIRE(a.fromJson(v));
   BOOST_CHECK_EQUAL(a.nonce,123);
   BOOST_CHECK_EQUAL(evmc::hex(a.code),"0011");
-  BOOST_CHECK_EQUAL(hashToString(a.codehash),
-                    string(60,'0') + "aabb");
   BOOST_CHECK(a.storage.empty());
   }
 
@@ -136,7 +134,6 @@ BOOST_AUTO_TEST_CASE(acn_fromJson_withStorage ){
 
   v["nonce"] = 123;
   v["code"] = "0011";
-  v["codehash"] = "aabb";
   // evmc::from_hex() will place these at the end of hex
   // store value
   v["storage"] = json::object{
@@ -146,8 +143,6 @@ BOOST_AUTO_TEST_CASE(acn_fromJson_withStorage ){
   BOOST_REQUIRE(a.fromJson(v));
   BOOST_CHECK_EQUAL(a.nonce,123);
   BOOST_CHECK_EQUAL(evmc::hex(a.code),"0011");
-  BOOST_CHECK_EQUAL(hashToString(a.codehash),
-                    string(60,'0') + "aabb");
   BOOST_CHECK_EQUAL(a.storage.size(),1);
   BOOST_CHECK_EQUAL(evmc::hex(a.storage[bytes32(0x1)]),
                     // implicilty convert from bytes32 -> bytes_view
@@ -161,8 +156,6 @@ BOOST_AUTO_TEST_CASE(acn_fromJson_withMultiStorage){
 
   v["nonce"] = 123;
   v["code"] = "0011";
-  v["codehash"] = "aabb";
-  // evmc::from_hex() will place these at the end of hex
   // store value
   v["storage"] = json::object{
     {"\x01", "\x10"},
@@ -172,8 +165,6 @@ BOOST_AUTO_TEST_CASE(acn_fromJson_withMultiStorage){
   BOOST_REQUIRE(a.fromJson(v));
   BOOST_CHECK_EQUAL(a.nonce,123);
   BOOST_CHECK_EQUAL(evmc::hex(a.code),"0011");
-  BOOST_CHECK_EQUAL(hashToString(a.codehash),
-                    string(60,'0') + "aabb");
   BOOST_CHECK_EQUAL(a.storage.size(),2);
   BOOST_CHECK_EQUAL(evmc::hex(a.storage[bytes32(0x1)]),
                     // implicilty convert from bytes32 -> bytes_view

@@ -375,9 +375,9 @@ namespace weak {
     bytes32 get_code_hash(const address& a) const noexcept override{
       BOOST_LOG_TRIVIAL(debug) << "get_code_hash() called\n";
       if (!accounts.contains(a)) return {};
-      // return accounts[a].codehash;
+      // return accounts[a].codehash();
 
-      return hash256ToBytes32(accounts.at(a).codehash);
+      return hash256ToBytes32(accounts.at(a).codehash());
     }
 
     // }}}
