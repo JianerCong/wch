@@ -17,13 +17,18 @@ message AddTxsReply {
 message Acn {
   uint64 nonce = 1;
   bytes code = 2;
-  bytes codehash = 3;
+  // bytes codehash = 3; // 🦜 Nope , not needed in pb, it's json only (for show)
   /*
     🦜 : Because pb doesn't allow bytes as key, we kinda have to store the kv
     separately... So we used the following for storage, which is map<byte32, byte32>
    */
-  repeated bytes storage_ks = 4;
-  repeated bytes storage_vs = 5;
+  repeated bytes storage_ks = 3;
+  repeated bytes storage_vs = 4;
+  repeated string disk_storage = 5;
+  /*
+    🦜 : After some serious thinking, we decided to use string for disk_storage,
+    because usually it needs to be readble in json....
+   */
 } // []
 
 enum TxType{EVM = 0; DATA = 1;}

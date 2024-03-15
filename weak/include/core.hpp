@@ -256,15 +256,39 @@ string resultToString(const evmc::Result& result){
 
 
   class Acn: virtual public IJsonizable
+           , virtual public ISerializableInPb<hiPb::Acn>
            , virtual public ISerializable
   {
   public:
+
+    // <2024-03-15 Fri>
+    hiPb::Acn toPb() const override {
+      hiPb::Acn pb;
+      pb.set_nonce(this->nonce);
+      pb.set_code(weak::toString(this->code));
+
+      /*
+        set the
+        repeated bytes storage_ks = 4;
+        repeated bytes storage_vs = 5;
+       */
+      for (const auto& [k,v] : this->storage){
+        pb.add_storage_ks(weak::toString(k));
+        pb.add_storage_vs(weak::toString(v));
+      }
+
+      // set the disk_storage
+      for (const string & s : this->disk_storage){
+        pb.add_disk_storage(s);
+      }
+
+    }
+
     Acn() = default;
     Acn(const uint64_t n,bytes c): nonce(n), code(c){
       // get hash from code
-
-      codehash = ethash::keccak256(reinterpret_cast<const uint8_t*>(c.data()),
-                                   c.size());
+      codehash = ethash::keccak256(reinterpret_cast<const uint8_t*>(c.data()), c.size());
+      // 🦜 : I am not ganna even set the codehash, evmc said it can be irrelevent.
     };
 
     // data
@@ -276,6 +300,8 @@ string resultToString(const evmc::Result& result){
     hash256 codehash;
     /// The account storage map.
     unordered_map<bytes32,bytes32> storage;
+    // The "disk" storage
+    vector<string> disk_storage;
 
     // methods
     // --------------------------------------------------
@@ -360,6 +386,13 @@ string resultToString(const evmc::Result& result){
             this->storage[key] = val;
 
         }
+
+        // the disk storage
+        for (const json::value & s : o.at("disk_storage").as_array()){
+          this->disk_storage.push_back(value_to<string>(s));
+        }
+
+        // get the disk storage
       }catch(std::exception &e){
         BOOST_LOG_TRIVIAL(error) << format("❌️ error parsing json: %s") % e.what();
         return false;
@@ -427,6 +460,13 @@ string resultToString(const evmc::Result& result){
     }
 
     v.as_object()["storage"] = s;
+
+    // the disk_storage
+    json::array d;
+    for (const string & s : a.disk_storage){
+      d.push_back(s);
+    }
+    v.as_object()["disk_storage"] = d;
   }
 
   // This helper function deduces the type and assigns the value with the matching key
