@@ -56,7 +56,8 @@ optional<tuple<vector<StateChange>,bytes>> executePyTx(IAcnGettable * const w, c
  *  - {"result" : 1 "log" : "Here is some log printed by the methods"}
  *  - {"error" : "Some error message"}
  */
-json::object invokePyMethod(string_view method, string_view py_code, json::object abi, const Tx & t, string_view storage_json) const noexcept{
+json::object invokePyMethod(string_view method, string_view py_code,
+                            json::object abi, const Tx & t, string_view storage_json) const noexcept{
   if (not abi.contains(method)) {
     return {{"error",
                json::string("Method `" + string(method) + "` not found in the contract's abi")
@@ -71,17 +72,22 @@ json::object invokePyMethod(string_view method, string_view py_code, json::objec
   }
 
   // 1. prepare the input for the python-vm
-  //    1.1 prepare the _tx_context, and write that to `tx_context.json` (clear the file if it exists)
+  //    1.1 prepare the _tx_context
   json::object tx_ctx = {
     {"to", json::string(weak::addressToString(t.to))},
     {"from", json::string(weak::addressToString(t.from))},
     {"timestamp", json::number(t.timestamp)},
     {"hash", json::string(weak::hashToString(t.hash()))},
   };
-  (ofstream(wd / "tx_context.json") << json::stringify(tx_ctx)).flush();
+
+  using std::ios::trunc;
+  using std::ios::out;
+  (ofstream((wd / "tx_context.json").string(), trunc | out) << json::stringify(tx_ctx)).flush();
+  // trunc :: clear the file if it exists
 
   //    1.2 prepare the storage
-  (ofstream(wd / "storage.json") << storage_json).flush();
+  (ofstream((wd / "storage.json").string(), trunc | out) << storage_json).flush();
 
   // 2. make the python script
+  
 }

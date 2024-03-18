@@ -122,7 +122,7 @@ def hi() -> str:
     """
     o = verify_and_parse_func_str(s, parse_it=True)
     print(f'🦜 : o:{S.CYAN} {o} {S.NOR}')
-    o0 = {'hi' : {}}
+    o0 = {'hi' : []}
     assert o == o0
 
 
@@ -133,7 +133,8 @@ def hi() -> str:
 def set(key: str, value: Any, _storage: dict[str,Any]) -> None:
     _storage[key] = value
         """,
-        {'set' : {'args': ['key', 'value'], 'special_args' : ['_storage']}}
+        # {'set' : {'args': ['key', 'value'], 'special_args' : ['_storage']}}
+         {'set' : ['key', 'value', '_storage']}
             ),
         # --------------------------------------------------
 
@@ -142,7 +143,8 @@ def set(key: str, value: Any, _storage: dict[str,Any]) -> None:
 def init(_storage: dict[str,Any], _tx_context : dict[str,Any]) -> None:
     _storage["tx_origin"] = _tx_context["tx_origin"]  # address hex string
             """,
-            {'init' : {'special_args' : ['_storage', '_tx_context']}}
+            # {'init' : {'special_args' : ['_storage', '_tx_context']}}
+            {'init' : ['_storage', '_tx_context']}
         ),
 
         # --------------------------------------------------
@@ -151,7 +153,8 @@ def init(_storage: dict[str,Any], _tx_context : dict[str,Any]) -> None:
 def plus_one(x : int) -> int:
     return x + 1
             """,
-            {'plus_one' : {'args': ['x']}}
+            # {'plus_one' : {'args': ['x']}}
+            {'plus_one' : ['x']}
         ),
 
         # --------------------------------------------------
@@ -160,7 +163,8 @@ def plus_one(x : int) -> int:
 def get(key: str, _storage: dict[str,Any]) -> Any:
     return _storage[key]
             """,
-            {'get' : {'args': ['key'], 'special_args' : ['_storage']}}
+            # {'get' : {'args': ['key'], 'special_args' : ['_storage']}}
+            {'get' : ['key', '_storage']}
         ),
     ])
 def test_more_ok_parse_func(s, o0):
@@ -171,11 +175,15 @@ def test_more_ok_parse_func(s, o0):
 def test_example_files_parse():
     f = open('example/ok-basic.py', 'r')
     o0 = {
-    'hi' : {},
-    'plus_one' : {'args': ['x']},
-    'set' : {'args': ['key', 'value'], 'special_args' : ['_storage']},
-    'get' : {'args': ['key'], 'special_args' : ['_storage']},
-    'init' : {'special_args' : ['_storage', '_tx_context']}
+        # 'set' : {'args': ['key', 'value'], 'special_args' : ['_storage']},
+        # 'get' : {'args': ['key'], 'special_args' : ['_storage']},
+        # 'init' : {'special_args' : ['_storage', '_tx_context']}
+
+    'hi' : [],
+        'plus_one' : ['x'],
+        'set' : ['key', 'value', '_storage'],
+        'get' : ['key', '_storage'],
+        'init' : ['_storage', '_tx_context']
     }
     o = verify_and_parse_func(f, parse_it=True)
     print(f'🦜 : o:{S.CYAN} {o} {S.NOR}')

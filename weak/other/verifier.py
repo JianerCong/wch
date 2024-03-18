@@ -16,6 +16,7 @@ Dangerous_identifiers : list[str] = ['__import__', 'breakpoint', 'compile', 'eva
                                      'exec', 'get_ipython', 'globals', 'memoryview', 'help', \
                                      'id', 'input', 'open', 'quit', 'exit', 'runfile', 'vars']
 
+Special_args = ['_storage', '_tx_context']
 def verify_and_parse_func(py_file : TextIO, parse_it: bool = False) -> dict[str, dict[str, list[str]]] | bool:
     """
     Verifies the source code. source should be the content of a python file.
@@ -131,7 +132,7 @@ def parse_func(tree : ast, py_lines_for_debugging: list[str]) -> dict[str, dict[
     """Parse the abi from the source code.
 
     🦜 : This walk through the top-level `FunctionDef` object and try to get
-    the `method_name`, `args` and `special_args`.
+    the `method_name` and `args`
 
     Note that currently, there's no type checking. Also, default args are not
     ignored, so don't bother setting them...
@@ -142,27 +143,35 @@ def parse_func(tree : ast, py_lines_for_debugging: list[str]) -> dict[str, dict[
     for node in tree.body:
         if isinstance(node, ast.FunctionDef):
             method_name = node.name
-            m = dict()
+            # m = dict()
+            m = []
+            # 🦜 : <2024-03-18 Mon> : Let's now differentiate between `args` and `special_args`
             for a in [arg.arg for arg in node.args.args]:
                 # a : str
                 print(f'Processing arg {S.GREEN} {a} {S.NOR}')
-                if a.startswith('_'):
-                    print(f'\tAdding to {S.BLUE} special_args {S.NOR}')
-                    m['special_args'] = m.get('special_args', []) + [a]
-                else:
-                    print(f'\tAdding to {S.BLUE} args {S.NOR} ')
-                    m['args'] = m.get('args', []) + [a]
+                if a.startswith('_') and not a in Special_args:
+                    raise AssertionError(f'parse_func: args starts with `_` are preserved for special use. Found {a}')
+                #     print(f'\tAdding to {S.BLUE} special_args {S.NOR}')
+                #     m['special_args'] = m.get('special_args', []) + [a]
+                # else:
+                #     print(f'\tAdding to {S.BLUE} args {S.NOR} ')
+                #     m['args'] = m.get('args', []) + [a]
+                m.append(a)
             o[method_name] = m
 
     check_init_func(o)
 
     return o
 
+
 def check_init_func(o : dict[str, dict[str, list[str]]]):
     """
     The `init` method, if present, should only contain special_args.
     """
     if 'init' in o:
-        # assert 'args' not in o['init']
-        if 'args' in o['init']:
-            raise AssertionError(f'check_init_func: `init` method should not have any args, but found {o["init"]["args"]}')
+        # assert only special_args are present
+        # if 'args' in o['init']:
+        #     raise AssertionError(f'check_init_func: `init` method should not have any args, but found {o["init"]["args"]}')
+        for a in o['init']:
+            if a not in Special_args:
+                raise AssertionError(f'check_init_func: `init` method should only have special_args, but found {a}')

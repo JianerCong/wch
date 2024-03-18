@@ -128,7 +128,7 @@ namespace weak{
   }
 
     static tuple<int,string> exec_py(string  py_code_content, const int timeout_s = 2,
-                                     path wd = std::filesystem::temp_directory_path(); // 🦜: let's keep it simple.
+                                     path wd = std::filesystem::temp_directory_path() // 🦜: let's keep it simple.
                                      ) {
     BOOST_LOG_TRIVIAL(debug) <<  "exec_py entered";
 
