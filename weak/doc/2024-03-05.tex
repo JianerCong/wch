@@ -39,7 +39,7 @@ from the script right?
 \begin{enumerate}
 \item walk through the top level def
 \item extract the function name, argument names. During this, we should be able
-  to mark that if a function has required the \colz{magical argument}, for now,
+  to mark that if a function has required the \cola{magical argument}, for now,
   they are \texttt{\_tx\_context : dict[str,Any]} and \texttt{\_tx\_storage :
     dict[str,Any]}. These special args are supposed to be filled by the vm, and
   are not exposed to the abi. (So when a user invoke a method, they don't
@@ -47,11 +47,11 @@ from the script right?
 \end{enumerate}
 
 \emoji{turtle} : Why don't we just mark all the arguments that starts with
-underscore as \colz{magical arguments}?
+underscore as \cola{magical arguments}?
 
 \emoji{parrot} : That's a good idea.
 
-\emoji{turtle} : Yeah, so that we can add more \colz{magical arguments} later..
+\emoji{turtle} : Yeah, so that we can add more \cola{magical arguments} later..
 
 So given the contract
 \begin{simplepy}
@@ -71,10 +71,11 @@ def get(key: str, _storage: dict[str,Any]) -> Any:
     return _storage[key]
 
 def init(_storage: dict[str,Any], _tx_contet : dict[str,Any]) -> None:
-    _storage["tx_origin"] = _tx_context["tx_origin"]  # address hex string
-    _storage["block_number"] = _tx_context["block_number"]  # int
-    _storage["tx_timestamp"] = _tx_context["tx_timestamp"]  # int
-    # 🦜 : storage is a dictionary that should be serializable into JSON
+    _storage["tx_from"] = _tx_context["from"]  # address hex string
+    _storage["tx_to"] = _tx_context["to"]  # address hex string
+    _storage["tx_hash"] = _tx_context["hash"]  # hex string
+    _storage["tx_timestamp"] = _tx_context["timestamp"]  # int
+    #  : storage is a dictionary that should be serializable into JSON
 
 ## : So this should produce the abi object:
 """

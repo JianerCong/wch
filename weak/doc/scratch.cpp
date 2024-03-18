@@ -34,8 +34,54 @@ optional<tuple<vector<StateChange>,bytes>> executePyTx(IAcnGettable * const w, c
     // 1.3 parse the abi from json
     json::object abi_json = json::parse(abi.value()).as_object();
 
-    // 1.3 execute the `init` function if it exists
+    // 1.3 execute the `init` function if it exists, pass it an empty storage
+    if (abi_json.contains("init")) {
+      json::object r = this.invokePyMethod("init", py_code, abi_json,t, "");
+    }
   }else{
     // Contract call
   }
+}
+
+/**
+ * @brief Invoke the `method` of a python-vm contract.
+ *
+ * @param method the method to invoke, must be a member of the contract's abi
+ * @param py_code the contract's code
+ * @param abi the contract's abi, key = method name, value = method's signature
+ * @param t the transaction
+ * @param storage_json the contract's storage
+ *
+ * @return the result of the method invocation. Usually something like :
+ *  - {"result" : 1 "log" : "Here is some log printed by the methods"}
+ *  - {"error" : "Some error message"}
+ */
+json::object invokePyMethod(string_view method, string_view py_code, json::object abi, const Tx & t, string_view storage_json) const noexcept{
+  if (not abi.contains(method)) {
+    return {{"error",
+               json::string("Method `" + string(method) + "` not found in the contract's abi")
+      }};
+  }
+
+  // 0. prepare our working dir
+  path wd = filesystem::current_path() / ".pyvm_aaa";
+  // 0.1 create if not exists
+  if (not filesystem::exists(wd)) {
+    filesystem::create_directory(wd);
+  }
+
+  // 1. prepare the input for the python-vm
+  //    1.1 prepare the _tx_context, and write that to `tx_context.json` (clear the file if it exists)
+  json::object tx_ctx = {
+    {"to", json::string(weak::addressToString(t.to))},
+    {"from", json::string(weak::addressToString(t.from))},
+    {"timestamp", json::number(t.timestamp)},
+    {"hash", json::string(weak::hashToString(t.hash()))},
+  };
+  (ofstream(wd / "tx_context.json") << json::stringify(tx_ctx)).flush();
+
+  //    1.2 prepare the storage
+  (ofstream(wd / "storage.json") << storage_json).flush();
+
+  // 2. make the python script
 }

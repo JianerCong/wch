@@ -100,7 +100,6 @@ namespace weak{
     return false;
   }
 
-
   /**
    * @brief A function to execute a command and return the output
    */
@@ -128,8 +127,9 @@ namespace weak{
     return make_tuple(c.exit_code(), output); // joined here
   }
 
-
-  static tuple<int,string> exec_py(string  py_code_content, const int timeout_s = 2) {
+    static tuple<int,string> exec_py(string  py_code_content, const int timeout_s = 2,
+                                     path wd = std::filesystem::temp_directory_path(); // 🦜: let's keep it simple.
+                                     ) {
     BOOST_LOG_TRIVIAL(debug) <<  "exec_py entered";
 
     // path tmp = std::filesystem::current_path() / "tmp-folder";
@@ -140,10 +140,9 @@ namespace weak{
     //     return make_tuple(-1, "failed to create the tmp folder");
     //   }
     // }
-    path tmp = std::filesystem::temp_directory_path(); // 🦜: let's keep it simple.
 
     // 2. prepare the python file
-    path p = tmp / "hi-tmp.py";
+    path p = wd / "hi-tmp.py";
 
     // BOOST_LOG_TRIVIAL(debug) <<  "writing to the file";
     (ofstream(p.c_str()) << py_code_content).flush();
@@ -151,11 +150,11 @@ namespace weak{
     // 3. execute
     return exec0("python3 -I " + p.string(), timeout_s);
   }
-
-
 #endif
 
   };
+
+
 
   /**
    * @brief The Div2Executor that checks the validity of the Tx. [2024-01-22]
