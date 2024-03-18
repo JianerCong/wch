@@ -109,7 +109,9 @@ namespace weak{
     /**
      * @brief A function to execute a command and return the output
      */
-    static tuple<int,string> exec0(const string cmd, const int timeout_s = 2) {
+    static tuple<int,string> exec0(const string cmd, const int timeout_s = 2,
+                                   filesystem::path wd = filesystem::current_path() // 🦜: let's keep it simple.
+                                   ) {
       bp::ipstream out, err;
       bp::child c(cmd, bp::std_out > out, bp::std_err > err);
 
@@ -158,7 +160,8 @@ namespace weak{
       (ofstream(p.c_str()) << py_code_content).flush();
 
       // 3. execute
-      return ExoticTxExecutorBase::exec0("python3 -I " + p.string(), timeout_s);
+      return ExoticTxExecutorBase::exec0("python3 -I " + p.string(), timeout_s,
+                                          wd);
     }
 
 
@@ -167,7 +170,7 @@ namespace weak{
      */
     static optional<string> verifyPyContract(const string  py_code){
       // 1. prepare the wd
-        path wd = prepareWorkingDir();
+      path wd = prepareWorkingDir();
       // 2. write the py_code to hi.py
       path p = wd / "hi.py";
       writeToFile(p, py_code);
@@ -271,6 +274,7 @@ namespace weak{
     }
 
     static path prepareWorkingDir(){
+      BOOST_LOG_TRIVIAL(debug) <<  "⚙️ prepareWorkingDir entered";
       // 0. prepare our working dir
       path wd = filesystem::current_path() / ".pyvm_aaa";
       // 0.1 create if not exists
@@ -283,6 +287,7 @@ namespace weak{
 
     static void writeToFile(path p, string_view content){
       // trunc :: clear the file if it exists
+      BOOST_LOG_TRIVIAL(debug) <<  "writing to the file: " << p << " content: " << content;
       (ofstream(p.c_str(), std::ios::out | std::ios::trunc) << content).flush();
     }
 
