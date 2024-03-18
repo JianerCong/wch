@@ -21,11 +21,11 @@ endmacro()
 # set_test(test-core2 core-deps) #20240130
 # set_test(test-pure-thrd-party core-deps)
 # set_test(test-executeEvmTx deps)
-# set_test(test-executeDiv2Tx deps)
+set_test(test-executeDiv2Tx deps)
 # set_test(test-mempool core-deps)
 # set_test(test-sealer core-deps)
 # set_test(test-storageManager deps)
-set_test(test-storageManager2 deps)
+# set_test(test-storageManager2 deps)
 # set_test(test-forPostExec core-deps)
 
 # set_test(test-forPostExec-20240201 core-deps)
@@ -119,6 +119,20 @@ foreach(X IN LISTS l)
   message(STATUS "🐸 Copying ${X} to ${d}/${x}")
   configure_file(${X} ${d}/${x})
 endforeach()
+
+# --------------------------------------------------
+# copy the example py contract files for testing
+set(d0 ${CMAKE_CURRENT_SOURCE_DIR}/../other/example)
+set(d ${CMAKE_CURRENT_BINARY_DIR}/example-contracts)
+file(GLOB l ${d0}/*.py)
+message(STATUS "got to be copied contract: ${l}")
+file(MAKE_DIRECTORY ${d})
+foreach(X IN LISTS l)
+  file(RELATIVE_PATH x ${d0} ${X}) #get the file name
+  message(STATUS "🐸 Copying ${X} to ${d}/${x}")
+  configure_file(${X} ${d}/${x})
+endforeach()
+
 
 # add_executable(tps test_tps.cpp)
 # target_link_libraries(tps PUBLIC core-deps)

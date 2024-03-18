@@ -61,6 +61,13 @@ namespace weak {
   namespace json = boost::json;
   using json::value_to;
 
+  bool contains(json::array a, string s){
+    for (const json::value & v : a){
+      if (v.as_string() == s) return true;
+    }
+    return false;
+  }
+
 string resultToString(const evmc::Result& result){
   bytes o{result.output_data,result.output_size};
   return evmc::hex(o);

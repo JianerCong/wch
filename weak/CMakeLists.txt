@@ -52,11 +52,13 @@ target_link_libraries(deps INTERFACE core-deps RocksDB::rocksdb
 
 if (WITH_PYTHON)
   file(READ other/verifier.py PY_VERIFIER_CONTENT)
+  file(READ other/use-verifier.py PY_USE_VERIFY_CONTENT)
   file(READ other/invoke-template.py PY_INVOKE_TEMPLATE)
   # file(READ other/verifier.py PY_VERIFIER_CONTENT_HEX HEX)
 
   # 2. replace \n with \\n
   string(REPLACE "\n" "\\n" PY_VERIFIER_CONTENT "${PY_VERIFIER_CONTENT}")
+  string(REPLACE "\n" "\\n" PY_USE_VERIFY_CONTENT "${PY_USE_VERIFY_CONTENT}")
   string(REPLACE "\n" "\\n" PY_INVOKE_TEMPLATE "${PY_INVOKE_TEMPLATE}")
 
   configure_file(include/config.hpp.in config.hpp ESCAPE_QUOTES)

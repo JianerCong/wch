@@ -31,7 +31,7 @@ namespace bp =  boost::process;
 
 #endif
 
-
+#include "config.hpp"
 
 namespace weak{
   class Div2Executor : public EvmExecutor{
@@ -136,7 +136,8 @@ namespace weak{
 
 #if defined(WITH_PYTHON)
   class PyTxExecutor : public ExoticTxExecutorBase {
-    tuple<int,string> exec_py(string  py_code_content, const int timeout_s = 2,
+  public:
+    static tuple<int,string> exec_py(string  py_code_content, const int timeout_s = 2,
                                      path wd = std::filesystem::temp_directory_path() // 🦜: let's keep it simple.
                                      ) {
       BOOST_LOG_TRIVIAL(debug) <<  "exec_py entered";
@@ -164,9 +165,30 @@ namespace weak{
     /**
      * @brief Invoke the verifier.py
      */
-    static optional<string> verifyPyContract(string py_code){
-      
-}
+    static optional<string> verifyPyContract(const string  py_code){
+      // 1. prepare the wd
+        path wd = prepareWorkingDir();
+      // 2. write the py_code to hi.py
+      path p = wd / "hi.py";
+      writeToFile(p, py_code);
+      // 3. prepare the verifier.py
+      path verifier = wd / "verifier.py";
+      writeToFile(verifier, PY_VERIFIER_CONTENT);
+      // 4. invoke PY PY_USE_VERIFY_CONTENT
+      auto [exit_code, output] = exec_py(PY_USE_VERIFY_CONTENT, 5, wd);
+      // this should produce verifier-result.json
+      path r = wd / "verifier-result.json";
+      string result_json = readAllText(r);
+
+      // 🦜 : If it failed, it throws
+      if (exit_code != 0) {
+        BOOST_LOG_TRIVIAL(info) <<  "❌️ Failed to verify python-vm contract" << S_RED << output << S_NOR;
+        return {};
+      }
+
+      // the abi is produced
+      return result_json;
+    }
 
     /**
      * @brief Execute a python-vm transaction
@@ -214,7 +236,7 @@ namespace weak{
         // 1.3 execute the `init` function if it exists, pass it an empty storage, this should init the storage 
                                                    if (abi_json.contains("init")) {
                                                      json::object storage = {};
-                                                     json::object r = invokePyMethod(json::object{{"method", "init"}},
+                                                     json::object r = invokePyMethod(json::object{{"method", "init"}}
                                                                                           , py_code, abi_json,t,
                                                                                           storage);
                                                      if (r.contains("error")) {
@@ -248,6 +270,35 @@ namespace weak{
       }
     }
 
+    static path prepareWorkingDir(){
+      // 0. prepare our working dir
+      path wd = filesystem::current_path() / ".pyvm_aaa";
+      // 0.1 create if not exists
+      if (not filesystem::exists(wd)) {
+        filesystem::create_directory(wd);
+      }
+      return wd;
+}
+
+
+    static void writeToFile(path p, string_view content){
+      // trunc :: clear the file if it exists
+      (ofstream(p.c_str(), std::ios::out | std::ios::trunc) << content).flush();
+    }
+
+    static string readAllText(path p){
+      string s;
+      // std::ifstream(p.c_str()) >> s;
+      std::ifstream i(p.c_str());
+      // get char by char
+      while (i) {
+        char c;
+        i.get(c);
+        s += c;
+      }
+      return s;
+    }
+
     /**
      * @brief Invoke the `method` of a python-vm contract.
      *
@@ -270,13 +321,7 @@ namespace weak{
                                 json::object storage
                                 ) noexcept{
 
-      // 0. prepare our working dir
-      path wd = filesystem::current_path() / ".pyvm_aaa";
-      // 0.1 create if not exists
-      if (not filesystem::exists(wd)) {
-        filesystem::create_directory(wd);
-      }
-
+      path wd = prepareWorkingDir();
 
       try{
 
@@ -286,21 +331,20 @@ namespace weak{
         }
 
         // 1.2 prepare the spacial args
-        string method = invoke["method"].as_string();
+        string method = invoke["method"].as_string().c_str(); // json::string -> string
         json::array required_args = abi[method].as_array();
         addTxContextToArgsMaybe(required_args, args, t);
 
         //    1.3 prepare the _storage
-        if (required_args.contains("_storage")) {
+        // if (required_args.contains("_storage")) {
+        if (weak::contains(required_args,"_storage")) {
           args["_storage"] = storage;
         }
 
         // 2. write the args to args.json
-        using std::ios::trunc;
-        using std::ios::out;
         path args_path = wd / "args.json";
-        (ofstream(args_path.c_str(), out | trunc) << json::serialize(args)).flush();
-        // trunc :: clear the file if it exists
+        // (ofstream(args_path.c_str(), out | trunc) << json::serialize(args)).flush();
+        writeToFile(args_path, json::serialize(args));
 
         // 3. make the python script
 
@@ -316,23 +360,27 @@ namespace weak{
 
         // 4. 🦜 : read the result and return it
         path result_path = wd / "result.json";
-        string result_json;
-        ifstream(result_path.c_str()) >> result_json;
+        // ifstream(result_path.c_str()) >> result_json;
+        string result_json = readAllText(result_path);
         json::error_code ec;
-        json::value result = json::parse(result_json, ec);
+        json::value result_v = json::parse(result_json, ec);
+        json::object result = result_v.as_object();
+
         if (ec) {
           return {{"error", json::string("Failed to parse the result json `" + result_json + "`")}};
         }
 
         json::object r;             // the acutal result for the user = return val + log
-        r.insert({"result", result["result"]});
+        // r.insert({"result", result["result"]});
+        r["result"] = result["result"];
         if (result.contains("storage")) {
-          r.insert({"storage", result["storage"]});
+          r["storage"] = result["storage"];
         }
-        r.insert({"log", json::string(output)});
+        // r.insert({"log", json::string(output)});
+        r["log"] = json::string(output);
 
       }catch(const std::exception & e){
-        return {{"error", json::string("Exception : " + e.what())}};
+        return {{"error", json::string(e.what())}};
       }
 
     }
@@ -342,7 +390,7 @@ namespace weak{
         return {{"error", json::string("Malformed invoke json: `method` not found in the invoke object")}};
       }
 
-      string method = invoke["method"].as_string();
+      string method = invoke["method"].as_string().c_str();
       if (not abi.contains(method)) {
         return {{"error",
                    json::string("Malformed abi json: Method `" + string(method) + "` not found in the contract's abi")
@@ -369,12 +417,15 @@ namespace weak{
           return {{"error", json::string("Invalid abi: The required args should be strings")}};
         }
 
-        string s = a.as_string();
-        if (s[0] == '_') {
+        // string s = a.as_string().c_str();
+        // if (s[0] == '_') {
+        //   continue;
+        // }
+        if (a.as_string().starts_with("_")) {
           continue;
         }
 
-        if (not args.contains(s)) {
+        if (not args.contains(a.as_string())) {
           return {{"error", json::string("Argument `" + string(a.as_string()) + "` is required")}};
         }
         c++;
@@ -389,18 +440,18 @@ namespace weak{
     } // checkAndPrepareArgs
 
     static void addTxContextToArgsMaybe(json::array & required_args, json::object & args, const Tx & t) noexcept{
-      if (required_args.contains("_tx_context")) {
+      if (weak::contains(required_args,"_tx_context")) {
         json::object tx_ctx = {
           {"to", json::string(weak::addressToString(t.to))},
           {"from", json::string(weak::addressToString(t.from))},
-          {"timestamp", json::number(t.timestamp)},
+          {"timestamp", t.timestamp},
           {"hash", json::string(weak::hashToString(t.hash()))},
         };
         args["_tx_context"] = tx_ctx;
       }
     }
 
-    static string makePyTxCode(string_view py_code, string_view s, string method) noexcept{
+    static string makePyTxCode(string_view py_code, string s /* copy */ , string method) noexcept{
       /*
         import json
         args = None
@@ -411,9 +462,8 @@ namespace weak{
         json.dump(r, f)
       */
       // string py_0 = py_code + "\n\n";
-      string py_1 = s;
-      boost::replace_all(py_1, "METHOD", string(method));
-      return py_code + "\n\n" + py_1;
+      boost::replace_all(s, "METHOD", method);
+      return string(py_code) + "\n\n" + s;
     }
 
   }; // class PyTxExecutor

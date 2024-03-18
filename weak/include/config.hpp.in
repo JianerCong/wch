@@ -4,3 +4,4 @@
 // ^^^ 🦜 : rejected
 #cmakedefine PY_VERIFIER_CONTENT "@PY_VERIFIER_CONTENT@"
 #cmakedefine PY_INVOKE_TEMPLATE "@PY_INVOKE_TEMPLATE@"
+#cmakedefine PY_USE_VERIFY_CONTENT "@PY_USE_VERIFY_CONTENT@"
