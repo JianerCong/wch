@@ -112,8 +112,13 @@ namespace weak{
     static tuple<int,string> exec0(const string cmd, const int timeout_s = 2,
                                    filesystem::path wd = filesystem::current_path() // 🦜: let's keep it simple.
                                    ) {
+      //get a handle to the current environment
+      auto env = boost::this_process::environment();
+      //change the current wording directory
+      env["PWD"] = wd.string();
+
       bp::ipstream out, err;
-      bp::child c(cmd, bp::std_out > out, bp::std_err > err);
+      bp::child c(cmd, bp::std_out > out, bp::std_err > err, env);
 
       string output;
       std::jthread listener([&]{
@@ -132,6 +137,8 @@ namespace weak{
       */
 
       BOOST_LOG_TRIVIAL(debug) <<  "\tGot stderr: " << err.rdbuf();
+      BOOST_LOG_TRIVIAL(debug) <<  "\tGot stdout: " << output;
+
       return make_tuple(c.exit_code(), output); // joined here
     }
   };                            // class ExoticTxExecutorBase
@@ -174,14 +181,8 @@ namespace weak{
       // 2. write the py_code to hi.py
       path p = wd / "hi.py";
       writeToFile(p, py_code);
-      // 3. prepare the verifier.py
-      path verifier = wd / "verifier.py";
-      writeToFile(verifier, PY_VERIFIER_CONTENT);
-      // 4. invoke PY PY_USE_VERIFY_CONTENT
-      auto [exit_code, output] = exec_py(PY_USE_VERIFY_CONTENT, 5, wd);
-      // this should produce verifier-result.json
-      path r = wd / "verifier-result.json";
-      string result_json = readAllText(r);
+      // 3. just invoke the PY_VERIFIER_CONTENT
+      auto [exit_code, output] = exec_py(PY_VERIFIER_CONTENT, 5, wd);
 
       // 🦜 : If it failed, it throws
       if (exit_code != 0) {
@@ -189,8 +190,12 @@ namespace weak{
         return {};
       }
 
+      // On success, it should produces verifier-result.json.
+      path r = wd / "verifier-result.json";
+      BOOST_ASSERT( filesystem::exists(r) );
+
       // the abi is produced
-      return result_json;
+        return readAllText(r);
     }
 
     /**
@@ -288,19 +293,31 @@ namespace weak{
     static void writeToFile(path p, string_view content){
       // trunc :: clear the file if it exists
       BOOST_LOG_TRIVIAL(debug) <<  "writing to the file: " << p << " content: " << content;
-      (ofstream(p.c_str(), std::ios::out | std::ios::trunc) << content).flush();
+      (ofstream(p.c_str(), std::ios::out | std::ios::trunc | std::ios::binary) << content).flush();
+      // 🦜 : Make sure we used the binary mode, so that the content is written as is. (char wouldn't be escaped
     }
 
     static string readAllText(path p){
       string s;
       // std::ifstream(p.c_str()) >> s;
-      std::ifstream i(p.c_str());
-      // get char by char
-      while (i) {
-        char c;
-        i.get(c);
-        s += c;
+      std::ifstream file(p.c_str());
+      if (not file.is_open()) {
+        BOOST_LOG_TRIVIAL(debug) << "❌️ Failed to open the file: " S_RED << p.string() << S_NOR " for reading";
+        return "";
       }
+
+      // 1. reserve the space
+      s.reserve(filesystem::file_size(p));
+
+      // get char by char (🦜 : The official example from https://cplusplus.com/reference/string/string/reserve/)
+      while (not file.eof()){
+        s += file.get();
+      }
+
+      // ⚠️ Caveat: drop the last char (it's EOF)
+      s.pop_back();
+
+      BOOST_LOG_TRIVIAL(debug) <<  "🦜 Text read from file " << p.string() << ":\n" << s <<  "\n";;
       return s;
     }
 

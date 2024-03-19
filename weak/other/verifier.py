@@ -175,3 +175,21 @@ def check_init_func(o : dict[str, dict[str, list[str]]]):
         for a in o['init']:
             if a not in Special_args:
                 raise AssertionError(f'check_init_func: `init` method should only have special_args, but found {a}')
+
+import json
+import os
+if __name__ == '__main__':
+    # 🦜 :read PWD/hi.py
+    wd = os.environ["PWD"]
+    print(f'🦜 Verifyer started: PWD = {S.CYAN}{wd}{S.NOR}')
+    p = os.path.join(wd, 'hi.py')
+    print(f'🦜 : Verifying {S.GREEN}{p}{S.NOR}')
+    with open(p , 'r') as f:
+        r = verify_and_parse_func(f, parse_it=True)
+        # ^ 🦜 : Let it throw
+        p1 = os.path.join(wd, 'verifier-result.json')
+        print(f'🦜 : Writing to {S.GREEN}{p1}{S.NOR}')
+        with open(p1, "w") as f1:
+            json.dump(r, f1)
+
+print(f'🦜 : hey')

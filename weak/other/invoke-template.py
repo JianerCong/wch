@@ -1,6 +1,11 @@
 import json
+import os
 args = None
-with open('args.json', 'r') as f:
+
+wd = os.environ["PWD"]
+# print(f'🦜 Verifyer started: PWD = {S.CYAN}{wd}{S.NOR}')
+p = os.path.join(wd, 'args.json')
+with open(p, 'r') as f:
     args = json.load(f)
 
 out = {}
@@ -13,5 +18,6 @@ if '_storage' in args:
 else:
     out['result'] = METHOD(**args)
 
-with open('result.json', 'w') as f:
-    json.dump(r, f)
+p = os.path.join(wd, 'result.json')
+with open(p, 'w') as f:
+    json.dump(out, f)
