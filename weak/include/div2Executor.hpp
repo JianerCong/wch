@@ -118,7 +118,7 @@ namespace weak{
       bp::child c(cmd, bp::std_out > out, bp::std_err > err, env);
       /*
         🦜 : Let's just collect both stdout and stderr, and then we can log them.
-       */
+      */
 
       string output;
       std::jthread listener([&]{
@@ -243,36 +243,36 @@ namespace weak{
         // 1.3 parse the abi from json
         json::object abi_json = json::parse(abi.value()).as_object();
 
-        // 1.3 execute the `init` function if it exists, pass it an empty storage, this should init the storage 
-                                                   if (abi_json.contains("init")) {
-                                                     json::object storage = {};
-                                                     json::object r = invokePyMethod(json::object{{"method", "init"}}
-                                                                                          , py_code, abi_json,t,
-                                                                                          storage);
-                                                     if (r.contains("quit")) {
-                                                       BOOST_LOG_TRIVIAL(info) << "❌️ Failed to execute the `init` method of the python-vm contract" << S_RED << json::serialize(r) << S_NOR;
-                                                       return {};
-                                                     }
+        // 1.3 execute the `init` function if it exists, pass it an empty storage, this should init the storage
+        if (abi_json.contains("init")) {
+          json::object storage = {};
+          json::object r = invokePyMethod(json::object{{"method", "init"}}
+                                               , py_code, abi_json,t,
+                                               storage);
+          if (r.contains("quit")) {
+            BOOST_LOG_TRIVIAL(info) << "❌️ Failed to execute the `init` method of the python-vm contract" << S_RED << r << S_NOR;
+            return {};
+          }
 
-                                                     // 1.4 store the storage (if modified by init)
-                                                     if (r.contains("storage")) {
-                                                       a.disk_storage.push_back(json::serialize(r["storage"]));
-                                                       // remove the "storage" key from the result
-                                                       r.erase("storage");
-                                                     }else{
-                                                       a.disk_storage.push_back("{}"); // empty storage
-                                                     }
+          // 1.4 store the storage (if modified by init)
+          if (r.contains("storage")) {
+            a.disk_storage.push_back(json::serialize(r["storage"]));
+            // remove the "storage" key from the result
+            r.erase("storage");
+          }else{
+            a.disk_storage.push_back("{}"); // empty storage
+          }
 
-                                                     s.v = a.toString();
+          s.v = a.toString();
 
-                                                     // 1.5 The acn is ready, let's store it. (🦜 : and also return the result ? 🐢 : We can, but that need a conversion from string to byte)
-                                                     return make_tuple(vector<StateChange>{s}, weak::bytesFromString(json::serialize(r)));
-                                                   }else{
-                                                     // no init method, 🦜 : Here we do init an empty storage
-                                                     a.disk_storage.push_back("{}");
-                                                     s.v = a.toString();
-                                                     return make_tuple(vector<StateChange>{s}, bytes{});
-                                                   }
+          // 1.5 The acn is ready, let's store it. (🦜 : and also return the result ? 🐢 : We can, but that need a conversion from string to byte)
+          return make_tuple(vector<StateChange>{s}, weak::bytesFromString(json::serialize(r)));
+        }else{
+          // no init method, 🦜 : Here we do init an empty storage
+          a.disk_storage.push_back("{}");
+          s.v = a.toString();
+          return make_tuple(vector<StateChange>{s}, bytes{});
+        }
 
       }else{
         // Contract call
@@ -349,11 +349,13 @@ namespace weak{
 
       try{
 
+        // BOOST_LOG_TRIVIAL(debug) <<  "invokePyMethod entered";
         json::object args = checkAndPrepareArgs(invoke, abi);
         if (args.contains("quit")) {
           return args;
         }
 
+        // BOOST_LOG_TRIVIAL(debug) <<  "Checking method and preparing args passed";
         // 1.2 prepare the spacial args
         string method = invoke["method"].as_string().c_str(); // json::string -> string
         json::array required_args = abi[method].as_array();
@@ -361,6 +363,7 @@ namespace weak{
 
         //    1.3 prepare the _storage
         // if (required_args.contains("_storage")) {
+        // BOOST_LOG_TRIVIAL(debug) <<  "Adding _storage, required_args" << required_args;
         if (weak::contains(required_args,"_storage")) {
           args["_storage"] = storage;
         }
@@ -396,13 +399,17 @@ namespace weak{
 
         json::object r;             // the acutal result for the user = return val + log
         // r.insert({"result", result["result"]});
+        // BOOST_LOG_TRIVIAL(debug) <<  "Adding result";
         r["result"] = result["result"];
         if (result.contains("storage")) {
+          BOOST_LOG_TRIVIAL(debug) << "Adding storage";
           r["storage"] = result["storage"];
         }
+        // BOOST_LOG_TRIVIAL(debug) <<  "Adding log";
         // r.insert({"log", json::string(output)});
         r["log"] = json::string(output);
-
+        // BOOST_LOG_TRIVIAL(debug) <<  "returning result";
+        return r;
       }catch(const std::exception & e){
         return {{"quit", json::string(e.what())}};
       }

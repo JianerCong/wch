@@ -179,3 +179,91 @@ BOOST_AUTO_TEST_CASE(test_addTxContextToArgsMaybe_nope){
   BOOST_LOG_TRIVIAL(debug) <<  "🦜 : Tx context now should have been added: " << a;
   BOOST_REQUIRE(not a.contains("_tx_context"));
 }
+
+/*
+  🦜 : Now, let's try the invokePyMethod
+  json::object PyTxExecutor::invokePyMethod(json::object invoke, string_view py_code, json::object abi, const Tx & t, json::object storage);
+*/
+BOOST_AUTO_TEST_CASE(test_minimal_run){
+  string_view py_contract = R"--(
+def hi():
+    return 123
+)--";
+
+  json::object abi = json::parse(R"--(
+{"hi": []}
+)--").as_object();
+
+  json::object invoke = json::parse(R"--(
+{"method": "hi"}
+)--").as_object();
+
+  auto [a1,a2,data] = get_example_address_and_data();
+  Tx t = Tx(a1,a2,data,123/*nonce*/);
+  json::object storage = json::object();
+
+  json::object result = PyTxExecutor::invokePyMethod(invoke, py_contract, abi, t, storage);
+  BOOST_LOG_TRIVIAL(debug) <<  "🦜 : Py contract exec result: " << result;
+  BOOST_CHECK_EQUAL(result.at("result").as_int64(), 123);
+}
+
+BOOST_AUTO_TEST_CASE(test_set_storage){
+  string_view py_contract = R"--(
+from typing import Any
+def hi(_storage: dict[str, Any]):
+    _storage['x'] = _storage.get('x', 0) + 1
+)--";
+
+  json::object abi = json::parse(R"--(
+{"hi": ["_storage"]}
+)--").as_object();
+
+  json::object invoke = json::parse(R"--(
+{"method": "hi"}
+)--").as_object();
+
+  auto [a1,a2,data] = get_example_address_and_data();
+  Tx t = Tx(a1,a2,data,123/*nonce*/);
+
+  // --------------------------------------------------
+  // 1. invoke
+  json::object storage = json::object();
+  json::object result = PyTxExecutor::invokePyMethod(invoke, py_contract, abi, t, storage);
+  BOOST_LOG_TRIVIAL(debug) <<  "🦜 : Py contract exec result: " << result;
+  BOOST_REQUIRE(result.contains("storage"));
+  storage = result.at("storage").as_object();
+  BOOST_CHECK_EQUAL(storage.at("x").as_int64(), 1);
+
+  // --------------------------------------------------
+  // 2. invoke twice
+  result = PyTxExecutor::invokePyMethod(invoke, py_contract, abi, t, storage);
+  BOOST_LOG_TRIVIAL(debug) <<  "🦜 : Py contract exec result: " << result;
+  BOOST_CHECK_EQUAL(result.at("storage").at("x").as_int64(), 2);
+}
+
+
+BOOST_AUTO_TEST_CASE(test_tx_context){
+  string_view py_contract = R"--(
+from typing import Any
+def hi(_tx_context: dict[str, Any]) -> str:
+    return _tx_context['from']
+)--";
+
+  json::object abi = json::parse(R"--(
+{"hi": ["_tx_context"]}
+)--").as_object();
+
+  json::object invoke = json::parse(R"--(
+{"method": "hi"}
+)--").as_object();
+
+  auto [a1,a2,data] = get_example_address_and_data();
+  Tx t = Tx(a1,a2,data,123/*nonce*/);
+
+  // --------------------------------------------------
+  // 1. invoke
+  json::object storage = json::object();
+  json::object result = PyTxExecutor::invokePyMethod(invoke, py_contract, abi, t, storage);
+  BOOST_LOG_TRIVIAL(debug) <<  "🦜 : Py contract exec result: " S_CYAN << result << S_NOR;
+  BOOST_CHECK_EQUAL(result.at("result").as_string(), string(19 * 2,'0') + "01");
+}
