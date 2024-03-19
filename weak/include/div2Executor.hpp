@@ -417,7 +417,7 @@ namespace weak{
       string method = invoke["method"].as_string().c_str();
       if (not abi.contains(method)) {
         return {{"error",
-                   json::string("Malformed abi json: Method `" + string(method) + "` not found in the contract's abi")
+                   json::string("Method not found in abi: " + string(method))
           }};
       }
       // 1. prepare the input for the python-vm
@@ -426,7 +426,7 @@ namespace weak{
       json::object args;
       if (invoke.contains("args")) {
         if (not invoke["args"].is_object()) { // 🦜 : provided by the user, so we probably should check it
-          return {{"error", json::string("invoke json: `args` should be an object")}};
+          return {{"error", json::string("Malformed invoke json: `args` should be an object")}};
         }
         args = invoke["args"].as_object();
       }
@@ -437,20 +437,17 @@ namespace weak{
       */
       int c = 0;
       for (const auto & a : required_args) {
-        if (not a.is_string()) {
-          return {{"error", json::string("Invalid abi: The required args should be strings")}};
-        }
 
-        // string s = a.as_string().c_str();
-        // if (s[0] == '_') {
-        //   continue;
-        // }
+        // if (not a.is_string()) {
+        //   return {{"error", json::string("Malformed abi: The args should be strings")}};
+        // } // 🦜 : again, we assume that the abi is well-formed
+
         if (a.as_string().starts_with("_")) {
           continue;
         }
 
         if (not args.contains(a.as_string())) {
-          return {{"error", json::string("Argument `" + string(a.as_string()) + "` is required")}};
+          return {{"error", json::string("Required argument not found: `" + string(a.as_string()) + '`')}};
         }
         c++;
       }

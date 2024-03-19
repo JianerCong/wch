@@ -54,3 +54,57 @@ BOOST_AUTO_TEST_CASE(test_verifyPyContract_bad){
   optional<string> abi = PyTxExecutor::verifyPyContract(s);
   BOOST_CHECK(not abi);
 }
+
+void AssertError(json::object o, string s = ""){
+  // BOOST_CHECK_EQUAL(o.size(), 1); //<! 🦜 : Feels irrelevent
+  if (s.size() > 0){
+    BOOST_LOG_TRIVIAL(debug) <<  "📗️ Got error object" S_CYAN << o << S_NOR;
+    BOOST_CHECK(o["error"].as_string().starts_with(s));
+  }else{
+    BOOST_REQUIRE(o.contains("error"));
+  }
+}
+
+BOOST_AUTO_TEST_CASE(test_checkAndPrepareArgs){
+
+  // 1. invoke should have `method`
+  {
+    json::object i,a,o;             // invoke and abi object
+    i["k1"] = "v1";
+    o = PyTxExecutor::checkAndPrepareArgs(i, a);
+    AssertError(o, "Malformed invoke json: `method` not found in the invoke object");
+  }
+
+  // 2. abi should contains the error
+  {
+    json::object i,a,o;             // invoke and abi object
+    i["method"] = "hi";
+    o = PyTxExecutor::checkAndPrepareArgs(i, a);
+    AssertError(o, "Method not found in abi: ");
+  }
+
+  // 3. args should be object
+  {
+    json::object i,a,o;             // invoke and abi object
+    i["method"] = "hi";
+    i["args"] = "not-object";
+    a["hi"] = json::array();
+    o = PyTxExecutor::checkAndPrepareArgs(i, a);
+    AssertError(o, "Malformed invoke json: `args` should be an object");
+  }
+
+  // 4. required args should be provided
+  {
+    json::object i,a,o;             // invoke and abi object
+    i["method"] = "hi";
+    i["args"] = json::object();
+    i["args"].as_object()["x"] = 1;
+
+    a["hi"] = json::array();
+    a["hi"].as_array().push_back("x");
+    a["hi"].as_array().push_back("y");
+
+    o = PyTxExecutor::checkAndPrepareArgs(i, a);
+    AssertError(o, "Required argument not found: `y`");
+  }
+}
