@@ -10,8 +10,6 @@
 #pragma once
 #include "evmExecutor.hpp"
 
-#define WITH_PYTHON             // 🦜 : This is a flag to enable the Python Tx type.
-
 
 #if defined(WITH_PYTHON)
 #define BOOST_PROCESS_NO_DEPRECATED 1
@@ -31,7 +29,6 @@ namespace bp =  boost::process;
 
 #endif
 
-#include "config.hpp"
 
 namespace weak{
   class Div2Executor : public EvmExecutor{
@@ -119,6 +116,9 @@ namespace weak{
 
       bp::ipstream out, err;
       bp::child c(cmd, bp::std_out > out, bp::std_err > err, env);
+      /*
+        🦜 : Let's just collect both stdout and stderr, and then we can log them.
+       */
 
       string output;
       std::jthread listener([&]{
@@ -136,10 +136,12 @@ namespace weak{
         🦜 : In fact, we can get some logs here, but for now let's just ignore it
       */
 
-      BOOST_LOG_TRIVIAL(debug) <<  "\tGot stderr: " << err.rdbuf();
-      BOOST_LOG_TRIVIAL(debug) <<  "\tGot stdout: " << output;
+      // BOOST_LOG_TRIVIAL(debug) <<  "\tGot stderr: " << err.rdbuf();
+      // BOOST_LOG_TRIVIAL(debug) <<  "\t ⚠️Got stdout: " << output;
+      std::ostringstream eo;
+      eo << err.rdbuf();        // read the error output
 
-      return make_tuple(c.exit_code(), output); // joined here
+      return make_tuple(c.exit_code(), output + eo.str()); // joined here
     }
   };                            // class ExoticTxExecutorBase
 
@@ -168,7 +170,7 @@ namespace weak{
 
       // 3. execute
       return ExoticTxExecutorBase::exec0("python3 -I " + p.string(), timeout_s,
-                                          wd);
+                                         wd);
     }
 
 
@@ -186,7 +188,7 @@ namespace weak{
 
       // 🦜 : If it failed, it throws
       if (exit_code != 0) {
-        BOOST_LOG_TRIVIAL(info) <<  "❌️ Failed to verify python-vm contract" << S_RED << output << S_NOR;
+        BOOST_LOG_TRIVIAL(info) <<  "❌️ Failed to verify python-vm contract:\n" << S_RED << output << S_NOR;
         return {};
       }
 
@@ -195,7 +197,7 @@ namespace weak{
       BOOST_ASSERT( filesystem::exists(r) );
 
       // the abi is produced
-        return readAllText(r);
+      return readAllText(r);
     }
 
     /**
@@ -506,7 +508,7 @@ namespace weak{
    *
    * 🦜 : So this is kinda a `Div2Executor` + `Tx` verifyer.
    *
-   * 
+   *
    * @see Tx in `core.hpp` and its notes on [2024-01-22]
    */
   class SeriousDiv2Executor : public Div2Executor{

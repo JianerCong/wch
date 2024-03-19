@@ -26,7 +26,10 @@ def verify_and_parse_func(py_file : TextIO, parse_it: bool = False) -> dict[str,
     py_code_content = py_file.read()
     py_file.seek(0)
     py_lines_for_debugging = py_file.readlines()
-    tree = ast.parse(py_code_content)
+    # tree = ast.parse(py_code_content)
+    tree = compile(py_code_content, filename='<string>', mode='exec', flags=ast.PyCF_ONLY_AST)
+    # 🦜 : <2024-03-19 Tue> update, we should use `compile()` to get the tree
+    # rather than `ast.parse()`, that checks for syntax errors.
 
     # 2. verify
     verify(tree, py_lines_for_debugging)
@@ -181,14 +184,14 @@ import os
 if __name__ == '__main__':
     # 🦜 :read PWD/hi.py
     wd = os.environ["PWD"]
-    print(f'🦜 Verifyer started: PWD = {S.CYAN}{wd}{S.NOR}')
+    print(f'🦜 Verifyer started: PWD = {wd}')
     p = os.path.join(wd, 'hi.py')
-    print(f'🦜 : Verifying {S.GREEN}{p}{S.NOR}')
+    print(f'🦜 : Verifying {p}')
     with open(p , 'r') as f:
         r = verify_and_parse_func(f, parse_it=True)
         # ^ 🦜 : Let it throw
         p1 = os.path.join(wd, 'verifier-result.json')
-        print(f'🦜 : Writing to {S.GREEN}{p1}{S.NOR}')
+        print(f'🦜 : Writing to {p1}')
         with open(p1, "w") as f1:
             json.dump(r, f1)
 

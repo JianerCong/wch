@@ -41,8 +41,6 @@ target_link_libraries(core-deps INTERFACE
 
 if (WITH_PROTOBUF)
   target_link_libraries(core-deps INTERFACE hi_pb)
-  # define WITH_PROTOBUF
-  target_compile_definitions(core-deps INTERFACE WITH_PROTOBUF)
 endif()
 
 add_library(deps INTERFACE)     #the ALL dependency target = core + rdb (currently)
@@ -57,9 +55,13 @@ if (WITH_PYTHON)
   <2024-03-19 Tue> 🦜 : We have switched to use the c++11's raw string template
  #]=]
 
-  configure_file(include/config.hpp.in config.hpp)
-  target_include_directories(deps INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
 endif()
+
+configure_file(include/config.hpp.in config.hpp)
+target_include_directories(deps INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
+# define WITH_PROTOBUF
+target_compile_definitions(core-deps INTERFACE WITH_PROTOBUF)
+
 target_include_directories(deps INTERFACE
   ${PROJECT_SOURCE_DIR}/pkgs/
 )

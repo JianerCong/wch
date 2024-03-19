@@ -44,4 +44,13 @@ BOOST_AUTO_TEST_CASE(test_verifyPyContract){
     ["key", "_storage"], "init": ["_storage", "_tx_context"]}
   */
   BOOST_REQUIRE(o.contains("hi"));
+  /*
+    🦜 : Because the most cases are checked in python, here we can just check a few
+   */
+}
+
+BOOST_AUTO_TEST_CASE(test_verifyPyContract_bad){
+  string s = "bad";
+  optional<string> abi = PyTxExecutor::verifyPyContract(s);
+  BOOST_CHECK(not abi);
 }

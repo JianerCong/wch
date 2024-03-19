@@ -1,4 +1,6 @@
 #pragma once
+
+#include "config.hpp"
 #include <boost/json.hpp>
 #include <string>
 #include <string_view>
