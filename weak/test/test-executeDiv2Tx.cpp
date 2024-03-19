@@ -46,7 +46,7 @@ BOOST_AUTO_TEST_CASE(test_verifyPyContract){
   BOOST_REQUIRE(o.contains("hi"));
   /*
     🦜 : Because the most cases are checked in python, here we can just check a few
-   */
+  */
 }
 
 BOOST_AUTO_TEST_CASE(test_verifyPyContract_bad){
@@ -141,6 +141,41 @@ BOOST_AUTO_TEST_CASE(test_checkAndPrepareArgs_ok){
   a = jv.as_object();
 
   o = PyTxExecutor::checkAndPrepareArgs(i, a);
-  BOOST_LOG_TRIVIAL(debug) <<  "🦜 : Prepared args should be just the args: " << o;
+  // BOOST_LOG_TRIVIAL(debug) <<  "🦜 : Prepared args should be just the args: " << o;
   BOOST_CHECK_EQUAL(json::serialize(o), json::serialize(i["args"]));
+}
+
+tuple<address,address,bytes> get_example_address_and_data(){
+  // the txs
+  address a1 = makeAddress(1);
+  address a2 = makeAddress(2);
+  bytes data(size_t{2},uint8_t{0xff}); // we would like this.
+  return make_tuple(a1,a2,data);
+}
+BOOST_AUTO_TEST_CASE(test_addTxContextToArgsMaybe){
+  // static void PyTxExecutor::addTxContextToArgsMaybe(json::array & required_args, json::object & args, const Tx & t);
+
+  json::object a;
+  auto [a1,a2,data] = get_example_address_and_data();
+  Tx t1 = Tx(a1,a2,data,123/*nonce*/);
+  json::array ra = {"_tx_context", "x", "y"};
+
+  PyTxExecutor::addTxContextToArgsMaybe(ra, a, t1);
+  BOOST_LOG_TRIVIAL(debug) <<  "🦜 : Tx context now should have been added: " << a;
+  // BOOST_CHECK_EQUAL(a["_tx_context"].as_object()["from"].as_string().c_str(),string(19 * 2,'0') + "01");
+  BOOST_CHECK_EQUAL(a.at("_tx_context").at("from").as_string(),string(19 * 2,'0') + "01");
+  BOOST_CHECK_EQUAL(a.at("_tx_context").at("to").as_string(),string(19 * 2,'0') + "02");
+  BOOST_CHECK_EQUAL(a.at("_tx_context").at("timestamp").as_int64(),t1.timestamp);
+
+}
+
+BOOST_AUTO_TEST_CASE(test_addTxContextToArgsMaybe_nope){
+  json::object a;
+  auto [a1,a2,data] = get_example_address_and_data();
+  Tx t1 = Tx(a1,a2,data,123/*nonce*/);
+  json::array ra = {"x", "y"};
+
+  PyTxExecutor::addTxContextToArgsMaybe(ra, a, t1);
+  BOOST_LOG_TRIVIAL(debug) <<  "🦜 : Tx context now should have been added: " << a;
+  BOOST_REQUIRE(not a.contains("_tx_context"));
 }
