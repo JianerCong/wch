@@ -59,13 +59,13 @@ void AssertError(json::object o, string s = ""){
   // BOOST_CHECK_EQUAL(o.size(), 1); //<! 🦜 : Feels irrelevent
   if (s.size() > 0){
     BOOST_LOG_TRIVIAL(debug) <<  "📗️ Got error object" S_CYAN << o << S_NOR;
-    BOOST_CHECK(o["error"].as_string().starts_with(s));
+    BOOST_CHECK(o["quit"].as_string().starts_with(s));
   }else{
-    BOOST_REQUIRE(o.contains("error"));
+    BOOST_REQUIRE(o.contains("quit"));
   }
 }
 
-BOOST_AUTO_TEST_CASE(test_checkAndPrepareArgs){
+BOOST_AUTO_TEST_CASE(test_checkAndPrepareArgs_bad){
 
   // 1. invoke should have `method`
   {
@@ -107,4 +107,40 @@ BOOST_AUTO_TEST_CASE(test_checkAndPrepareArgs){
     o = PyTxExecutor::checkAndPrepareArgs(i, a);
     AssertError(o, "Required argument not found: `y`");
   }
+
+  // 5. no excess args should be provided.
+  {
+    json::object i,a,o;
+    json::value jv = {
+      {"method", "hi"},
+      {"args", {
+          {"x", 1},
+          {"y", 2}}}};
+
+    i = jv.as_object();
+    jv = {
+      {"hi", json::array({"x"})}};
+    a = jv.as_object();
+
+    o = PyTxExecutor::checkAndPrepareArgs(i, a);
+    AssertError(o, R"--(Excess arguments provided: {"y":2})--");
+  }
+} // test_checkAndPrepareArgs_bad
+
+BOOST_AUTO_TEST_CASE(test_checkAndPrepareArgs_ok){
+  json::object i,a,o;
+  json::value jv = {
+    {"method", "hi"},
+    {"args", {
+        {"x", 1},
+        {"y", 2}}}};
+
+  i = jv.as_object();
+  jv = {
+    {"hi", json::array({"x", "y"})}};
+  a = jv.as_object();
+
+  o = PyTxExecutor::checkAndPrepareArgs(i, a);
+  BOOST_LOG_TRIVIAL(debug) <<  "🦜 : Prepared args should be just the args: " << o;
+  BOOST_CHECK_EQUAL(json::serialize(o), json::serialize(i["args"]));
 }

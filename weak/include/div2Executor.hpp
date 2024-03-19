@@ -249,7 +249,7 @@ namespace weak{
                                                      json::object r = invokePyMethod(json::object{{"method", "init"}}
                                                                                           , py_code, abi_json,t,
                                                                                           storage);
-                                                     if (r.contains("error")) {
+                                                     if (r.contains("quit")) {
                                                        BOOST_LOG_TRIVIAL(info) << "❌️ Failed to execute the `init` method of the python-vm contract" << S_RED << json::serialize(r) << S_NOR;
                                                        return {};
                                                      }
@@ -337,7 +337,7 @@ namespace weak{
      * @return the result of the method invocation. Usually something like :
      *  - {"result" : 1 "log" : "Here is some log printed by the methods"}
      *  - {"result" : 1 "log" : "Here is some log printed by the methods", "storage" : {"name" : "Alice"}
-     *  - {"error" : "Some error message"}
+     *  - {"quit" : "Some error message"}
      */
     static json::object invokePyMethod(json::object invoke, string_view py_code,
                                 json::object abi,
@@ -350,7 +350,7 @@ namespace weak{
       try{
 
         json::object args = checkAndPrepareArgs(invoke, abi);
-        if (args.contains("error")) {
+        if (args.contains("quit")) {
           return args;
         }
 
@@ -379,7 +379,7 @@ namespace weak{
 
         auto [exit_code, output] = exec_py(py_code_content, 3, wd);
         if (exit_code != 0) {
-          return {{"error", json::string("Python-vm exited with non-zero exit code: " + std::to_string(exit_code) + "Output: " + output)}};
+          return {{"quit", json::string("Python-vm exited with non-zero exit code: " + std::to_string(exit_code) + "Output: " + output)}};
         }
 
         // 4. 🦜 : read the result and return it
@@ -391,7 +391,7 @@ namespace weak{
         json::object result = result_v.as_object();
 
         if (ec) {
-          return {{"error", json::string("Failed to parse the result json `" + result_json + "`")}};
+          return {{"quit", json::string("Failed to parse the result json `" + result_json + "`")}};
         }
 
         json::object r;             // the acutal result for the user = return val + log
@@ -404,19 +404,19 @@ namespace weak{
         r["log"] = json::string(output);
 
       }catch(const std::exception & e){
-        return {{"error", json::string(e.what())}};
+        return {{"quit", json::string(e.what())}};
       }
 
     }
 
     static json::object checkAndPrepareArgs(json::object invoke, json::object abi) noexcept{
       if (not invoke.contains("method")) {
-        return {{"error", json::string("Malformed invoke json: `method` not found in the invoke object")}};
+        return {{"quit", json::string("Malformed invoke json: `method` not found in the invoke object")}};
       }
 
       string method = invoke["method"].as_string().c_str();
       if (not abi.contains(method)) {
-        return {{"error",
+        return {{"quit",
                    json::string("Method not found in abi: " + string(method))
           }};
       }
@@ -424,9 +424,10 @@ namespace weak{
       //    1.0 get the argument list and start preparing the args
       json::array required_args = abi[method].as_array(); // 🦜 : we assume that abi is well-formed.
       json::object args;
+
       if (invoke.contains("args")) {
         if (not invoke["args"].is_object()) { // 🦜 : provided by the user, so we probably should check it
-          return {{"error", json::string("Malformed invoke json: `args` should be an object")}};
+          return {{"quit", json::string("Malformed invoke json: `args` should be an object")}};
         }
         args = invoke["args"].as_object();
       }
@@ -435,26 +436,31 @@ namespace weak{
         1.1 Check if the required args are provided.
         🦜 : All args that doesn't start with `_` are required, and they should be matched excatly. (no more, no less)
       */
-      int c = 0;
+      json::object unused_args = args; // copy
+      // 🦜 : It feels like the simplest way is to copy the object.
+
       for (const auto & a : required_args) {
 
         // if (not a.is_string()) {
-        //   return {{"error", json::string("Malformed abi: The args should be strings")}};
+        //   return {{"quit", json::string("Malformed abi: The args should be strings")}};
         // } // 🦜 : again, we assume that the abi is well-formed
 
         if (a.as_string().starts_with("_")) {
           continue;
         }
 
-        if (not args.contains(a.as_string())) {
-          return {{"error", json::string("Required argument not found: `" + string(a.as_string()) + '`')}};
+        // try find the arg in the args
+        json::object::const_iterator it = unused_args.find(a.as_string());
+        if (it == unused_args.end()){ // not found
+          return {{"quit", json::string("Required argument not found: `" + string(a.as_string()) + '`')}};
         }
-        c++;
+        // mark the arg as used (by popping it from the set)
+        unused_args.erase(it);
       }
 
-      // count (all args should be provided, no more, no less)
-      if (c != args.size()) {
-        return {{"error", json::string((format("Argument mismatch: Expected %d arguments, but got %d") % c % args.size()).str())}};
+      // if there're unused args, that's an error
+      if (not unused_args.empty()) {
+        return {{"quit", json::string("Excess arguments provided: " + json::serialize(unused_args))}};
       }
 
       return args;
