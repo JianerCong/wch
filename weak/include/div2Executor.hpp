@@ -208,45 +208,46 @@ namespace weak{
      * `t.to`. If it's a contract creation, it's `Tx::getContractDeployAddress(t)`.
      */
     static optional<tuple<vector<StateChange>,bytes>> executePyTx(IAcnGettable * const w, const Tx & t) noexcept{
-      bytes r;
-      StateChange s;
 
       /*
         🦜 : the jounral, but in our case only one account will be touched. The
         deployed contract's account.
       */
+      bytes res;
+      StateChange s;
       if (evmc::is_zero(t.to)) {
-        // Contract creation
-        s.k = weak::addressToString(Tx::getContractDeployAddress(t));
 
-        // 0. Verify the python-vm contract, if every thing went well, a json
-        // representation of the contract abi would be returned.
-        string py_code = weak::toString(t.data); // byte -> string
-        optional<string> abi = verifyPyContract(py_code);
-        if (not abi) {
-          BOOST_LOG_TRIVIAL(info) <<  "❌️ Failed to verify python-vm contract" S_RED << py_code << S_NOR;
-          return {};
-        }
+      // Contract creation
+      s.k = weak::addressToString(Tx::getContractDeployAddress(t));
 
-        // 1. Deploy the contract
-        //   1.1 new account
-        /*
-          🦜 : For python-vm, let's store the following at `disk_storage`
-          [0] : abi.json
-          [1] : storage.json
-        */
-        Acn a{t.nonce, t.data};
-        // 1.2 store the abi
-        // store the abi
-        a.disk_storage.push_back(abi.value());
+      // 0. Verify the python-vm contract, if every thing went well, a json
+      // representation of the contract abi would be returned.
+      string py_code = weak::toString(t.data); // byte -> string
+      optional<string> abi = verifyPyContract(py_code);
+      if (not abi) {
+        BOOST_LOG_TRIVIAL(info) <<  "❌️ Failed to verify python-vm contract" S_RED << py_code << S_NOR;
+        return {};
+      }
 
-        // 1.3 parse the abi from json
-        json::object abi_json = json::parse(abi.value()).as_object();
+      // 1. Deploy the contract
+      //   1.1 new account
+      /*
+        🦜 : For python-vm, let's store the following at `disk_storage`
+        [0] : abi.json
+        [1] : storage.json
+      */
+      Acn a{t.nonce, t.data};
+      // 1.2 store the abi
+      // store the abi
+      a.disk_storage.push_back(abi.value());
 
-        // 1.3 execute the `init` function if it exists, pass it an empty storage, this should init the storage
-        if (abi_json.contains("init")) {
-          json::object storage = {};
-          json::object r = invokePyMethod(json::object{{"method", "init"}}
+      // 1.3 parse the abi from json
+      json::object abi_json = json::parse(abi.value()).as_object();
+
+      // 1.3 execute the `init` function if it exists, pass it an empty storage, this should init the storage
+      if (abi_json.contains("init")) {
+        json::object storage = {};
+        json::object r = invokePyMethod(json::object{{"method", "init"}}
                                                , py_code, abi_json,t,
                                                storage);
           if (r.contains("quit")) {
@@ -265,19 +266,24 @@ namespace weak{
 
           s.v = a.toString();
 
-          // 1.5 The acn is ready, let's store it. (🦜 : and also return the result ? 🐢 : We can, but that need a conversion from string to byte)
-          return make_tuple(vector<StateChange>{s}, weak::bytesFromString(json::serialize(r)));
+
+          // 1.5 The acn is ready, let's store it. (🦜 : and also return the result ? 🐢 : Nope, we just need to prepare the `res` and `s`
+          res = weak::bytesFromString(json::serialize(r));
         }else{
           // no init method, 🦜 : Here we do init an empty storage
           a.disk_storage.push_back("{}");
           s.v = a.toString();
-          return make_tuple(vector<StateChange>{s}, bytes{});
         }
-
       }else{
         // Contract call
         return {};
       }
+
+      // return the single state change (the deployed account)
+      return make_tuple(vector<StateChange>{s}, res);
+    }
+
+    static optional<tuple<vector<StateChange>,bytes>> deployPyContract(const Tx & t) noexcept{
     }
 
     static path prepareWorkingDir(){

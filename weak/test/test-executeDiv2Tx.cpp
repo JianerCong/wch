@@ -267,3 +267,22 @@ def hi(_tx_context: dict[str, Any]) -> str:
   BOOST_LOG_TRIVIAL(debug) <<  "🦜 : Py contract exec result: " S_CYAN << result << S_NOR;
   BOOST_CHECK_EQUAL(result.at("result").as_string(), string(19 * 2,'0') + "01");
 }
+
+BOOST_AUTO_TEST_CASE(test_deployPyContract){
+  // 🦜 : let's deploy a py_tx
+  string_view py_contract = R"--(
+def hi():
+    return 123
+)--";
+  bytes data = weak::bytesFromString(py_contract);
+  Tx t = Tx(makeAddress(1),makeAddress(0),data, 123 /*nonce*/);
+  optional<tuple<vector<StateChange>,bytes>> r = PyTxExecutor::executePyTx(nullptr, t);
+  BOOST_REQUIRE(r);
+  StateChange s = r.value().first[0];
+  bytes b = r.value().second;
+  // s.k should serialize to an address
+  BOOST_CHECK_EQUAL(s.k,
+                    weak::addressToString(Tx::getContractDeployAddress(t)));
+  // s.v is the created Acn
+  
+}
