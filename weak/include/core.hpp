@@ -28,7 +28,15 @@
 
 #include "pure-common.hpp"
 
+#include <filesystem>
+#include <fstream>
 namespace weak {
+
+  using std::ofstream;
+  namespace filesystem = std::filesystem;
+  using std::filesystem::path;
+  using std::filesystem::current_path;
+
   using boost::lexical_cast;
   using std::function;
   using std::tuple;
@@ -60,6 +68,38 @@ namespace weak {
 
   namespace json = boost::json;
   using json::value_to;
+
+
+    static void writeToFile(path p, string_view content){
+      // trunc :: clear the file if it exists
+      BOOST_LOG_TRIVIAL(debug) <<  "writing to the file: " << p << " content: " << content;
+      (ofstream(p.c_str(), std::ios::out | std::ios::trunc | std::ios::binary) << content).flush();
+      // 🦜 : Make sure we used the binary mode, so that the content is written as is. (char wouldn't be escaped
+    }
+
+    static string readAllText(path p){
+      string s;
+      // std::ifstream(p.c_str()) >> s;
+      std::ifstream file(p.c_str());
+      if (not file.is_open()) {
+        BOOST_LOG_TRIVIAL(debug) << "❌️ Failed to open the file: " S_RED << p.string() << S_NOR " for reading";
+        return "";
+      }
+
+      // 1. reserve the space
+      s.reserve(filesystem::file_size(p));
+
+      // get char by char (🦜 : The official example from https://cplusplus.com/reference/string/string/reserve/)
+      while (not file.eof()){
+        s += file.get();
+      }
+
+      // ⚠️ Caveat: drop the last char (it's EOF)
+      s.pop_back();
+
+      BOOST_LOG_TRIVIAL(debug) <<  "🦜 Text read from file " S_CYAN << p.string() << S_NOR ":\n" S_GREEN << s << S_NOR  "\n";;
+      return s;
+    }
 
   bool contains(json::array a, string s){
     for (const json::value & v : a){
@@ -1077,40 +1117,31 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
       vector<Tx> txs;
       for (int i=0;i<a.size();i++){
         json::object o = a[i].as_object(); // the tx object
-        // string f,t,d;
-        // uint64_t n;
-        // f = value_to<string>(o.at("from"));
-        // t = value_to<string>(o.at("to"));
-        // d = value_to<string>(o.at("data"));
-        // n = value_to<uint64_t>(o.at("nonce"));
-
-        // // string to specific type --------------------------------------------------
-        // optional<evmc::address> from = evmc::from_hex<evmc::address>(f);
-        // if (not from){
-        //   BOOST_THROW_EXCEPTION(std::runtime_error("Invalid from = " + f));
-        // }
-
-        // optional<evmc::address> to = evmc::from_hex<evmc::address>(t);
-        // if (not to){
-        //   BOOST_THROW_EXCEPTION(std::runtime_error("Invalid to = " + t));
-        // }
-
-        // optional<bytes> data = evmc::from_hex(d);
-        // if (not data)
-        //   BOOST_THROW_EXCEPTION(std::runtime_error("Invalid data = " + d));
-
-        // BOOST_LOG_TRIVIAL(debug) << format("⚙️ Constructing Tx and back-to-client object");
-        // Tx tx{from.value(),to.value(),data.value(),n};
-        // ^^ 🦜 : refactored
 
         // 🦜 : but we need to add a `timestamp` field for the client, and
         // because this is a required field, so we kinda need to add it here.
         // This is unlike pb, where all fields are optional.
 
         o.emplace("timestamp",std::time(nullptr));
+
+        // <2024-03-21 Thu> 🦜 : If data starts with '@', then it's a text file
+        // (learnt from curl), so we need to read it.
+        if (o.contains("data") and
+            o.at("data").is_string() and
+            o.at("data").as_string().starts_with("@")){
+          path p{string_view(o.at("data").as_string().subview(1))};
+          // 🦜 : boost said it's convertible to std::string_view
+          if (not exists(p)){
+            BOOST_LOG_TRIVIAL(debug) << "❌️ Error reading data from file (file not found):"  S_RED << p << S_NOR;
+            return {};
+          }
+          o["data"] = json::string(weak::readAllText(p));
+        }
+
         Tx tx;
         tx.fromJson0(o);
         // tx.timestamp = std::time(nullptr);
+
 
         json::object o0;
         o0["hash"] = hashToString(tx.hash());

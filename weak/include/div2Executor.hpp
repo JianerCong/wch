@@ -15,13 +15,7 @@
 #define BOOST_PROCESS_NO_DEPRECATED 1
 #include <boost/process.hpp>
 
-#include <filesystem>
-namespace filesystem = std::filesystem;
-using std::filesystem::path;
-using std::filesystem::current_path;
 
-#include <fstream>
-using std::ofstream;
 
 #include <thread>
 using std::this_thread::sleep_for;
@@ -363,37 +357,6 @@ namespace weak{
       return wd;
     }
 
-
-    static void writeToFile(path p, string_view content){
-      // trunc :: clear the file if it exists
-      BOOST_LOG_TRIVIAL(debug) <<  "writing to the file: " << p << " content: " << content;
-      (ofstream(p.c_str(), std::ios::out | std::ios::trunc | std::ios::binary) << content).flush();
-      // 🦜 : Make sure we used the binary mode, so that the content is written as is. (char wouldn't be escaped
-    }
-
-    static string readAllText(path p){
-      string s;
-      // std::ifstream(p.c_str()) >> s;
-      std::ifstream file(p.c_str());
-      if (not file.is_open()) {
-        BOOST_LOG_TRIVIAL(debug) << "❌️ Failed to open the file: " S_RED << p.string() << S_NOR " for reading";
-        return "";
-      }
-
-      // 1. reserve the space
-      s.reserve(filesystem::file_size(p));
-
-      // get char by char (🦜 : The official example from https://cplusplus.com/reference/string/string/reserve/)
-      while (not file.eof()){
-        s += file.get();
-      }
-
-      // ⚠️ Caveat: drop the last char (it's EOF)
-      s.pop_back();
-
-      BOOST_LOG_TRIVIAL(debug) <<  "🦜 Text read from file " S_CYAN << p.string() << S_NOR ":\n" S_GREEN << s << S_NOR  "\n";;
-      return s;
-    }
 
     /**
      * @brief Invoke the `method` of a python-vm contract.

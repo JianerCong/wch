@@ -58,7 +58,7 @@ if (WITH_PYTHON)
 endif()
 
 configure_file(include/config.hpp.in config.hpp)
-target_include_directories(deps INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
+target_include_directories(core-deps INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
 # define WITH_PROTOBUF
 target_compile_definitions(core-deps INTERFACE WITH_PROTOBUF)
 

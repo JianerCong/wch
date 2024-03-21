@@ -159,3 +159,56 @@ BOOST_AUTO_TEST_CASE(test_pb_to_blk){
   BOOST_CHECK_EQUAL(b.txs[0].nonce, 123);
   BOOST_CHECK_EQUAL(b.txs[1].nonce, 234);
 }
+
+
+BOOST_AUTO_TEST_CASE(test_read_file_feature){
+  // 1. make a file in the temp directory
+  filesystem::path p = filesystem::temp_directory_path() / "hi.txt";
+
+  // 2. write some content
+  weak::writeToFile(p,"aaaa");
+
+  // 3. try the feature defined in Tx::parse_txs_json_rpc
+  json::array a;
+  json::object tx = {{"from","0x01"},
+                     {"to","0x02"},
+                     {"data",'@' + p.native()},
+                     {"nonce",123}};
+  a.push_back(tx);
+  // static optional<tuple<string,vector<Tx>>> Tx::parse_txs_json_for_rpc(json::array && a);
+  auto r = Tx::parse_txs_json_for_rpc(std::move(a));
+  BOOST_REQUIRE(r);
+  auto [err,txs] = r.value();
+  BOOST_CHECK_EQUAL(txs.size(),1);
+  BOOST_CHECK_EQUAL(evmc::hex(txs[0].data), "aaaa");
+
+  // clean up, remove the file
+  filesystem::remove(p);
+}
+
+BOOST_AUTO_TEST_CASE(test_read_file2_data){
+  // 1. make a file in the temp directory
+  filesystem::path p = filesystem::temp_directory_path() / "hi.txt";
+
+  // 2. write some content
+  weak::writeToFile(p,"aaa");
+
+  // 3. try the feature defined in Tx::parse_txs_json_rpc
+  json::array a;
+  json::object tx = {{"from","0x01"},
+                     {"to","0x02"},
+                     {"data",'@' + p.native()},
+                     {"type" , "data"},
+                     {"nonce",123}};
+  a.push_back(tx);
+  // static optional<tuple<string,vector<Tx>>> Tx::parse_txs_json_for_rpc(json::array && a);
+
+  auto r = Tx::parse_txs_json_for_rpc(std::move(a));
+  BOOST_REQUIRE(r);
+  auto [err,txs] = r.value();
+  BOOST_CHECK_EQUAL(txs.size(),1);
+  BOOST_CHECK_EQUAL(weak::toString(txs[0].data), "aaa");
+
+  // clean up, remove the file
+  filesystem::remove(p);
+  }
