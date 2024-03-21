@@ -29,7 +29,8 @@ echo '{
         "method" : "hi",
         "args" : {"y" : 122}
 }' > /tmp/tmp.json
-deployed_addr="000000000000000000000000ffffffff9a03fc88"
+deployed_addr="000000000000000000000000ffffffff9a03f450"
+
 txs='[{
     "from" : "01",
     "to" : "'"$deployed_addr"'",

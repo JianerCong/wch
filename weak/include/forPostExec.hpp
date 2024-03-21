@@ -41,23 +41,26 @@ namespace weak{
     void fromPb(const hiPb::TxReceipt & pb) override {
       this->ok = pb.ok();
       this->result = weak::bytesFromString(pb.result());
+      this->type = Tx::typeFromPb(pb.type());
     }
 
     hiPb::TxReceipt toPb() const override {
       hiPb::TxReceipt pb;
       pb.set_ok(this->ok);
       pb.set_result(weak::toString(this->result));
+      pb.set_type(Tx::typeToPb(this->type));
       return pb;
     }
 
 
     TxReceipt() = default;
-    explicit TxReceipt(bool o): ok(o){
+    explicit TxReceipt(bool o, Tx::Type tp = Tx::Type::evm): ok(o), type(tp){
       if (o) throw std::invalid_argument("This constructor is used for Tx that failed to be executed.");
     };
-    TxReceipt(bytes r): result(r){};
+    TxReceipt(bytes r, Tx::Type tp = Tx::Type::evm): result(r), type(tp){};
     bool ok{true};
     bytes result;
+    Tx::Type type{Tx::Type::evm};
 
     bool fromJson(const json::value &v) noexcept override {
       BOOST_LOG_TRIVIAL(debug) << format("Forming TxOnBlkInfo from Json");
@@ -65,6 +68,7 @@ namespace weak{
         // json::object const& o = v.as_object();
         BOOST_LOG_TRIVIAL(trace) << format("parsing exec-ok");
         this->ok = value_to<bool>(v.at("ok"));
+        this->type = v.as_object().contains("type") ? Tx::typeFromString(v.at("type").as_string()) : Tx::Type::evm;
         if (ok){
           BOOST_LOG_TRIVIAL(trace) << format("parsing result");
           string s = value_to<string>(v.at("result"));
@@ -104,7 +108,10 @@ namespace weak{
   void tag_invoke(json::value_from_tag, json::value& jv, TxReceipt const& c ){
     jv = {
       {"ok", c.ok},
-      {"result", evmc::hex(c.result)},
+      // {"result", evmc::hex(c.result)},
+      {"result", (c.type == Tx::Type::evm) ? evmc::hex(c.result) : weak::toString(c.result) },
+      // 🦜 <2024-03-21 Thu> : here we need to convert the type to string
+      {"type", Tx::typeToString(c.type)}
     };
   };
 

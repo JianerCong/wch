@@ -60,7 +60,7 @@ message TxOnBlkInfo {uint64 blkNumber = 1; uint64 onBlkId = 2;} // [x]
 message StateChange {bool del = 1; bytes k = 2; bytes v = 3;} // [x]
 message StateChanges {repeated StateChange changes = 1;}            // [x]
 
-message TxReceipt {bool ok = 1; bytes result = 2;} // [x]
+message TxReceipt {bool ok = 1; bytes result = 2; TxType type = 3;} // [x]
 
 // executed Blk
 message ExecBlk {

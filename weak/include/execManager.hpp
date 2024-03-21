@@ -58,13 +58,13 @@ namespace weak{
           BOOST_LOG_TRIVIAL(debug) << format("❌️ Failed to execute " S_RED "tx-%d" S_NOR
                                              " [this is usually contract-author's fault]") % t.nonce;
           J.push_back({});
-          R.push_back(TxReceipt(false)); // failed Tx
+          R.push_back(TxReceipt(false,t.type)); // failed Tx
         }else{
           auto [j /* formed journal*/
                 ,b /*result bytes*/] = r.value();
           BOOST_LOG_TRIVIAL(debug) << format("🐸 Tx-" S_CYAN "%d" S_NOR " executed") % t.nonce;
           J.push_back(j);
-          R.push_back(b); /*Implicitly call TxReceipt(bytes)*/
+          R.push_back(TxReceipt(b,t.type)); /*Implicitly call TxReceipt(bytes)*/
         }
       }
       return ExecBlk(b,J,R);

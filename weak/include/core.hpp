@@ -646,12 +646,7 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
     hiPb::Tx toPb() const override {
       hiPb::Tx pb;
 
-      if (this->type == Type::data)
-        pb.set_type(hiPb::TxType::DATA);
-      else if (this->type == Type::python)
-        pb.set_type(hiPb::TxType::PYTHON);
-      else
-        pb.set_type(hiPb::TxType::EVM);
+      pb.set_type(Tx::typeToPb(this->type));
 
       pb.set_from_addr(weak::toByteString<address>(this->from));
       pb.set_to_addr(weak::toByteString<address>(this->to));
@@ -703,12 +698,7 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
       this->data = weak::bytesFromString(pb.data());
 
       // if it has a type field, use it , Otherwise set it to evm (default)
-      if (pb.type() == hiPb::TxType::DATA)
-        this->type = Type::data;
-      else if (pb.type() == hiPb::TxType::PYTHON)
-        this->type = Type::python;
-      else
-        this->type = Type::evm;
+      this->type = Tx::typeFromPb(pb.type());
 
       // parse the to
       s = pb.to_addr();
@@ -725,6 +715,17 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
     static string typeToString(Type t){
       static const string s[] = {"evm", "data", "python"};
       return string(s[static_cast<int>(t)]);
+    }
+
+    static hiPb::TxType typeToPb(Type t){
+      if (t == Type::data) return hiPb::TxType::DATA;
+      if (t == Type::python) return hiPb::TxType::PYTHON;
+      return hiPb::TxType::EVM;
+    }
+    static Type typeFromPb(hiPb::TxType t){
+      if (t == hiPb::TxType::DATA) return Type::data;
+      if (t == hiPb::TxType::PYTHON) return Type::python;
+      return Type::evm;
     }
 
     static Type typeFromString(string_view s){
