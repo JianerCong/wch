@@ -676,16 +676,17 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
 
     // --------------------------------------------------
     // Type related
-    enum class Type {evm, data};
+    enum class Type {evm, data, python};
 
     static string typeToString(Type t){
-      static const string s[] = {"evm", "data"};
+      static const string s[] = {"evm", "data", "python"};
       return string(s[static_cast<int>(t)]);
     }
 
     static Type typeFromString(string_view s){
       if (s == "" or s == "evm") return Type::evm;
       if (s == "data") return Type::data;
+      if (s == "python") return Type::python;
       BOOST_THROW_EXCEPTION(std::runtime_error((format("Invalid Tx type: %1%") % s).str()));
     }
     // --------------------------------------------------

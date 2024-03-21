@@ -377,3 +377,94 @@ def hi(_storage: dict[str:Any]):
   BOOST_CHECK_EQUAL(toString(a1.code), toString(a.code));
   BOOST_CHECK_EQUAL(a1.disk_storage[0], a.disk_storage[0]);
 }
+
+BOOST_AUTO_TEST_CASE(test_executePyInvoke_bad){
+  // bad invoke object
+  // static optional<tuple<vector<StateChange>,bytes>> executePyTx(IAcnGettable * const w, const Tx & t);
+
+  // 0. not json
+  Tx t = Tx(makeAddress(1), makeAddress(2), weak::bytesFromString("bad"), 123 /*nonce*/);
+  auto r = PyTxExecutor::executePyTx(nullptr, t);
+  BOOST_REQUIRE(not r);
+
+  // 1. `method` not found
+  t.data = weak::bytesFromString(R"--({})--");
+  r = PyTxExecutor::executePyTx(nullptr, t);
+  BOOST_REQUIRE(not r);
+
+  // 2. method is not string
+  t.data = weak::bytesFromString(R"--({"method": 123})--");
+  r = PyTxExecutor::executePyTx(nullptr, t);
+  BOOST_REQUIRE(not r);
+}
+
+#include "mock.hpp"
+BOOST_AUTO_TEST_CASE(test_pyInvoke_acn_notFound){
+  // 1. prepare the wrld
+  mockedAcnPrv::A ah;
+  Tx t = Tx(makeAddress(1), makeAddress(2), weak::bytesFromString(R"--({"method": "hi"})--"), 123 /*nonce*/);
+  auto r = PyTxExecutor::executePyTx(dynamic_cast<IAcnGettable*>(&ah), t);
+  BOOST_REQUIRE( not r);
+}
+
+BOOST_AUTO_TEST_CASE(test_pyInvoke_acn_ok_no_storage){
+  // 1. get the in-RAM (state-only) world
+  mockedAcnPrv::E ah;
+
+  // 2. prepare the Acn
+  string_view py_contract = R"--(
+def hi() -> int:
+    return 123
+)--";
+  Acn a, a1;
+  a.code = weak::bytesFromString(py_contract);
+  a.disk_storage = {R"--({"hi": []})--", R"--({})--"};
+
+  // 3. put the acn in the world
+  ah.accounts[addressToString(makeAddress(2))] = a;
+
+  // 4. call
+  Tx t = Tx(makeAddress(1), makeAddress(2), weak::bytesFromString(R"--({"method": "hi"})--"), 123 /*nonce*/);
+  auto r = PyTxExecutor::executePyTx(dynamic_cast<IAcnGettable*>(&ah), t);
+  // invoked, but no stateChange
+  BOOST_REQUIRE(r);
+  auto [v, res] = r.value();
+  BOOST_CHECK_EQUAL(json::parse(weak::toString(res)).at("result").as_int64(), 123);
+  BOOST_CHECK_EQUAL(v.size(), 0);
+}
+
+
+BOOST_AUTO_TEST_CASE(test_pyInvoke_acn_ok_with_storage){
+  // 1. get the in-RAM (state-only) world
+  mockedAcnPrv::E ah;
+
+  // 2. prepare the Acn
+  string_view py_contract = R"--(
+from typing import Any
+def hi(_storage: dict[str, Any], y : int):
+    _storage['x'] = _storage.get('x', 0) + y
+)--";
+  Acn a, a1;
+  a.code = weak::bytesFromString(py_contract);
+  a.disk_storage = {R"--({"hi": ["_storage", "y"]})--", R"--({"x": 1})--"};
+
+  // 3. put the acn in the world
+  ah.accounts[addressToString(makeAddress(2))] = a;
+
+  // 4. call
+  Tx t = Tx(makeAddress(1), makeAddress(2), weak::bytesFromString(R"--({"method": "hi", "args" : {"y":1}})--"), 123 /*nonce*/);
+  auto r = PyTxExecutor::executePyTx(dynamic_cast<IAcnGettable*>(&ah), t);
+  // invoked, and there're stateChange
+  BOOST_REQUIRE(r);
+  auto [v, res] = r.value();
+  BOOST_CHECK_EQUAL(v.size(), 1);
+
+  // 4.1 🦜 : If the storage is unchanged, then the stateChange should not be there.
+  t = Tx(makeAddress(1), makeAddress(2), weak::bytesFromString(R"--({"method": "hi", "args" : {"y":0}})--"), 123 /*nonce*/);
+  r = PyTxExecutor::executePyTx(dynamic_cast<IAcnGettable*>(&ah), t);
+  BOOST_REQUIRE(r);
+  std::tie(v, res) = r.value();
+  BOOST_CHECK_EQUAL(v.size(), 0);
+}
+
+// 🦜 : Finally, let's deploy + invoke

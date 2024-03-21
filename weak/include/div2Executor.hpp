@@ -31,36 +31,7 @@ namespace bp =  boost::process;
 
 
 namespace weak{
-  class Div2Executor : public EvmExecutor{
-  public:
-    optional<tuple<vector<StateChange>,bytes>> executeTx(IAcnGettable * const w,
-                                                         const Tx & t) const noexcept override{
 
-      // 🦜 : Here we switch on the type of the Tx
-      switch(t.type){
-      case Tx::Type::data:
-        return executeDataTx(w,t);
-      case Tx::Type::evm:
-      default:
-        return EvmExecutor::executeTx(w,t);
-      };
-
-      // 🦜 : This should never happen
-      return {};
-    }
-
-    /**
-     * @brief Execute a data Tx.
-     *
-     * 🦜 : Just say yes and do nothing.
-     */
-    optional<tuple<vector<StateChange>,bytes>> executeDataTx(IAcnGettable * const w, const Tx & t) const noexcept{
-      vector<StateChange> s = {};
-      bytes r = {};
-      return make_tuple(s,r);
-    }
-
-  };                            // class Div2Executor
 
   /**
    * @brief The ExoticTxExecutorBase that can execute Txs using the magic of command line.
@@ -223,20 +194,23 @@ namespace weak{
         // return the single state change (the deployed account)
         return make_tuple(vector<StateChange>{s}, res);
       }else{
-        // 0. get the invoke object
+        // BOOST_LOG_TRIVIAL(debug) <<  "0. get the invoke object";
         json::error_code ec;
         json::value jv = json::parse(weak::toString(t.data), ec);
-        if (ec or not jv.is_object()) {
+        if (ec or (not jv.is_object())) {
           BOOST_LOG_TRIVIAL(info) <<  "❌️ Failed to parse the invoke object: " << ec.message() << S_RED << weak::toString(t.data) << S_NOR;
           return {};
         }
 
-        // 0.1 verify invoke object
+        // BOOST_LOG_TRIVIAL(debug) <<  "0.1. verify the invoke object";
         json::object invoke = jv.as_object();
         if ((not invoke.contains("method")) or
             (not invoke["method"].is_string())){
           BOOST_LOG_TRIVIAL(info) <<  "❌️ Malformed invoke object: " << S_RED << json::serialize(invoke) << S_NOR;
+          return {};
         }
+
+        // BOOST_LOG_TRIVIAL(debug) <<  "1. try get the account";
         optional<Acn> ao = w->getAcn(t.to);
         if (not ao){
           BOOST_LOG_TRIVIAL(info) <<  "❌️ Failed to invoke python-vm contract: The account doesn't exist" S_RED
@@ -249,6 +223,7 @@ namespace weak{
         if (not ao1) {
           return make_tuple(vector<StateChange>{}, res);
         }
+
         // Acn modified, if it's different from the original, we should return it
         StateChange s;
         s.del = false;
@@ -350,14 +325,12 @@ namespace weak{
           return {};
         }
 
-        // 4. Prepare the storage
-        jv = json::parse(a.disk_storage[1], ec);
-        if (ec or not jv.is_object()) {
+        // 4. Prepare the storage (🦜 : we now allow non-object storage. <2024-03-21 Thu>)
+        json::value storage = json::parse(a.disk_storage[1], ec);
+        if (ec) {
           BOOST_LOG_TRIVIAL(info) <<  msg0 << "Failed to parse the storage: " << ec.message() << msg;
           return {};
         }
-
-        json::object storage = jv.as_object();
 
         // 5. invoke the method
         json::object r = invokePyMethod(invoke, weak::toStringView(a.code), abi, t, storage);
@@ -371,15 +344,13 @@ namespace weak{
           // add it if
           a.disk_storage[1] = json::serialize(r["storage"]);
           r.erase("storage");
-
           return make_tuple(a, weak::bytesFromString(json::serialize(r)));
         }
 
         // 7. return just result
         return make_tuple(optional<Acn>({}) , weak::bytesFromString(json::serialize(r)));
-        // invokePyContract
 
-    }
+    } // invokePyContract
 
     static path prepareWorkingDir(){
       BOOST_LOG_TRIVIAL(debug) <<  "⚙️ prepareWorkingDir entered";
@@ -443,7 +414,7 @@ namespace weak{
     static json::object invokePyMethod(json::object invoke, string_view py_code,
                                 json::object abi,
                                 const Tx & t,
-                                json::object storage
+                                json::value storage
                                 ) noexcept{
 
       path wd = prepareWorkingDir();
@@ -624,6 +595,45 @@ namespace weak{
   }; // class PyTxExecutor
 
 #endif
+
+
+  class Div2Executor : public EvmExecutor{
+  public:
+    optional<tuple<vector<StateChange>,bytes>> executeTx(IAcnGettable * const w,
+                                                         const Tx & t) const noexcept override{
+
+      // 🦜 : Here we switch on the type of the Tx
+      switch(t.type){
+      case Tx::Type::data:
+        return executeDataTx(w,t);
+      case Tx::Type::python:
+#if defined(WITH_PYTHON)
+        return PyTxExecutor::executePyTx(w,t);
+#else
+        BOOST_LOG_TRIVIAL(info) <<  "❌️ Python-vm is not enabled";
+        return {};
+#endif
+      case Tx::Type::evm:
+      default:
+        return EvmExecutor::executeTx(w,t);
+      };
+
+      // 🦜 : This should never happen
+      return {};
+    }
+
+    /**
+     * @brief Execute a data Tx.
+     *
+     * 🦜 : Just say yes and do nothing.
+     */
+    optional<tuple<vector<StateChange>,bytes>> executeDataTx(IAcnGettable * const w, const Tx & t) const noexcept{
+      vector<StateChange> s = {};
+      bytes r = {};
+      return make_tuple(s,r);
+    }
+
+  };                            // class Div2Executor
 
 
 
