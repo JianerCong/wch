@@ -648,6 +648,8 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
 
       if (this->type == Type::data)
         pb.set_type(hiPb::TxType::DATA);
+      else if (this->type == Type::python)
+        pb.set_type(hiPb::TxType::PYTHON);
       else
         pb.set_type(hiPb::TxType::EVM);
 
@@ -703,6 +705,8 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
       // if it has a type field, use it , Otherwise set it to evm (default)
       if (pb.type() == hiPb::TxType::DATA)
         this->type = Type::data;
+      else if (pb.type() == hiPb::TxType::PYTHON)
+        this->type = Type::python;
       else
         this->type = Type::evm;
 
@@ -724,6 +728,7 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
     }
 
     static Type typeFromString(string_view s){
+      BOOST_LOG_TRIVIAL(debug) <<  "typeFromString called with : "<< s;
       if (s == "" or s == "evm") return Type::evm;
       if (s == "data") return Type::data;
       if (s == "python") return Type::python;
@@ -871,6 +876,7 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
      * to share the `fromJson0` function with other sources.
      */
     void fromJson0(const json::object &o){
+      // BOOST_LOG_TRIVIAL(debug) <<  "fromJson0 called with : "<< o;
       string s;
       optional<bytes> ob;
       optional<address> oa;
@@ -940,6 +946,8 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
       oa = evmc::from_hex<address>(s);
       if (not oa) BOOST_THROW_EXCEPTION(std::runtime_error("Invalid to = " + s));
       this->to = oa.value();
+
+      // BOOST_LOG_TRIVIAL(debug) <<  "fromJson0 done with " << this->toJson();
 
       /// Decodes hex-encoded string into custom type T with .bytes array of
       /// uint8_t. so ethash::hash256 is such type

@@ -15,8 +15,6 @@
 #define BOOST_PROCESS_NO_DEPRECATED 1
 #include <boost/process.hpp>
 
-
-
 #include <thread>
 using std::this_thread::sleep_for;
 namespace bp =  boost::process;
@@ -565,6 +563,7 @@ namespace weak{
     optional<tuple<vector<StateChange>,bytes>> executeTx(IAcnGettable * const w,
                                                          const Tx & t) const noexcept override{
 
+      // BOOST_LOG_TRIVIAL(debug) <<  "Div2Executor::executeTx entered, with tx = " << t.toJson();
       // 🦜 : Here we switch on the type of the Tx
       switch(t.type){
       case Tx::Type::data:

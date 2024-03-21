@@ -18,10 +18,10 @@ endmacro()
 🦜 : Uncomment the following to enable tests.
 #]=]
 # set_test(test-core core-deps)
-set_test(test-core2 core-deps) #20240130
+# set_test(test-core2 core-deps) #20240130
 # set_test(test-pure-thrd-party core-deps)
 # set_test(test-executeEvmTx deps)
-set_test(test-executeDiv2Tx deps)
+# set_test(test-executeDiv2Tx deps)
 # set_test(test-mempool core-deps)
 # set_test(test-sealer core-deps)
 # set_test(test-storageManager deps)

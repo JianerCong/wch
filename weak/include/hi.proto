@@ -31,7 +31,7 @@ message Acn {
    */
 } // []
 
-enum TxType{EVM = 0; DATA = 1;}
+enum TxType{EVM = 0; DATA = 1;PYTHON = 2;}
 
 message Tx {
   TxType type = 1;
