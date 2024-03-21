@@ -194,5 +194,3 @@ if __name__ == '__main__':
         print(f'🦜 : Writing to {p1}')
         with open(p1, "w") as f1:
             json.dump(r, f1)
-
-print(f'🦜 : hey')

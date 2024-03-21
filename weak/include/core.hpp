@@ -141,6 +141,9 @@ string resultToString(const evmc::Result& result){
   bytes bytesFromString(string_view s){
     return bytes(reinterpret_cast<const uint8_t*>(s.data()),s.size());
   }
+  string_view toStringView(const bytes & b){
+    return string_view(reinterpret_cast<const char*>(b.data()),b.size());
+  }
 
   // byte32 <-> string
   string toString(const bytes32 & b){
@@ -286,7 +289,7 @@ string resultToString(const evmc::Result& result){
     // ^^ 🦜 add the to/fromString method
 
     // <2024-03-15 Fri> 🦜 : Today we try to pb the Acn, and also make the
-    // hashcode a caculated property
+    // hashcode a calculated property
     hiPb::Acn toPb() const override {
       hiPb::Acn pb;
       pb.set_nonce(this->nonce);

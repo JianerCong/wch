@@ -268,21 +268,112 @@ def hi(_tx_context: dict[str, Any]) -> str:
   BOOST_CHECK_EQUAL(result.at("result").as_string(), string(19 * 2,'0') + "01");
 }
 
+tuple<StateChange,Tx> deployIt(string_view py_contract){
+  bytes data = weak::bytesFromString(py_contract);
+  Tx t = Tx(makeAddress(1),makeAddress(0),data, 123 /*nonce*/);
+  optional<tuple<vector<StateChange>,bytes>> r = PyTxExecutor::executePyTx(nullptr, t);
+  BOOST_REQUIRE(r);
+  // StateChange s = r.value().first[0];
+  // bytes b = r.value().second;
+  auto [sc, b] = r.value();
+  // StateChange s = sc[0];
+  return make_tuple(sc[0], t);
+}
+
 BOOST_AUTO_TEST_CASE(test_deployPyContract){
   // 🦜 : let's deploy a py_tx
   string_view py_contract = R"--(
 def hi():
     return 123
 )--";
-  bytes data = weak::bytesFromString(py_contract);
-  Tx t = Tx(makeAddress(1),makeAddress(0),data, 123 /*nonce*/);
-  optional<tuple<vector<StateChange>,bytes>> r = PyTxExecutor::executePyTx(nullptr, t);
-  BOOST_REQUIRE(r);
-  StateChange s = r.value().first[0];
-  bytes b = r.value().second;
+  auto [s, t] = deployIt(py_contract);
+
   // s.k should serialize to an address
-  BOOST_CHECK_EQUAL(s.k,
-                    weak::addressToString(Tx::getContractDeployAddress(t)));
+  BOOST_CHECK_EQUAL(s.k, weak::addressToString(Tx::getContractDeployAddress(t)));
   // s.v is the created Acn
-  
+  Acn a;
+  BOOST_REQUIRE(a.fromString(s.v));
+  // 1. code is uploaded to the Acn
+  BOOST_CHECK_EQUAL(evmc::hex(a.code), evmc::hex(t.data));
+  // 2. a.disk_storage = [<abi>, <storage>]
+  BOOST_CHECK_EQUAL(a.disk_storage.size(), 2);
+  BOOST_CHECK_EQUAL(a.disk_storage[0], R"--({"hi": []})--");
+  BOOST_CHECK_EQUAL(a.disk_storage[1], R"--({})--");
+}
+
+BOOST_AUTO_TEST_CASE(test_deployPyContract_init_storage){
+  // 🦜 : let's deploy a py_tx that init the _storage
+
+  string_view py_contract = R"--(
+from typing import Any
+def init(_storage: dict[str, Any]):
+    _storage['x'] = 0
+)--";
+  auto [s, t] = deployIt(py_contract);
+
+  // s.k should serialize to an address
+  BOOST_CHECK_EQUAL(s.k, weak::addressToString(Tx::getContractDeployAddress(t)));
+  // s.v is the created Acn
+  Acn a;
+  BOOST_REQUIRE(a.fromString(s.v));
+  // 1. code is uploaded to the Acn
+  BOOST_CHECK_EQUAL(evmc::hex(a.code), evmc::hex(t.data));
+  // 2. a.disk_storage = [<abi>, <storage>]
+  BOOST_CHECK_EQUAL(a.disk_storage.size(), 2);
+  // BOOST_CHECK_EQUAL(a.disk_storage[0], R"--({"hi": []})--");
+  BOOST_CHECK_EQUAL(a.disk_storage[1], R"--({"x":0})--");
+}
+
+BOOST_AUTO_TEST_CASE(test_invoke_no_storage){
+  // 1. prepare the Acn
+  string_view py_contract = R"--(
+def hi() -> int:
+    return 123
+)--";
+
+  Acn a, a1;
+  a.code = weak::bytesFromString(py_contract);
+  a.disk_storage = {R"--({"hi": []})--", R"--({})--"};
+
+  // 2. prepare the invoke object
+  json::object invoke = json::parse(R"--({"method": "hi"})--").as_object();
+  // 3. prepare the tx
+  Tx t = Tx(makeAddress(1), makeAddress(0), weak::bytesFromString(string(py_contract)), 123 /*nonce*/);
+
+  // 4. invoke
+  auto [oa, r] = PyTxExecutor::invokePyContract(a, invoke, t);
+  BOOST_LOG_TRIVIAL(debug) <<  "🦜 : Py contract exec result: " S_CYAN << weak::toString(r) << S_NOR;
+  BOOST_CHECK_EQUAL(json::parse(weak::toString(r)).at("result").as_int64(), 123);
+  BOOST_REQUIRE(not oa);        // storage not changed
+
+}
+
+BOOST_AUTO_TEST_CASE(test_invoke_with_storage){
+  // 1. prepare the Acn
+  string_view py_contract = R"--(
+from typing import Any
+def hi(_storage: dict[str:Any]):
+    _storage['x'] = 1
+)--";
+
+  Acn a, a1;
+  a.code = weak::bytesFromString(py_contract);
+  a.disk_storage = {R"--({"hi": ["_storage"]})--", R"--({})--"};
+
+  // 2. prepare the invoke object
+  json::object invoke = json::parse(R"--({"method": "hi"})--").as_object();
+  // 3. prepare the tx
+  Tx t = Tx(makeAddress(1), makeAddress(0), weak::bytesFromString(string(py_contract)), 123 /*nonce*/);
+
+  // 4. invoke
+  auto [oa, r] = PyTxExecutor::invokePyContract(a, invoke, t);
+  BOOST_LOG_TRIVIAL(debug) <<  "🦜 : Py contract exec result: " S_CYAN << weak::toString(r) << S_NOR;
+  BOOST_REQUIRE(oa);        // storage not changed
+  // The modified acn has its storage updated (the rest remains unchanged)
+
+
+  a1 = oa.value();
+  BOOST_CHECK_EQUAL(a1.disk_storage[1], R"--({"x":1})--");
+  BOOST_CHECK_EQUAL(toString(a1.code), toString(a.code));
+  BOOST_CHECK_EQUAL(a1.disk_storage[0], a.disk_storage[0]);
 }

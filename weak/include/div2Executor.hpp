@@ -203,22 +203,66 @@ namespace weak{
     /**
      * @brief Execute a python-vm transaction
      *
+     * @param w the world
+     * @param t the transaction, it's expected that `t.type` is `Tx::Type::py`
+     *
      * @return similar to other execute?Tx functions, but the python-vm would only
      * modify the account of its own address. So if the tx is a contract call, it's
      * `t.to`. If it's a contract creation, it's `Tx::getContractDeployAddress(t)`.
      */
     static optional<tuple<vector<StateChange>,bytes>> executePyTx(IAcnGettable * const w, const Tx & t) noexcept{
-
       /*
         🦜 : the jounral, but in our case only one account will be touched. The
         deployed contract's account.
       */
-      bytes res;
-      StateChange s;
       if (evmc::is_zero(t.to)) {
+        StateChange s;
+        auto [a, res] = deployPyContract(t);
+        s.k = weak::addressToString(Tx::getContractDeployAddress(t));
+        s.v = a.toString();
+        // return the single state change (the deployed account)
+        return make_tuple(vector<StateChange>{s}, res);
+      }else{
+        // 0. get the invoke object
+        json::error_code ec;
+        json::value jv = json::parse(weak::toString(t.data), ec);
+        if (ec or not jv.is_object()) {
+          BOOST_LOG_TRIVIAL(info) <<  "❌️ Failed to parse the invoke object: " << ec.message() << S_RED << weak::toString(t.data) << S_NOR;
+          return {};
+        }
+
+        // 0.1 verify invoke object
+        json::object invoke = jv.as_object();
+        if ((not invoke.contains("method")) or
+            (not invoke["method"].is_string())){
+          BOOST_LOG_TRIVIAL(info) <<  "❌️ Malformed invoke object: " << S_RED << json::serialize(invoke) << S_NOR;
+        }
+        optional<Acn> ao = w->getAcn(t.to);
+        if (not ao){
+          BOOST_LOG_TRIVIAL(info) <<  "❌️ Failed to invoke python-vm contract: The account doesn't exist" S_RED
+                                  << weak::addressToString(t.to) << S_NOR;
+          return {};
+        }
+
+        Acn a = ao.value();
+        auto [ao1, res] = invokePyContract(a, invoke, t);
+        if (not ao1) {
+          return make_tuple(vector<StateChange>{}, res);
+        }
+        // Acn modified, if it's different from the original, we should return it
+        StateChange s;
+        s.del = false;
+        s.k = weak::addressToString(t.to);
+        s.v = ao1.value().toString();
+        return make_tuple(vector<StateChange>{s}, res);
+      }
+      return {};                 // 🦜 : Should not happen
+    }
+
+    static tuple<Acn, bytes> deployPyContract(const Tx & t){
+      bytes res;
 
       // Contract creation
-      s.k = weak::addressToString(Tx::getContractDeployAddress(t));
 
       // 0. Verify the python-vm contract, if every thing went well, a json
       // representation of the contract abi would be returned.
@@ -229,7 +273,7 @@ namespace weak{
         return {};
       }
 
-      // 1. Deploy the contract
+      // 1. Deploy the cntract
       //   1.1 new account
       /*
         🦜 : For python-vm, let's store the following at `disk_storage`
@@ -262,28 +306,79 @@ namespace weak{
             r.erase("storage");
           }else{
             a.disk_storage.push_back("{}"); // empty storage
-          }
-
-          s.v = a.toString();
-
-
-          // 1.5 The acn is ready, let's store it. (🦜 : and also return the result ? 🐢 : Nope, we just need to prepare the `res` and `s`
+          } // 1.5 The acn is ready, let's store it. (🦜 : and also return the result ? 🐢 : Nope, we just need to prepare the `res` and `s`
           res = weak::bytesFromString(json::serialize(r));
         }else{
           // no init method, 🦜 : Here we do init an empty storage
           a.disk_storage.push_back("{}");
-          s.v = a.toString();
         }
-      }else{
+      return make_tuple(a, res);
+    } // deployPyContract
+
+    /**
+     * @brief Invoke a python method
+     *
+     * @return <Acn, result>. If Acn is not modified, it's an empty optional.
+     */
+    static tuple<optional<Acn>, bytes> invokePyContract(Acn a /* copy */ , const json::object & invoke, const Tx & t){
         // Contract call
-        return {};
-      }
 
-      // return the single state change (the deployed account)
-      return make_tuple(vector<StateChange>{s}, res);
-    }
+        string_view msg0 = "❌️ Failed to invoke python-vm contract: ";
+        string msg = S_RED + weak::addressToString(t.to) + S_NOR;
 
-    static optional<tuple<vector<StateChange>,bytes>> deployPyContract(const Tx & t) noexcept{
+        // BOOST_LOG_TRIVIAL(debug) <<  "1. check the disk";
+        if (a.disk_storage.size() < 2) { // abi + storage
+          BOOST_LOG_TRIVIAL(info) << msg0  << "The account doesn't have the disk_storage " << msg;
+          return {};
+        }
+
+        // BOOST_LOG_TRIVIAL(debug) <<  "2. get and parse the abi";
+        json::error_code ec;
+        json::value jv = json::parse(a.disk_storage[0], ec);
+        if (ec or not jv.is_object()) {
+          BOOST_LOG_TRIVIAL(info) <<  msg0 << "Failed to parse the abi: " << ec.message() << msg;
+          return {};
+        }
+
+        json::object abi = jv.as_object();
+
+        // BOOST_LOG_TRIVIAL(debug) <<  "3. if the method is not found in the abi, return";
+        // 3. if the method is not found in the abi, return
+        if (not abi.contains(invoke.at("method").as_string())) {
+          BOOST_LOG_TRIVIAL(info) <<  msg0 << "Method " << invoke.at("method")
+                                  << "not found" << msg;
+          return {};
+        }
+
+        // 4. Prepare the storage
+        jv = json::parse(a.disk_storage[1], ec);
+        if (ec or not jv.is_object()) {
+          BOOST_LOG_TRIVIAL(info) <<  msg0 << "Failed to parse the storage: " << ec.message() << msg;
+          return {};
+        }
+
+        json::object storage = jv.as_object();
+
+        // 5. invoke the method
+        json::object r = invokePyMethod(invoke, weak::toStringView(a.code), abi, t, storage);
+        if (r.contains("quit")) {
+          BOOST_LOG_TRIVIAL(info) <<  msg0 << r["quit"].as_string() << msg;
+          return {};
+        }
+
+        // 6. if the storage is modified, take it from the result to the Acn. Return the Acn
+        if (r.contains("storage")) {
+          // add it if
+          a.disk_storage[1] = json::serialize(r["storage"]);
+          r.erase("storage");
+
+          return make_tuple(a, weak::bytesFromString(json::serialize(r)));
+        }
+
+        // 7. return just result
+        return make_tuple(optional<Acn>({}) , weak::bytesFromString(json::serialize(r)));
+        // invokePyContract
+
     }
 
     static path prepareWorkingDir(){
@@ -295,7 +390,7 @@ namespace weak{
         filesystem::create_directory(wd);
       }
       return wd;
-}
+    }
 
 
     static void writeToFile(path p, string_view content){
@@ -325,7 +420,7 @@ namespace weak{
       // ⚠️ Caveat: drop the last char (it's EOF)
       s.pop_back();
 
-      BOOST_LOG_TRIVIAL(debug) <<  "🦜 Text read from file " << p.string() << ":\n" << s <<  "\n";;
+      BOOST_LOG_TRIVIAL(debug) <<  "🦜 Text read from file " S_CYAN << p.string() << S_NOR ":\n" S_GREEN << s << S_NOR  "\n";;
       return s;
     }
 
@@ -368,7 +463,6 @@ namespace weak{
         addTxContextToArgsMaybe(required_args, args, t);
 
         //    1.3 prepare the _storage
-        // if (required_args.contains("_storage")) {
         // BOOST_LOG_TRIVIAL(debug) <<  "Adding _storage, required_args" << required_args;
         if (weak::contains(required_args,"_storage")) {
           args["_storage"] = storage;
@@ -380,7 +474,6 @@ namespace weak{
         writeToFile(args_path, json::serialize(args));
 
         // 3. make the python script
-
         string py_code_content = makePyTxCode(py_code,PY_INVOKE_TEMPLATE, method);
         // 3. Finally, invoke the python
         // static tuple<int,string> exec_py(string  py_code_content, const int timeout_s = 2,
@@ -407,7 +500,30 @@ namespace weak{
         // r.insert({"result", result["result"]});
         // BOOST_LOG_TRIVIAL(debug) <<  "Adding result";
         r["result"] = result["result"];
-        if (result.contains("storage")) {
+
+        /*
+          <2024-03-21 Thu> 🦜 : Here we can do a kinda improvement.... Here we
+          only output the storage if it's different from the original one
+          (i.e. it's modified by the method)
+        */
+        if (result.contains("storage") and
+            (result["storage"] != storage) // boost::json's != operator, storage can also be json::value
+            ) {
+          /*
+            🦜 : In fact, we see that `storage` can be anything in fact...., but
+            for simplicity (and probably manageability), let's just make sure
+            that the result is an object. So that user should do something like
+
+            ```
+            _storage = 2
+            ```
+
+            In their code...
+
+            🐢 : Wait,No, let's just trust the user, and let them....
+
+            🦜 : Okay... that's kinda C-spirit, but let's just do it.
+           */
           BOOST_LOG_TRIVIAL(debug) << "Adding storage";
           r["storage"] = result["storage"];
         }
@@ -419,7 +535,6 @@ namespace weak{
       }catch(const std::exception & e){
         return {{"quit", json::string(e.what())}};
       }
-
     }
 
     static json::object checkAndPrepareArgs(json::object invoke, json::object abi) noexcept{
