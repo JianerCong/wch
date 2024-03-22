@@ -19,26 +19,31 @@ txs='[{"from" : "01","to" : "",
 # jq converts the text file into valid jsonstring
 
 e=http://localhost
-curl --data $txs $e:7777/add_txs
+out=$(curl --data $txs $e:7777/add_txs)
+echo $out | jq .
+da=$(echo $out | jq -M -r '.[0] | .deployed_address')
+# -M, --monochrome
+# -r, --raw-output : output strings as they are
+# echo $out | jq '.[0] | .hash' # the hash
 
 # deployed address
-curl $e:7777/get_latest_Blk
-
+curl $e:7777/get_latest_Blk | jq .
 # invoke the contract set 123
 echo '{
         "method" : "hi",
         "args" : {"y" : 122}
 }' > /tmp/tmp.json
-deployed_addr="000000000000000000000000ffffffff9a03f450"
 
 txs='[{
     "from" : "01",
-    "to" : "'"$deployed_addr"'",
+    "to" : "'"$da"'",
     "data" : "@/tmp/tmp.json",
     "nonce" : 124,
     "type" : "python"
 }]
 '
-curl --data $txs $e:7777/add_txs
-h=a46e1806155b08cf95763b2e2dabeebff40859727d07d457d75a23069a66ca15
-curl "$e:7777/get_receipt?hash=$h"
+out=$(curl --data $txs $e:7777/add_txs)
+echo $out | jq .
+h=$(echo $out | jq -M -r '.[0] | .hash')
+echo $h
+curl "$e:7777/get_receipt?hash=$h" | jq .
