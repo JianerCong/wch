@@ -172,7 +172,7 @@ BOOST_AUTO_TEST_CASE(test_read_file_feature){
   json::array a;
   json::object tx = {{"from","0x01"},
                      {"to","0x02"},
-                     {"data",'@' + p.native()},
+                     {"data",'@' + p.string()},
                      {"nonce",123}};
   a.push_back(tx);
   // static optional<tuple<string,vector<Tx>>> Tx::parse_txs_json_for_rpc(json::array && a);
@@ -197,7 +197,7 @@ BOOST_AUTO_TEST_CASE(test_read_file2_data){
   json::array a;
   json::object tx = {{"from","0x01"},
                      {"to","0x02"},
-                     {"data",'@' + p.native()},
+                     {"data",'@' + p.string()},
                      {"type" , "data"},
                      {"nonce",123}};
   a.push_back(tx);

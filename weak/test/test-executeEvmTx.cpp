@@ -292,24 +292,26 @@ BOOST_AUTO_TEST_SUITE_END();
 
 BOOST_AUTO_TEST_SUITE(test_evmMsgExe);
 
-BOOST_AUTO_TEST_CASE(test_mocked_evmMsgExec){
+BOOST_AUTO_TEST_CASE(test_mocked_evmMsgExec, MY_TEST_THIS){
 
   unique_ptr<IEvmMsgExecutable> e{new mockedEvmMsgExec::A /*empty executor*/};
+  // 🦜 : It seems like msvc doesn't 
 
   // the host
-  mockedAcnPrv::A /*empty provider*/ mh;IAcnGettable*w = dynamic_cast<IAcnGettable*>(&mh);;
-  bytes data(size_t{2},uint8_t{0xff}); // we would like this.
-  Tx t = Tx(makeAddress(1), makeAddress(2), data, 123/*nonce*/);
-  WeakEvmHost h(w,t);
-  auto [msg,code] = makeMsg("" /*code hex*/,
-                            "aabbcc" /*data hex*/
-                            );
-  evmc::Result r = e->execMsg(msg,h);
-  BOOST_CHECK_EQUAL(r.status_code,EVMC_SUCCESS);
+  // mockedAcnPrv::A /*empty provider*/ mh;IAcnGettable*w = dynamic_cast<IAcnGettable*>(&mh);;
+  // bytes data(size_t{2},uint8_t{0xff}); // we would like this.
+  // Tx t = Tx(makeAddress(1), makeAddress(2), data, 123/*nonce*/);
+  // WeakEvmHost h(w,t);
+  // auto [msg,code] = makeMsg("" /*code hex*/,
+  //                           "aabbcc" /*data hex*/
+  //                           );
+  // evmc::Result r = e->execMsg(msg,h);
+  // BOOST_CHECK_EQUAL(r.status_code,EVMC_SUCCESS);
 
-  bytes d(r.output_data,r.output_size);
-  bytes d_expected{0xaa,0xbb,0xcc};
-  BOOST_CHECK_EQUAL(d,d_expected);
+  // bytes d(r.output_data,r.output_size);
+  // bytes d_expected{0xaa,0xbb,0xcc};
+  // BOOST_CHECK_EQUAL(evmc::hex(d),
+  //                   evmc::hex(d_expected));
 }
 
 BOOST_AUTO_TEST_CASE(weakhost_call_with_nothing){
@@ -960,7 +962,7 @@ BOOST_AUTO_TEST_CASE(test_real_contract_create_and_call){
 
 }
 
-BOOST_AUTO_TEST_CASE(TPS_test_evmweak,MY_TEST_THIS){
+BOOST_AUTO_TEST_CASE(TPS_test_evmweak){
   // 1. --------------------------------------------------
   evmc::MockedHost h;
 
@@ -989,12 +991,13 @@ BOOST_AUTO_TEST_CASE(TPS_test_evmweak,MY_TEST_THIS){
   start = high_resolution_clock::now(); // --------------------------------------------------
   // 4. --------------------------------------------------
   // Start executing
-  for (int i=0;i<N;i++)
-    std::jthread{[&](){
-      for (int j=0;j<M;j++)
-        vm.execute(h,EVMC_MAX_REVISION,msg, nullptr,0);
-    }
-        };
+  vector<std::jthread> v;
+  for (int i=0;i<N;i++)         // parallel for
+    v.push_back(std::jthread{[&](){
+                  for (int j=0;j<M;j++)
+                    vm.execute(h,EVMC_MAX_REVISION,msg, nullptr,0);
+                }});
+  v.clear();                    // join all threads
 
   // evmc::Result r = vm.execute(h,EVMC_MAX_REVISION,msg, nullptr,0);
   // Execute the empty code

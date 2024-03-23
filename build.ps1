@@ -56,8 +56,9 @@ cd ..
 # 🦜 : nope, we solved it using cmake magic..
 
 # 4. build the project
-cmake -S weak -B build
-cmake --build build --config Release --verbose
+rm -r build
+cmake -S weak -B build-weak
+cmake --build build-weak --config Release --verbose
 
 
 # --------------------------------------------------

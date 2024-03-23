@@ -47,17 +47,17 @@ endif()
 
 
 if (WIN32)
+
   # manually import the libs
   message("🐸 manually making rocksdb on windows")
   set(x ${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg/installed/x64-windows-static/lib)
-  add_library(RocksDB::rocksdb STATIC IMPORTED)
-  set_target_properties(RocksDB::rocksdb PROPERTIES
-    IMPORTED_LOCATION "${x}/rocksdb.lib"
-  )
-  target_link_libraries(RocksDB::rocksdb INTERFACE
-    # "${x}/bz2.lib"
-    "${x}/zlib.lib"
-  )
+  # 🦜 : Manually find zlib
+  set(ZLIB_LIBRARY "${x}/zlib.lib")
+  set(ZLIB_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg/installed/x64-windows-static/include")
+
+  set(RocksDB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg/installed/x64-windows-static/share/rocksdb)
+  find_package(RocksDB CONFIG REQUIRED)
+
 else()
   set(RocksDB_DIR "${PROJECT_SOURCE_DIR}/../.pre/installed-rocksdb/lib/x86_64-linux-gnu/cmake/rocksdb")
   # 🦜 : It seems a bug that we need to include this Finduring manually
@@ -156,6 +156,22 @@ if (WIN32)
   set_target_properties(OpenSSL::Crypto PROPERTIES
     IMPORTED_LOCATION "${x}/libcrypto.lib"
   )
+  
+  add_library(OpenSSL::SSL STATIC IMPORTED)
+  set_target_properties(OpenSSL::SSL PROPERTIES
+    IMPORTED_LOCATION "${x}/libssl.lib"
+  )
+
+  # -lcrypt32 -lws2_32 -ladvapi32 -luser32
+  # 🦜 : ^^ specified in libcrypto.pc, but the resest seems already be linked to
+  target_link_libraries(OpenSSL::Crypto INTERFACE crypt32)
+    #🦜 : Yes, cmake can link to absolute path
+ 
+  # target_link_libraries(OpenSSL::Crypto INTERFACE
+  #   "${x}/libssl.lib"
+  # )                             #🦜 : Yes, cmake can link to absolute path
+
+
 else()
 find_package(OpenSSL REQUIRED)
 endif()
