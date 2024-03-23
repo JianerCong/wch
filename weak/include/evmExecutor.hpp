@@ -105,14 +105,14 @@ namespace weak {
      */
     explicit WeakEvmHost(IAcnGettable * const w, const Tx & t,
                          string n="WeakEvmHost",
-                         unique_ptr<IEvmMsgExecutable> ex = nullptr):
-      readOnlyWorldState(w),tx(t),name(n),msgExe(move(ex)){
+                         IEvmMsgExecutable  * const ex = nullptr):
+      readOnlyWorldState(w),tx(t),name(n),msgExe(ex){
       BOOST_LOG_TRIVIAL(info) << format("🎍 Initializing WeakEvmHost for "
                                         S_CYAN "tx-%d" S_NOR) % t.nonce;
     };
 
     // <! The evmc_message executor. @see WeakEvmHost()
-    unique_ptr<IEvmMsgExecutable> msgExe;
+    IEvmMsgExecutable const * const msgExe;
     string name;                // <! The name of the host, mostly cosmetic
     unordered_map<address, Acn> accounts; //<! the In-RAM Acns
     std::set<address> deadAcn;  //<! The acn that called self-destruct
@@ -536,12 +536,16 @@ namespace weak {
                                                          const Tx & t) const noexcept override{
       // 1. --------------------------------------------------
       // Init the host
+      EvmweakMsgExecutor eh;
+      IEvmMsgExecutable  * ex = dynamic_cast<IEvmMsgExecutable*>(&eh);
       WeakEvmHost h{w /* the underlying stateDB */
                     ,t /* tx */
                     , "aaa" /*host name*/,
-                    move(unique_ptr<IEvmMsgExecutable>(
-                                                       new EvmweakMsgExecutor()
-                                                       )) /*executor used for recursive call */};
+                    // move(unique_ptr<IEvmMsgExecutable>(
+                    //                                    new EvmweakMsgExecutor()
+                    //                                    )
+                    ex
+                    /*executor used for recursive call */};
 
       // 2. --------------------------------------------------
       // Convert tx to msg
@@ -549,8 +553,7 @@ namespace weak {
 
       // 3. --------------------------------------------------
       // exec the msg in evmweak, pass the host, it might change its state
-      unique_ptr<IEvmMsgExecutable> e{new EvmweakMsgExecutor()};
-      evmc::Result r = e->execMsg(msg,h);
+      evmc::Result r = ex->execMsg(msg,h);
 
       // 4. --------------------------------------------------
       // if execution goes well, read the state-changes in host and the final result

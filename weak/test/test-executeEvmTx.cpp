@@ -292,26 +292,28 @@ BOOST_AUTO_TEST_SUITE_END();
 
 BOOST_AUTO_TEST_SUITE(test_evmMsgExe);
 
-BOOST_AUTO_TEST_CASE(test_mocked_evmMsgExec, MY_TEST_THIS){
+BOOST_AUTO_TEST_CASE(test_mocked_evmMsgExec){
 
-  unique_ptr<IEvmMsgExecutable> e{new mockedEvmMsgExec::A /*empty executor*/};
-  // 🦜 : It seems like msvc doesn't 
+  // unique_ptr<IEvmMsgExecutable> e{new mockedEvmMsgExec::A /*empty executor*/};
+  // 🦜 : It seems like msvc doesn't like the above (we learnt from a boost tutorial), instead, we should do::
+  mockedEvmMsgExec::A  ah;
+  IEvmMsgExecutable * e = dynamic_cast<IEvmMsgExecutable*>(&ah);
 
   // the host
-  // mockedAcnPrv::A /*empty provider*/ mh;IAcnGettable*w = dynamic_cast<IAcnGettable*>(&mh);;
-  // bytes data(size_t{2},uint8_t{0xff}); // we would like this.
-  // Tx t = Tx(makeAddress(1), makeAddress(2), data, 123/*nonce*/);
-  // WeakEvmHost h(w,t);
-  // auto [msg,code] = makeMsg("" /*code hex*/,
-  //                           "aabbcc" /*data hex*/
-  //                           );
-  // evmc::Result r = e->execMsg(msg,h);
-  // BOOST_CHECK_EQUAL(r.status_code,EVMC_SUCCESS);
+  mockedAcnPrv::A /*empty provider*/ mh;IAcnGettable*w = dynamic_cast<IAcnGettable*>(&mh);;
+  bytes data(size_t{2},uint8_t{0xff}); // we would like this.
+  Tx t = Tx(makeAddress(1), makeAddress(2), data, 123/*nonce*/);
+  WeakEvmHost h(w,t);
+  auto [msg,code] = makeMsg("" /*code hex*/,
+                            "aabbcc" /*data hex*/
+                            );
+  evmc::Result r = e->execMsg(msg,h);
+  BOOST_CHECK_EQUAL(r.status_code,EVMC_SUCCESS);
 
-  // bytes d(r.output_data,r.output_size);
-  // bytes d_expected{0xaa,0xbb,0xcc};
-  // BOOST_CHECK_EQUAL(evmc::hex(d),
-  //                   evmc::hex(d_expected));
+  bytes d(r.output_data,r.output_size);
+  bytes d_expected{0xaa,0xbb,0xcc};
+  BOOST_CHECK_EQUAL(evmc::hex(d),
+                    evmc::hex(d_expected));
 }
 
 BOOST_AUTO_TEST_CASE(weakhost_call_with_nothing){
@@ -337,7 +339,9 @@ BOOST_AUTO_TEST_CASE(weakhost_call_passed_nothing){
   Tx t = Tx(makeAddress(1), makeAddress(2), data, 123/*nonce*/);
 
   // An executor that always returns true
-  unique_ptr<IEvmMsgExecutable> e{new mockedEvmMsgExec::A /*empty executor*/};
+  // unique_ptr<IEvmMsgExecutable> e{new mockedEvmMsgExec::A /*empty executor*/};
+  mockedEvmMsgExec::A  ah;
+  IEvmMsgExecutable * e = dynamic_cast<IEvmMsgExecutable*>(&ah);
 
   // the host
   WeakEvmHost h{w,t,
@@ -360,7 +364,10 @@ BOOST_AUTO_TEST_CASE(test_basic_handleCreate){
   bytes data(size_t{2},uint8_t{0xff}); // we would like this.
   Tx t = Tx(makeAddress(1), makeAddress(2), data, 123/*nonce*/);
   // An executor that always returns true
-  unique_ptr<IEvmMsgExecutable> e{new mockedEvmMsgExec::A /*empty executor*/};
+  // unique_ptr<IEvmMsgExecutable> e{new mockedEvmMsgExec::A /*empty executor*/};
+  mockedEvmMsgExec::A  ah;
+  IEvmMsgExecutable * e = dynamic_cast<IEvmMsgExecutable*>(&ah);
+
   // 2. --------------------------------------------------
   // the host
   WeakEvmHost h{w,t, "aaa" /*host name*/,
@@ -397,7 +404,10 @@ BOOST_AUTO_TEST_CASE(test_basic_handleCreate){
 
   // 4. --------------------------------------------------
   // Deploy with evmweak
-  unique_ptr<IEvmMsgExecutable> e1{new EvmweakMsgExecutor()};
+  // unique_ptr<IEvmMsgExecutable> e1{new EvmweakMsgExecutor()};
+  EvmweakMsgExecutor eh;
+  IEvmMsgExecutable * e1 = dynamic_cast<IEvmMsgExecutable*>(&eh);
+
   evmc::Result r = e1->execMsg(msg,h);
 
   // 5. --------------------------------------------------
@@ -419,7 +429,10 @@ BOOST_AUTO_TEST_CASE(test_basic_handleCreate_nonce_increment){
   bytes data(size_t{2},uint8_t{0xff}); // we would like this.
   Tx t = Tx(makeAddress(1), makeAddress(2), data, 123/*nonce*/);
   // An executor that always returns true
-  unique_ptr<IEvmMsgExecutable> e{new mockedEvmMsgExec::A /*empty executor*/};
+  mockedEvmMsgExec::A  ah;
+  IEvmMsgExecutable * e = dynamic_cast<IEvmMsgExecutable*>(&ah);
+
+
   // 2. --------------------------------------------------
   // the host
   WeakEvmHost h{w,t, "aaa" /*host name*/,
@@ -455,7 +468,9 @@ BOOST_AUTO_TEST_CASE(test_basic_handleCreate_nonce_increment){
 
   // 4. --------------------------------------------------
   // Deploy with evmweak
-  unique_ptr<IEvmMsgExecutable> e1{new EvmweakMsgExecutor()};
+  // unique_ptr<IEvmMsgExecutable> e1{new EvmweakMsgExecutor()};
+  EvmweakMsgExecutor eh;
+  IEvmMsgExecutable * e1 = dynamic_cast<IEvmMsgExecutable*>(&eh);
   evmc::Result r = e1->execMsg(msg,h);
 
   // 5. --------------------------------------------------
@@ -497,7 +512,9 @@ BOOST_AUTO_TEST_CASE(test_real_handleCreate){
   bytes data(size_t{2},uint8_t{0xff}); // we would like this.
   Tx t = Tx(makeAddress(1), makeAddress(2), data, 123/*nonce*/);
   // An executor that always returns true
-  unique_ptr<IEvmMsgExecutable> e{new mockedEvmMsgExec::A /*empty executor*/};
+  // unique_ptr<IEvmMsgExecutable> e{new mockedEvmMsgExec::A /*empty executor*/};
+  mockedEvmMsgExec::A  ah;
+  IEvmMsgExecutable * e = dynamic_cast<IEvmMsgExecutable*>(&ah);
   // 2. --------------------------------------------------
   // the host
   WeakEvmHost h{w,t, "aaa" /*host name*/,
@@ -522,7 +539,9 @@ BOOST_AUTO_TEST_CASE(test_real_handleCreate){
 
   // 4. --------------------------------------------------
   // Deploy with evmweak
-  unique_ptr<IEvmMsgExecutable> e1{new EvmweakMsgExecutor()};
+  // unique_ptr<IEvmMsgExecutable> e1{new EvmweakMsgExecutor()};
+  EvmweakMsgExecutor eh;
+  IEvmMsgExecutable * e1 = dynamic_cast<IEvmMsgExecutable*>(&eh);
   evmc::Result r = e1->execMsg(msg,h);
 
   // 5. --------------------------------------------------
@@ -548,7 +567,9 @@ BOOST_AUTO_TEST_CASE(test_basic_handle_call){
   bytes data(size_t{2},uint8_t{0xff}); // we would like this.
   Tx t = Tx(makeAddress(1), makeAddress(2), data, 123/*nonce*/);
   // An executor that always returns true
-  unique_ptr<IEvmMsgExecutable> e{new mockedEvmMsgExec::A /*empty executor*/};
+  // unique_ptr<IEvmMsgExecutable> e{new mockedEvmMsgExec::A /*empty executor*/};
+  mockedEvmMsgExec::A  ah;
+  IEvmMsgExecutable * e = dynamic_cast<IEvmMsgExecutable*>(&ah);
   // 2. --------------------------------------------------
   // the host
   WeakEvmHost h{w,t, "aaa" /*host name*/,
@@ -577,7 +598,9 @@ BOOST_AUTO_TEST_CASE(test_basic_handle_call){
 
   //5. --------------------------------------------------
   // Execute to get the result
-  unique_ptr<IEvmMsgExecutable> e1{new EvmweakMsgExecutor()};
+  // unique_ptr<IEvmMsgExecutable> e1{new EvmweakMsgExecutor()};
+  EvmweakMsgExecutor eh;
+  IEvmMsgExecutable * e1 = dynamic_cast<IEvmMsgExecutable*>(&eh);
   evmc::Result r = e1->execMsg(msg,h);
   // 5. --------------------------------------------------
   // Now the code is deployed, and the contract account is created.
@@ -602,7 +625,9 @@ BOOST_AUTO_TEST_CASE(test_real_handle_call_set){
   bytes data(size_t{2},uint8_t{0xff}); // we would like this.
   Tx t = Tx(makeAddress(1), makeAddress(2), data, 123/*nonce*/);
   // An executor that always returns true
-  unique_ptr<IEvmMsgExecutable> e{new mockedEvmMsgExec::A /*empty executor*/};
+  // unique_ptr<IEvmMsgExecutable> e{new mockedEvmMsgExec::A /*empty executor*/};
+  mockedEvmMsgExec::A  ah;
+  IEvmMsgExecutable * e = dynamic_cast<IEvmMsgExecutable*>(&ah);
   // 2. --------------------------------------------------
   // the host
   WeakEvmHost h{w,t, "aaa" /*host name*/,
@@ -639,7 +664,7 @@ BOOST_AUTO_TEST_CASE(test_real_handle_call_set){
 
   //5. --------------------------------------------------
   // Execute to get the result
-  unique_ptr<IEvmMsgExecutable> e1{new EvmweakMsgExecutor()};
+  EvmweakMsgExecutor eh; IEvmMsgExecutable * e1 = dynamic_cast<IEvmMsgExecutable*>(&eh);
   evmc::Result r = e1->execMsg(msg,h);
   // 5. --------------------------------------------------
   // Now the storage is set
@@ -657,7 +682,7 @@ BOOST_AUTO_TEST_CASE(test_real_handle_call_set_get){
   bytes data(size_t{2},uint8_t{0xff}); // we would like this.
   Tx t = Tx(makeAddress(1), makeAddress(2), data, 123/*nonce*/);
   // An executor that always returns true
-  unique_ptr<IEvmMsgExecutable> e{new mockedEvmMsgExec::A /*empty executor*/};
+  mockedEvmMsgExec::A ah; IEvmMsgExecutable* e = dynamic_cast<IEvmMsgExecutable*>(&ah);
   // 2. --------------------------------------------------
   // the host
   WeakEvmHost h{w,t, "aaa" /*host name*/,
@@ -694,7 +719,7 @@ BOOST_AUTO_TEST_CASE(test_real_handle_call_set_get){
 
   //5. --------------------------------------------------
   // Execute to set the result
-  unique_ptr<IEvmMsgExecutable> e1{new EvmweakMsgExecutor()};
+  EvmweakMsgExecutor eh; IEvmMsgExecutable * e1 = dynamic_cast<IEvmMsgExecutable*>(&eh);
   evmc::Result r = e1->execMsg(msg,h);
   // Now the storage is set
   BOOST_REQUIRE_EQUAL(r.status_code, EVMC_SUCCESS);
@@ -719,7 +744,7 @@ BOOST_AUTO_TEST_CASE(test_real_handle_call_set_get){
 }
 BOOST_AUTO_TEST_SUITE_END();
 
-BOOST_AUTO_TEST_SUITE(test_evmExecutor);
+BOOST_AUTO_TEST_SUITE(test_evmExecutor,MY_TEST_THIS);
 BOOST_AUTO_TEST_CASE(test_getStateChanges){
   // the world state
   mockedAcnPrv::A /*empty provider*/ mh;IAcnGettable*w = dynamic_cast<IAcnGettable*>(&mh);;
@@ -821,7 +846,9 @@ BOOST_AUTO_TEST_CASE(test_create_through_tx){
   bytes data = evmc::from_hex(init_hex).value();
   Tx t = Tx(makeAddress(1), makeAddress(0), data, 123/*nonce*/);
 
-  unique_ptr<ITxExecutable> e{new EvmExecutor()};
+  // unique_ptr<ITxExecutable> e{new EvmExecutor()};
+  EvmExecutor eh;
+  ITxExecutable * e = dynamic_cast<ITxExecutable*>(&eh);
   auto o = e->executeTx(w,t);
   BOOST_REQUIRE(o);
 
@@ -855,7 +882,7 @@ BOOST_AUTO_TEST_CASE(test_call_through_tx){
   Tx t = Tx(makeAddress(1), makeAddress(1), data, 123/*nonce*/);
 
   // Call the code at 0x1 which returns aabbcc
-  unique_ptr<ITxExecutable> e{new EvmExecutor()};
+  EvmExecutor eh; ITxExecutable * e = dynamic_cast<ITxExecutable*>(&eh);
   auto o = e->executeTx(w,t);
   BOOST_REQUIRE(o);
 
@@ -912,7 +939,7 @@ BOOST_AUTO_TEST_CASE(test_real_contract_create_and_call){
     🦜 : This is the correct way to upcast to an interface (in STACK).
    */
 
-  unique_ptr<ITxExecutable> e{new EvmExecutor()};
+  EvmExecutor eh; ITxExecutable * e = dynamic_cast<ITxExecutable*>(&eh);
 
   // 1. --------------------------------------------------
   // Deploy the contract
@@ -1009,7 +1036,11 @@ BOOST_AUTO_TEST_CASE(TPS_test_evmweak){
   double s = elapsed_seconds.count();
   double tps = (N*M/s);
   BOOST_TEST_MESSAGE(format("sec elapsed: %4.2e sec, so TPS = %.0f") % s % tps);
+  #if WIN32
+  BOOST_CHECK(tps > 40'000);
+  #else
   BOOST_CHECK(tps > 60'000);
+  #endif
   // 6. --------------------------------------------------
   // Now the code is deployed, and the contract account is created.
   // BOOST_CHECK_EQUAL(r.status_code, EVMC_SUCCESS);
