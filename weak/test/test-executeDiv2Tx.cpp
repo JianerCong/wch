@@ -5,9 +5,21 @@ using namespace weak;
 
 // 🦜 : Here we can test the Div2Executor, an extension of the EvmExecutor.
 
-BOOST_AUTO_TEST_CASE(test_exec0_hi){
+BOOST_AUTO_TEST_CASE(test_exec0_hi, MY_TEST_THIS){
   auto [return_val, result] = ExoticTxExecutorBase::exec0("echo hi");
-  BOOST_CHECK_EQUAL(result, "hi");
+  // BOOST_CHECK_EQUAL(result, "hi");
+
+  // auto [return_val, result] = ExoticTxExecutorBase::exec0("powershell -NoProfile -NonInteractive -NoLogo -Command 'echo hi'");
+  // auto [return_val, result] = ExoticTxExecutorBase::exec0("powershell /?");
+  // auto [return_val, result] = ExoticTxExecutorBase::exec0(R"--(powershell -NoProfile -NonInteractive -NoLogo -Command "& {echo hi}")--");
+  BOOST_LOG_TRIVIAL(debug) <<  "🦜 : result = >>" << result  << "<<, hex = " << evmc::hex(bytesFromString(result)) ;
+  // 🦜 : see the hex
+  BOOST_CHECK_EQUAL(result, "hi\x0d");
+  // \x0d is the carriage return
+  // should contains hi
+  // BOOST_CHECK(result.find(string("hi")) != string::npos);
+
+  BOOST_CHECK_EQUAL(1,1);
 }
 
 

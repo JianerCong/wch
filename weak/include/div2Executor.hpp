@@ -69,7 +69,7 @@ namespace weak{
     /**
      * @brief A function to execute a command and return the output
      */
-    static tuple<int,string> exec0(const string cmd, const int timeout_s = 2,
+    static tuple<int,string> exec0(string cmd, const int timeout_s = 2,
                                    filesystem::path wd = filesystem::current_path() // 🦜: let's keep it simple.
                                    ) {
       //get a handle to the current environment
@@ -78,6 +78,11 @@ namespace weak{
       env["PWD"] = wd.string();
 
       bp::ipstream out, err;
+      // on windows, resort to pwsh
+#if defined(_WIN32)
+      cmd = "powershell -NoProfile -NonInteractive -NoLogo -Command \"& {" + cmd + "}\"";
+#endif
+
       bp::child c(cmd, bp::std_out > out, bp::std_err > err, env);
       /*
         🦜 : Let's just collect both stdout and stderr, and then we can log them.
@@ -99,8 +104,8 @@ namespace weak{
         🦜 : In fact, we can get some logs here, but for now let's just ignore it
       */
 
-      // BOOST_LOG_TRIVIAL(debug) <<  "\tGot stderr: " << err.rdbuf();
-      // BOOST_LOG_TRIVIAL(debug) <<  "\t ⚠️Got stdout: " << output;
+      BOOST_LOG_TRIVIAL(debug) <<  "\tGot stderr(): " << err.rdbuf();
+      BOOST_LOG_TRIVIAL(debug) <<  "\tGot stdout(): " << output;
       std::ostringstream eo;
       eo << err.rdbuf();        // read the error output
 

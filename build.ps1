@@ -59,6 +59,7 @@ cd ..
 rm -r build
 cmake -S weak -B build-weak
 cmake --build build-weak --config Release --verbose
+cmake --build build-weak --config Release
 
 
 # --------------------------------------------------
