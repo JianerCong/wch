@@ -45,7 +45,6 @@ else()
   )
 endif()
 
-
 if (WIN32)
 
   # manually import the libs

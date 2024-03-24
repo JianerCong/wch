@@ -12,10 +12,17 @@ BOOST_AUTO_TEST_CASE(test_exec0_hi, MY_TEST_THIS){
   // auto [return_val, result] = ExoticTxExecutorBase::exec0("powershell -NoProfile -NonInteractive -NoLogo -Command 'echo hi'");
   // auto [return_val, result] = ExoticTxExecutorBase::exec0("powershell /?");
   // auto [return_val, result] = ExoticTxExecutorBase::exec0(R"--(powershell -NoProfile -NonInteractive -NoLogo -Command "& {echo hi}")--");
-  BOOST_LOG_TRIVIAL(debug) <<  "🦜 : result = >>" << result  << "<<, hex = " << evmc::hex(bytesFromString(result)) ;
+
+  // BOOST_LOG_TRIVIAL(debug) <<  "🦜 : result = >>" << result  << "<<, hex = " << evmc::hex(bytesFromString(result)) ;
   // 🦜 : see the hex
+#if defined(_WIN32)
   BOOST_CHECK_EQUAL(result, "hi\x0d");
-  // \x0d is the carriage return
+  BOOST_CHECK_EQUAL(result, "hi\r");
+#else
+  BOOST_CHECK_EQUAL(result, "hi");
+#endif
+
+  // \x0d is the carriage return \r
   // should contains hi
   // BOOST_CHECK(result.find(string("hi")) != string::npos);
 
@@ -23,9 +30,14 @@ BOOST_AUTO_TEST_CASE(test_exec0_hi, MY_TEST_THIS){
 }
 
 
-BOOST_AUTO_TEST_CASE(test_exec_py){
+BOOST_AUTO_TEST_CASE(test_exec_py,MY_TEST_THIS){
   auto [return_val, result] = PyTxExecutor::exec_py("print('hi')");
+
+#if defined(_WIN32)
+  BOOST_CHECK_EQUAL(result, "hi\r");
+#else
   BOOST_CHECK_EQUAL(result, "hi");
+#endif
 }
 
 // --------------------------------------------------
