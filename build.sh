@@ -22,7 +22,10 @@ sudo apt install libpython3-all-dev
 # - random - regex - serialization - stacktrace - system - test
 # - thread - timer - type_erasure - url - wave
 
+# build the static libraries (for deployment)
 ./b2 --with-json --with-program_options --with-test --with-headers --with-log link=static
+# build the shared libraries (for development)
+./b2 --with-json --with-program_options --with-test --with-headers --with-log link=shared
 echo "🐸 Boost installed"
 cd ..
 
@@ -37,15 +40,21 @@ sudo apt install libgflags-dev \
 # 2.2 install rocksdb
 wget https://github.com/facebook/rocksdb/archive/refs/tags/v8.3.2.tar.gz
 tar zxf v8.3.2.tar.gz
-cmake -S rocksdb-8.3.2/ -B build-rocksdb/ -DWITH_JEMALLOC=1 -DWITH_LIBURING=1 \
-      -DWITH_SNAPPY=1 -DWITH_LZ4=1 -DWITH_ZLIB=1 -DWITH_ZSTD=1 -DCMAKE_BUILD_TYPE=Release
+# cmake -S rocksdb-8.3.2/ -B build-rocksdb/ -DWITH_JEMALLOC=1 -DWITH_LIBURING=1 \
+#       -DWITH_SNAPPY=1 -DWITH_LZ4=1 -DWITH_ZLIB=1 -DWITH_ZSTD=1 -DCMAKE_BUILD_TYPE=Release
+
+# try to build with lz4
+sudo apt install libgflags-dev liblz4-dev liburing-dev -y
+# cmake -S rocksdb-8.3.2/ -B build-rocksdb/ -DWITH_LZ4=1 -DCMAKE_BUILD_TYPE=Release
 cmake --build build-rocksdb
 cmake --install build-rocksdb --prefix installed-rocksdb
 
 
 # --------------------------------------------------
 # 3. add protobuf [in .pre/ folder]
-sudo apt install libabsl-dev -y
+
+# sudo apt install libabsl-dev -y # 🦜 : Nope, pd now is smart enough to take
+# care of itself's dependencies
 
 git clone -b v25.1 https://github.com/protocolbuffers/protobuf.git
 cd protobuf

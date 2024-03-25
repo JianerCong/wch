@@ -90,32 +90,43 @@ namespace pure{
       }
 
       void do_read(){
-        // Make the request empty before reading,
-        // otherwise the operation behavior is undefined.
-        req_ = {};
+        // <2024-03-25 Mon> 🦜 : The timeout seems to throw an exception ?
+        try {
+          // Make the request empty before reading,
+          // otherwise the operation behavior is undefined.
+          req_ = {};
 
-        // Set the timeout.
-        stream_.expires_after(std::chrono::seconds(60 * 4)); // 4 minutes.
+          // Set the timeout.
+          // stream_.expires_after(std::chrono::seconds(60 * 4)); // 4 minutes.
+          stream_.expires_after(std::chrono::seconds(5)); // 5s
 
-        // Read a request
-        http::async_read(stream_, buffer_, req_,
-                         beast::bind_front_handler(
-                                                   &session::on_read,
-                                                   this->shared_from_this()));
+          // Read a request
+          http::async_read(stream_, buffer_, req_,
+                           beast::bind_front_handler(
+                                                     &session::on_read,
+                                                     this->shared_from_this()));
+        }catch (std::exception & e){
+          BOOST_LOG_TRIVIAL(error) << S_RED "❌️ failed " S_NOR "to read request: " << e.what();
+          do_close();
+        }
       }
 
       void on_read(beast::error_code ec, std::size_t bytes_transferred){
-        boost::ignore_unused(bytes_transferred);
+        try {
+          boost::ignore_unused(bytes_transferred);
 
-        // This means they closed the connection
-        if(ec == http::error::end_of_stream)
-          return do_close();
+          // This means they closed the connection
+          if(ec == http::error::end_of_stream)
+            return do_close();
 
-        if(ec)
-          return fail(ec, "read");
+          if(ec)
+            return fail(ec, "read");
 
-        // Send the response
-        send_response(handle_request(std::move(req_)));
+          // Send the response
+          send_response(handle_request(std::move(req_)));
+        } catch (std::exception & e){
+          BOOST_LOG_TRIVIAL(error) << S_RED "❌️ failed " S_NOR "to read request: " << e.what();
+        }
       }
 
       void send_response(http::message_generator&& msg){

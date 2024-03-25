@@ -1,6 +1,10 @@
 # 🦜 : USE_STATIC_LIBS is important, because by default, the loader cannot load
 # dynamic library from non-default locations.
-set(Boost_USE_STATIC_LIBS ON)
+if (USE_DYNAMIC_LIBS)
+  set(Boost_USE_STATIC_LIBS OFF)
+else()
+  set(Boost_USE_STATIC_LIBS ON)
+endif()
 
 # Boost_VERBOSE:            Enable verbose output
 # Boost_DEBUG:              Enable debug (even more verbose) output
@@ -46,7 +50,6 @@ else()
 endif()
 
 if (WIN32)
-
   # manually import the libs
   message("🐸 manually making rocksdb on windows")
   set(x ${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg/installed/x64-windows-static/lib)
@@ -63,7 +66,6 @@ else()
   include(${RocksDB_DIR}/modules/Finduring.cmake)
   find_package(RocksDB CONFIG REQUIRED)
 endif()
-
 
 if (WIN32)
   # manually import the libs

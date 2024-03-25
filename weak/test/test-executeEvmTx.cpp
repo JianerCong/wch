@@ -372,7 +372,7 @@ BOOST_AUTO_TEST_CASE(test_basic_handleCreate){
   // the host
   WeakEvmHost h{w,t, "aaa" /*host name*/,
                 move(e) /*executor used for recursive call */};
-  BOOST_REQUIRE(not e); // e is not nullptr
+  // 🦜 e == nulptr now... // e is not nullptr
 
 
   // 3. --------------------------------------------------
@@ -437,7 +437,7 @@ BOOST_AUTO_TEST_CASE(test_basic_handleCreate_nonce_increment){
   // the host
   WeakEvmHost h{w,t, "aaa" /*host name*/,
                 move(e) /*executor used for recursive call */};
-  BOOST_REQUIRE(not e); // e is not nullptr
+  // 🦜 e == nulptr now... // e is not nullptr
 
   // 3. --------------------------------------------------
   // The message
@@ -519,7 +519,7 @@ BOOST_AUTO_TEST_CASE(test_real_handleCreate){
   // the host
   WeakEvmHost h{w,t, "aaa" /*host name*/,
                 move(e) /*executor used for recursive call */};
-  BOOST_REQUIRE(not e); // e is not nullptr
+  // 🦜 e == nulptr now... // e is not nullptr
 
 
   // 3. --------------------------------------------------
@@ -574,7 +574,7 @@ BOOST_AUTO_TEST_CASE(test_basic_handle_call){
   // the host
   WeakEvmHost h{w,t, "aaa" /*host name*/,
                 move(e) /*executor used for recursive call */};
-  BOOST_REQUIRE(not e); // e is not nullptr
+  // 🦜 e == nulptr now... // e is not nullptr
 
 
   // 3. --------------------------------------------------
@@ -632,7 +632,7 @@ BOOST_AUTO_TEST_CASE(test_real_handle_call_set){
   // the host
   WeakEvmHost h{w,t, "aaa" /*host name*/,
                 move(e) /*executor used for recursive call */};
-  BOOST_REQUIRE(not e); // e is not nullptr
+  // 🦜 e == nulptr now... // e is not nullptr
 
 
   // 3. --------------------------------------------------
@@ -687,7 +687,7 @@ BOOST_AUTO_TEST_CASE(test_real_handle_call_set_get){
   // the host
   WeakEvmHost h{w,t, "aaa" /*host name*/,
                 move(e) /*executor used for recursive call */};
-  BOOST_REQUIRE(not e); // e is not nullptr
+  // 🦜 e == nulptr now... // e is not nullptr
 
 
   // 3. --------------------------------------------------

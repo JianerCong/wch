@@ -20,6 +20,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(WITH_TEST "build test" ON)
 option(WITH_PROTOBUF "build protobuf" ON)
 option(WITH_PYTHON "build with python" ON)
+option(USE_DYNAMIC_LIBS "use dynamic linking (experimental)" ON)
 
 include("cmake/deps.cmake")
 
@@ -44,9 +45,11 @@ if (WITH_PROTOBUF)
 endif()
 
 add_library(deps INTERFACE)     #the ALL dependency target = core + rdb (currently)
-target_link_libraries(deps INTERFACE core-deps RocksDB::rocksdb
-  evmweak
-)
+if (WITH_DYNAMIC_LIBS)
+  target_link_libraries(deps INTERFACE core-deps RocksDB::rocksdb-shared evmweak)
+else()
+  target_link_libraries(deps INTERFACE core-deps RocksDB::rocksdb evmweak)
+endif()
 
 if (WITH_PYTHON)
   file(READ other/verifier.py PY_VERIFIER_CONTENT)

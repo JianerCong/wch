@@ -259,7 +259,9 @@ namespace pure{
         return (format("Dear boss %s;"
                        "\tMission[%s] is accomplished;"
                        "\tRegards\t%s"
-                       ) % this->primary % data % this->net->listened_endpoint()).str();
+                       ) % this->primary %
+                pure::get_data_for_log(data)
+                % this->net->listened_endpoint()).str();
       }
 
       this->say(
@@ -323,7 +325,7 @@ namespace mock{
       BOOST_LOG_TRIVIAL(debug) << format(S_CYAN " Calling handler: %s " S_NOR
                                          "with data\n"
                                          S_CYAN "%s" S_NOR
-                                         ) % k % data;
+                                         ) % k % pure::get_data_for_log(data);
       // write send()
       optional<string> r;
       if (network_hub.contains(k)){

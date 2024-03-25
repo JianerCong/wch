@@ -1,5 +1,4 @@
 #include "h.hpp"
-
 #include "div2Executor.hpp"
 using namespace weak;
 
@@ -21,11 +20,9 @@ BOOST_AUTO_TEST_CASE(test_exec0_hi, MY_TEST_THIS){
 #else
   BOOST_CHECK_EQUAL(result, "hi");
 #endif
-
   // \x0d is the carriage return \r
   // should contains hi
   // BOOST_CHECK(result.find(string("hi")) != string::npos);
-
   BOOST_CHECK_EQUAL(1,1);
 }
 

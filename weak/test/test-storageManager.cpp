@@ -242,7 +242,7 @@ namespace mockedWorldState {
 
 BOOST_AUTO_TEST_CASE(testMockedWorldState_apply_jounal){
   mockedWorldState::A a;
-  unique_ptr<weak::IWorldChainStateSettable> p(&a);
+  weak::IWorldChainStateSettable * p = dynamic_cast<weak::IWorldChainStateSettable*>(&a);
 
   vector<StateChange> j = {
     {false, "k1", "v1"},
@@ -258,7 +258,7 @@ BOOST_AUTO_TEST_CASE(testMockedWorldState_apply_jounal){
 
 BOOST_AUTO_TEST_CASE(testMockedWorldState_get_set){
   mockedWorldState::A a;
-  unique_ptr<weak::IWorldChainStateSettable> p(&a);
+  weak::IWorldChainStateSettable * p = dynamic_cast<weak::IWorldChainStateSettable*>(&a);
 
   bool ok = p->setInChainDB("k1","v1");
   string v = p->getFromChainDB("k1").value();
