@@ -320,8 +320,10 @@ namespace pure {
           BOOST_LOG_TRIVIAL(info) << format("👋 Client Connection " S_CYAN "%s" S_NOR" closed" S_GREEN " gracefully." S_NOR) % k;
         }
       }// unlock here
+      BOOST_LOG_TRIVIAL(debug) <<  "Stopping ioc";
       this->ioc.stop();
-    } 
+      BOOST_LOG_TRIVIAL(debug) <<  "Stopped ioc";
+    }
 
 
     /**

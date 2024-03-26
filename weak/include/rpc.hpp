@@ -412,6 +412,10 @@ namespace weak{
     }
 
     tuple<bool,string> add_txs_and_return_this(const string & s, vector<Tx> && txs){
+      // <2024-03-26 Tue> 🦜 : Let's skip it if txs is empty()
+      if (txs.empty())
+        return make_tuple(true,s);
+
       // 🦜 : Here we can start a thread to post the JSON
       bool ok = this->cnsss->addTxs(move(txs));
       if (not ok)

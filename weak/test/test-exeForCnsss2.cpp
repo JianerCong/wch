@@ -43,10 +43,7 @@ BOOST_FIXTURE_TEST_CASE(test_dispath_to_Blk_parse_BAD,F){
   string cmd = static_cast<char>(ExecutorForCnsss::Cmd::EXECUTE_BLK)+ string("abc");
   string r = e->execute(cmd);
   BOOST_CHECK_EQUAL(cmd,"");
-  // BOOST_CHECK(r.starts_with("Error parsing Blk"));
-
-  // 🦜 : <2024-03-26 Tue>: okay... It's hard to test this, because we don't know about pb... .
-  // BOOST_CHECK(r.starts_with("Error parsing BlkForConsensus"));
+  BOOST_CHECK(r.starts_with("Error parsing Blk"));
 }
 
 BOOST_FIXTURE_TEST_CASE(test_dispath_to_Txs_parse_BAD,F){
@@ -54,12 +51,11 @@ BOOST_FIXTURE_TEST_CASE(test_dispath_to_Txs_parse_BAD,F){
   string cmd = static_cast<char>(ExecutorForCnsss::Cmd::ADD_TXS)+ string("🦜 not a valid Tx");
   string r = e->execute(cmd);
   BOOST_CHECK_EQUAL(cmd,"");
-  // BOOST_CHECK(r.starts_with("Error parsing Txs"));
+  BOOST_CHECK(r.starts_with("Error parsing Txs"));
 
   // 🦜 : <2024-03-26 Tue>: okay... It's hard to test this, because we don't
-  // know about pb... .
-
-  // BOOST_CHECK(r.starts_with("Error parsing BlkForConsensus"));
+  // know about pb...
+  // 🦜 : Update: It seems like random data are parsed to empty array, so now we know it.
 }
 
 

@@ -296,14 +296,18 @@ namespace weak {
         if (this->optimization_level < 2){
           verify_txs_and_filter_maybe(txs);
         }
+        // <2024-03-26 Tue> 🦜 : It turns out that pb is very kind about parsing
+        // error. It seems like it simply returns an empty array when it
+        // fails..... So let's check the size of the txs.
+        if (txs.empty())
+          BOOST_THROW_EXCEPTION(std::runtime_error("Parsing txs results in a zero-length array."));
+
         return seal_Blk_and_update_cmd(move(txs),cmd);
       }catch(const std::exception & e){
-        return clear_cmd_and_complain(cmd,"Error parsing Txs");
+        return clear_cmd_and_complain(cmd,"Error parsing Txs" + string(e.what()));
       }
 
       return "OK";
     }
-
-
-  };
-}
+  };                            // class LightExecutorForCnsss
+} // namespace weak

@@ -25,6 +25,7 @@
 #include <boost/asio/dispatch.hpp>
 #include <boost/asio/strand.hpp>
 #include <filesystem>
+#include <memory>
 
 // 🦜 : if unix, we try to add the unix_domain_socket
 #ifdef __unix__
@@ -32,6 +33,7 @@
 #endif
 namespace pure{
 
+  using std::unique_ptr;
   // --------------------------------------------------
   // using stream_t = beast::basic_stream<unix_domain::stream_protocol>;
   // using socket_t = unix_domain::stream_protocol::socket;
@@ -65,7 +67,8 @@ namespace pure{
       // beast::tcp_stream
       stream_t stream_;
       beast::flat_buffer buffer_;
-      http::request<http::string_body> req_;
+      // http::request<http::string_body> req_;
+      unique_ptr<http::request_parser<http::string_body>> parser;
 
     public:
       // Take ownership of the stream
@@ -75,7 +78,15 @@ namespace pure{
       session(WeakAsyncHttpServerBase * const ssrv, socket_t&& socket)
         : stream_(std::move(socket)),srv(ssrv){
         BOOST_LOG_TRIVIAL(debug) <<  "Session started";
+        this->parser = new_parser();
       }
+
+      static unique_ptr<http::request_parser<http::string_body>> new_parser(){
+        unique_ptr<http::request_parser<http::string_body>> p = std::make_unique<http::request_parser<http::string_body>>();
+        p->body_limit(1024 * 1024); // 1MB
+        return p;
+      }
+
 
       // Start the asynchronous operation
       void run(){
@@ -92,23 +103,20 @@ namespace pure{
       void do_read(){
         // <2024-03-25 Mon> 🦜 : The timeout seems to throw an exception ?
         try {
-          // Make the request empty before reading,
-          // otherwise the operation behavior is undefined.
-          req_ = {};
-
           // Set the timeout.
           // stream_.expires_after(std::chrono::seconds(60 * 4)); // 4 minutes.
           stream_.expires_after(std::chrono::seconds(5)); // 5s
 
           // Read a request
-          http::async_read(stream_, buffer_, req_,
-                           beast::bind_front_handler(
-                                                     &session::on_read,
+          http::async_read(stream_, buffer_, *(this->parser),
+                           beast::bind_front_handler(&session::on_read,
                                                      this->shared_from_this()));
+
         }catch (std::exception & e){
-          BOOST_LOG_TRIVIAL(error) << S_RED "❌️ failed " S_NOR "to read request: " << e.what();
+          BOOST_LOG_TRIVIAL(error) << S_MAGENTA "⚠️ failed " S_NOR "to read request: " << e.what();
           do_close();
         }
+
       }
 
       void on_read(beast::error_code ec, std::size_t bytes_transferred){
@@ -121,9 +129,19 @@ namespace pure{
 
           if(ec)
             return fail(ec, "read");
+          // parse the request from the buffer_ using the this->parser
 
-          // Send the response
-          send_response(handle_request(std::move(req_)));
+
+          // ⚠️ 🦜 : Remeber to call this after the error check. Or you get the SIGABORT...
+          BOOST_LOG_TRIVIAL(debug) <<  " 🦜 on_read() called with bytes_transferred = " << bytes_transferred
+                                   << " parser content length: " << (this->parser->content_length() ? this->parser->content_length().value() : -1)
+                                   << " is_done(): " << this->parser->is_done();
+
+          // Handle the request. 🦜 : We take the request out and init a new parser.
+          http::request<http::string_body> req = this->parser->release();
+          this->parser = new_parser();
+
+          send_response(handle_request(std::move(req))); // 🦜 : this->parser.release() here to get the Message<>
         } catch (std::exception & e){
           BOOST_LOG_TRIVIAL(error) << S_RED "❌️ failed " S_NOR "to read request: " << e.what();
         }
@@ -166,6 +184,10 @@ namespace pure{
 
         // At this point the connection is closed gracefully
       }
+
+      // virtual ~session(){
+      //   BOOST_LOG_TRIVIAL(debug) <<  "Session closed";
+      // }
     };                            // class session
 
     //------------------------------------------------------------------------------
@@ -215,6 +237,9 @@ namespace pure{
 
       // Start accepting incoming connections
       void run(){do_accept();}
+      // virtual ~listener(){
+      //   BOOST_LOG_TRIVIAL(debug) <<  "listener closed";
+      // }
     private:
       void
       do_accept(){
@@ -282,7 +307,6 @@ namespace pure{
         // BOOST_LOG_TRIVIAL(debug) <<  "👋🐸 all threads joined";
       }
     }
-
   };                            // class WeakAsyncHttpServerBase
 
   class WeakAsyncTcpHttpServer: public WeakAsyncHttpServerBase</*stream_t*/ beast::tcp_stream,

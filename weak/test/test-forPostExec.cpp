@@ -1,5 +1,6 @@
-#include "h.hpp"
 
+#define WITH_PROTOBUF 1
+#include "h.hpp"
 #include "forPostExec.hpp"
 using namespace weak;
 
@@ -145,8 +146,8 @@ BOOST_AUTO_TEST_CASE(test_ExecBlk_from_json){
     <2024-03-26 Tue> 🦜 : When we are using pb serialization, the value should be hex
    */
   vector<vector<StateChange>> j = {
-    {{false,"k1","11"}, {true,"k2",""}}, // journal for tx1
-    {{false,"k1","22"}}, // journal for tx2
+    {{false,"k1","v1"}, {true,"k2",""}}, // journal for tx1
+    {{false,"k1","v2"}}, // journal for tx2
   };
 
   vector<TxReceipt> r = {
@@ -173,7 +174,7 @@ BOOST_AUTO_TEST_CASE(test_ExecBlk_from_json){
   BOOST_CHECK_EQUAL(b1.stateChanges[0].size(),2); // journal for tx1
   BOOST_CHECK_EQUAL(b1.stateChanges[0][0].del,false); // first entry in tx1
   BOOST_CHECK_EQUAL(b1.stateChanges[0][0].k,"k1"); // first entry in tx1
-  BOOST_CHECK_EQUAL(b1.stateChanges[0][0].v,"\x11"); // first entry in tx1
+  BOOST_CHECK_EQUAL(b1.stateChanges[0][0].v,"v1"); // first entry in tx1
 
   BOOST_CHECK_EQUAL(b1.stateChanges[0][1].del,true); // second entry in tx1
   BOOST_CHECK_EQUAL(b1.stateChanges[0][1].k,"k2"); // second entry in tx1
@@ -181,7 +182,7 @@ BOOST_AUTO_TEST_CASE(test_ExecBlk_from_json){
 
   BOOST_CHECK_EQUAL(b1.stateChanges[1][0].del,false); // second entry in tx1
   BOOST_CHECK_EQUAL(b1.stateChanges[1][0].k,"k1"); // second entry in tx1
-  BOOST_CHECK_EQUAL(b1.stateChanges[1][0].v,"\x22"); // second entry in tx1
+  BOOST_CHECK_EQUAL(b1.stateChanges[1][0].v,"v2"); // second entry in tx1
 
   //  --------------------------------------------------
   // txReceipts ----------------------------------------
