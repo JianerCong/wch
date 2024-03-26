@@ -45,7 +45,6 @@ namespace weak{
     return a;
   }
 
-
   // {{{ class TxReceipt
 
   class TxReceipt: virtual public IJsonizable

@@ -6,54 +6,49 @@ from google.protobuf import text_format
 import hi_pb2
 from pathlib import Path
 session = requests_unixsocket.Session()
-from tempfile import TemporaryFile
-from typing import List, IO
-
 
 def log(s):
     print('🦜 : ' + s)
 
-def prepare_batches(n_tx_per_batch :int, n_batches : int) -> list[IO[bytes]]:
+def prepare_batches(n_tx_per_batch :int, n_batches : int) -> list[bytes]:
     txs = hi_pb2.Txs()
-    tmp_files : list[IO[bytes]] = []
+    o : list[bytes] = []
     nnonce=0
     for i in range(n_batches):
-        f = TemporaryFile()
         for j in range(n_tx_per_batch):
             nnonce += 1
             tx = hi_pb2.Tx(type=hi_pb2.TxType.DATA, from_addr=b'1'*20, to_addr=b'', data=b'hi', nonce=nnonce)
             txs.txs.append(tx)
         # print('Writing to file...: ' + text_format.MessageToString(txs))
-        f.write(txs.SerializeToString())
-        tmp_files.append(f)
-    return tmp_files
+        o.append(txs.SerializeToString())
+    return o
 
 import requests
 import time
-def send_through_unix(url:str, tmp_files : list[IO[bytes]]):
+def send_through_unix(url:str, txs_l: list[bytes]):
     # start timmer
     oks : list[bool] = []
     start = time.time()         # seconds since the epoch
     # send the files
-    for f in tmp_files:
-        f.seek(0)               # 🦜 : remember to rewind the file
-        res = session.post(url + 'add_txs_pb', data=f.read())
+    for txs in txs_l:
+        res = session.post(url + 'add_txs_pb', data=txs)
         oks.append(res.ok)
     end = time.time()
     return oks, end-start
 
-def send_through_http(url:str, tmp_files : list[IO[bytes]]):
+def send_through_http(url:str, txs_l: list[bytes]):
     oks : list[bool] = []
     start = time.time()         # seconds since the epoch
-    for f in tmp_files:
-        f.seek(0)               # 🦜 : remember to rewind the file
-        res = requests.post(url + 'add_txs_pb', data=f.read())
+    # send the files
+    for txs in txs_l:
+        res = requests.post(url + 'add_txs_pb', data=txs)
         oks.append(res.ok)
     end = time.time()
     return oks, end-start
 
 def weak_benchmark(n_tx_per_batch : int = 2, n_batches : int = 2,
                    url : str = 'http+unix://%2Ftmp%2Fhi-weak.sock/'):
+
     # 1. prepare the batch files
     tmp_files = prepare_batches(n_tx_per_batch, n_batches)
     # 2. start

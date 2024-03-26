@@ -84,13 +84,14 @@ message AddTxsReply {
 
     # Does the program run ?
     # this wait for PIPEs  and port binding/unbinding
-    # global port
-    # port += 1
+    global port
+    port += 1
 
-    # # 1. prepare the chain
-    # p = Popen([wc, '--port', str(port), '--mock-exe','--unix-socket', '/tmp/hi-weak.sock'],
-    #           stdin=PIPE,stdout=PIPE,stderr=PIPE,text=True)
-    # time.sleep(2)                   #  wait until is up
+    url = f'http+unix://%2Ftmp%2Fhi-weak.sock/'
+    p = Popen([wc, '--port', str(port), '--mock-exe','--unix-socket', '/tmp/hi-weak.sock'],
+              stdin=PIPE,stdout=PIPE,stderr=PIPE,text=True)
+
+    time.sleep(2)                   #  wait until is up
 
     try:
         url = f'http+unix://%2Ftmp%2Fhi-weak.sock/'
