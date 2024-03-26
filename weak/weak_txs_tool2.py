@@ -25,26 +25,40 @@ def prepare_batches(n_tx_per_batch :int, n_batches : int) -> list[bytes]:
 
 import requests
 import time
-def send_through_unix(url:str, txs_l: list[bytes]):
+
+def send_it(url:str, txs_l: list[bytes], stub):
     # start timmer
     oks : list[bool] = []
     start = time.time()         # seconds since the epoch
     # send the files
     for txs in txs_l:
-        res = session.post(url + 'add_txs_pb', data=txs)
+        res = stub.post(url + 'add_txs_pb', data=txs)
         oks.append(res.ok)
     end = time.time()
     return oks, end-start
 
+def send_through_unix(url:str, txs_l: list[bytes]):
+    # # start timmer
+    # oks : list[bool] = []
+    # start = time.time()         # seconds since the epoch
+    # # send the files
+    # for txs in txs_l:
+    #     res = session.post(url + 'add_txs_pb', data=txs)
+    #     oks.append(res.ok)
+    # end = time.time()
+    # return oks, end-start
+    return send_it(url, txs_l, session)
+
 def send_through_http(url:str, txs_l: list[bytes]):
-    oks : list[bool] = []
-    start = time.time()         # seconds since the epoch
-    # send the files
-    for txs in txs_l:
-        res = requests.post(url + 'add_txs_pb', data=txs)
-        oks.append(res.ok)
-    end = time.time()
-    return oks, end-start
+    # oks : list[bool] = []
+    # start = time.time()         # seconds since the epoch
+    # # send the files
+    # for txs in txs_l:
+    #     res = requests.post(url + 'add_txs_pb', data=txs)
+    #     oks.append(res.ok)
+    # end = time.time()
+    # return oks, end-start
+    return send_it(url, txs_l, requests)
 
 def weak_benchmark(n_tx_per_batch : int = 2, n_batches : int = 2,
                    url : str = 'http+unix://%2Ftmp%2Fhi-weak.sock/'):

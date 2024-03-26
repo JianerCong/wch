@@ -24,17 +24,22 @@ clear &&  pytest -s build-weak/test_with_unix_and_pb.py::test_add_txs
 
 python ./weak/send_a_tx_pb.py      # try the pb
 python ./weak/weak_txs_tool.py      # try the tool
-python ./weak/weak_txs_tool2.py      # try the tool
 # try the tool txs-per-batch, n-batch (default = 10, 2)
-python ./weak/weak_txs_tool.py 1000 2
-python ./weak/weak_txs_tool.py 1000 5
-python ./weak/weak_txs_tool.py 10000 2
-# python ./weak/weak_txs_tool.py 100000 2 # ❌️ 🦜 : failed, boost::beast default to limit the request body to 8MB.
-# python ./weak/weak_txs_tool.py 50000 1 # ❌️ failed
-python ./weak/weak_txs_tool.py 20000 1
+python ./weak/weak_txs_tool2.py 1000 2
+python ./weak/weak_txs_tool2.py 1000 5
+python ./weak/weak_txs_tool2.py 10000 2
+# python ./weak/weak_txs_tool2.py 100000 2 # ❌️ 🦜 : failed, boost::beast default to limit the request body to 8MB.
+# python ./weak/weak_txs_tool2.py 50000 1 # ❌️ failed
+python ./weak/weak_txs_tool2.py 20000 1
+python ./weak/weak_txs_tool2.py 50000 1
+python ./weak/weak_txs_tool2.py 100000 1
 
 python ./weak/weak_txs_tool.py 1000 3
 python ./weak/weak_txs_tool.py 20000 3
+
+# v2
+# try the tool
+python ./weak/weak_txs_tool2.py      
 
 # check the latest block
 e=http:/localhost               # <- 🦜 `localhost` is set to the Host header.

@@ -83,7 +83,10 @@ namespace pure{
 
       static unique_ptr<http::request_parser<http::string_body>> new_parser(){
         unique_ptr<http::request_parser<http::string_body>> p = std::make_unique<http::request_parser<http::string_body>>();
-        p->body_limit(1024 * 1024); // 1MB
+        // 1Mb
+        // p->body_limit(1024 * 1024);
+        // 1Gb
+        p->body_limit(1024 * 1024 * 1024);
         return p;
       }
 
