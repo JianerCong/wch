@@ -15,9 +15,17 @@ namespace weak{
   void tag_invoke(json::value_from_tag, json::value& v, StateChange const& a ){
     v = {
       {"del",a.del},
-        {"k",a.k},
-        {"v",a.v}
+      {"k",a.k}
+      // {"v",a.v}
     };
+    // <2024-03-26 Tue> 🦜 it seems like after we have added the pb, the json
+    // serialization should be purely for debugging purposes, so we can't just
+    // store a.v here, instead, we should store the hex
+#if defined(WITH_PROTOBUF)
+    v.as_object()["v"] = evmc::hex(weak::bytesFromString(a.v));
+    #else
+    v.as_object()["v"] = a.v;
+#endif
   }
 
   // This helper function deduces the type and assigns the value with the matching key
@@ -27,7 +35,13 @@ namespace weak{
     StateChange a;
     a.del = value_to<bool>(v.at("del"));
     a.k = value_to<string>(v.at("k"));
+    // <2024-03-26 Tue> 🦜 : If we are using protobuf, we should use hex for v,
+    // because Acn is serialized to pb.
+#if defined(WITH_PROTOBUF)
+    a.v = weak::toString(evmc::from_hex(value_to<string>(v.at("v"))).value());
+#else
     a.v = value_to<string>(v.at("v"));
+#endif
     return a;
   }
 

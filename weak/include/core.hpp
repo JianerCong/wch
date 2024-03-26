@@ -692,7 +692,7 @@ class IChainDBGettable2 :public virtual IChainDBPrefixKeyGettable,
         this->pk_crt = weak::bytesFromString(pb.pk_crt());
       }
 
-      // parse the rest
+      // parse the rest (nonce,timestamp,data,to,type, these must exist, 🦜 : Let's manually check that)
       this->nonce = pb.nonce();
       this->timestamp = pb.timestamp();
       this->data = weak::bytesFromString(pb.data());

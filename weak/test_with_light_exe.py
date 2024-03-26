@@ -29,7 +29,9 @@ def test_single_primary_set_get_123(): #9
 
     # Does the program run ?
     # this wait for PIPEs  and port binding/unbinding
+    # p = Popen([wc, '--port', str(port),'--light-exe'],stdin=PIPE,stdout=PIPE,stderr=PIPE)
     p = Popen([wc, '--port', str(port),'--light-exe'],stdin=PIPE,stdout=PIPE,stderr=PIPE)
+
     url = [f'http://localhost:{p}/' for p in ports]
     try:
     # 1. deploy the contract --------------------------------------------------
@@ -55,8 +57,8 @@ def test_single_primary_set_get_123(): #9
             # 🦜 the Blk should have been increased from non-to 0
             result = requests.get(url_to_ask + 'get_latest_Blk')
             assert result.ok
+            print(f'Got Block result: {S.GREEN} {result.content} {S.NOR}')
             b = json.loads(result.content)  # the latest Blk
-            print(f'Got result: {S.GREEN} {b} {S.NOR}')
 
             assert b[0]['number'] == expected_blk_number  # blk number
 
@@ -88,6 +90,7 @@ def test_single_primary_set_get_123(): #9
         assert result.ok
 
         # 🐢 : The result should be a json array which contains the pair of hashes
+        print(f'📗️ Got result: {S.GREEN} {o} {S.NOR}')
         o = json.loads(result.content)
         print(f'Got result: {S.GREEN} {o} {S.NOR}')
         assert len(o) == 1  # the receipts of two txs
@@ -157,6 +160,7 @@ def test_two_nodes_set_get_123(): #9
             # 🦜 the Blk should have been increased from non-to 0
             result = requests.get(url_to_ask + 'get_latest_Blk')
             assert result.ok
+            print(f'📗️ Got block result: {S.GREEN} {result.content} {S.NOR}')
             b = json.loads(result.content)  # the latest Blk
             print(f'Got result: {S.GREEN} {b} {S.NOR}')
 
