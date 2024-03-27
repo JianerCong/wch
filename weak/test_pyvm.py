@@ -63,7 +63,7 @@ def hi(_storage: dict[str, Any], y : int) -> int:
         assert r.ok
         o = json.loads(r.content)
         print(f'Got result of get_receipt: {S.GREEN} {o} {S.NOR}')
-        assert o['result']['result'] == 11
+        assert o['result'] == 11
     finally:
         print(f'🚮️ cleaning up')
         # clean the files

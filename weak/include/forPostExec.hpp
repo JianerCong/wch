@@ -87,9 +87,17 @@ namespace weak{
           /* <2024-03-22 Fri> 🐢 : : If it's python, we serialize it to bytes.
              🦜 : What about data?
              🐢 : They won't have Tx::Receipt.
+
+            <2024-03-27 Wed>[Breaking]: 🦜 : To further prettify the result, if it's
+            python, we first collect the `result` and `log` field into a json
+            object, and then serialize it to bytes.
            */
           if (this->type == Tx::Type::python){
-            this->result = weak::bytesFromString(json::serialize(v.at("result")));
+            json::value o = {
+              {"result", v.at("result")},
+              {"log", v.at("log")}
+            };
+            this->result = weak::bytesFromString(json::serialize(o));
           }else{
             string s = value_to<string>(v.at("result"));
             this->result = evmc::from_hex(s).value();
@@ -128,9 +136,22 @@ namespace weak{
   // 🦜 : Defining this method allows us to use json::serialize(value_from(t))
   void tag_invoke(json::value_from_tag, json::value& jv, TxReceipt const& c ){
     json::value result;
-    // <2024-03-22 Fri> 🦜 : If the tx::type is python, we convert the result to json value
+    /*
+
+      <2024-03-22 Fri> 🦜 : If the tx::type is python, we convert the result to json value
+
+      <2024-03-27 Wed>[Breaking]: 🦜 : To further prettify the result, if it's
+      python, we first parse `c.result` into an object which should contain
+      `log` and `result` field, and then add them to the result.
+    */
+
+    json::object o;
     if (c.type == Tx::Type::python and c.result.size() > 0){
-      result = json::value_from(json::parse(weak::toString(c.result)));
+      // result = json::value_from(json::parse(weak::toString(c.result)));
+      o = json::parse(weak::toString(c.result)).as_object();
+      BOOST_ASSERT(o.contains("result"));
+      BOOST_ASSERT(o.contains("log"));
+      result = o["result"];
     }else{                      // 🦜 : Otherwise, we convert it to hex
       result = evmc::hex(c.result);
     }
@@ -142,6 +163,9 @@ namespace weak{
       {"type", Tx::typeToString(c.type)}
     };
 
+    if (o.contains("log")){
+      jv.as_object()["log"] = o["log"];
+    };
   };
 
   // TxReceipt tag_invoke(json::value_to_tag<TxReceipt>, json::value const& v){
