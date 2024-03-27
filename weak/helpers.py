@@ -24,3 +24,13 @@ class S:
     NOR = '\033[0m'
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
+
+def stop_and_test(p,s : str ='Primary'):
+    # send a get node status?
+    o1,e1 = p.communicate(b'\n')         # send a \n and wait for completion
+    if p.returncode != 0:
+        print(f'OUT FOR {s}--------------------------------------------------')
+        print(o1)
+        print(f'ERR FOR {s}--------------------------------------------------')
+        print(e1)
+    assert p.returncode == 0

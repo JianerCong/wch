@@ -5,7 +5,7 @@ $w --port 7777 --mock-exe --unix-socket /tmp/hi-weak.sock
 
 # disable ram
 $w --port 7777 --consensus Solo-static --unix-socket /tmp/hi-weak.sock
-# disable log
+# disable log too 🦜 : Use this for the speed test
 $w --port 7777 --consensus Solo-static --verbose=no --unix-socket /tmp/hi-weak.sock
 
 

@@ -132,3 +132,6 @@ clear &&  pytest -s build-weak/test_with_normal_exe.py::test_serv_two_nodes_add_
 clear &&  pytest -s build-weak/test_psstn.py::test_one
 clear &&  pytest -s build-weak/test_psstn.py::test_two
 clear &&  pytest -s build-weak/test_psstn.py
+
+
+clear &&  pytest -s build-weak/test_pyvm.py
