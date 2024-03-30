@@ -1,6 +1,8 @@
 #include "core0.hpp"
 
 namespace weak{
+
+
   void writeToFile(path p, string_view content){
     // trunc :: clear the file if it exists
     BOOST_LOG_TRIVIAL(debug) <<  "writing to the file: " << p << " content: " << content;
@@ -518,8 +520,6 @@ namespace weak{
     };
 
 
-  // json functions for Tx
-  // 🦜 : Defining this method allows us to use json::serialize(value_from(t))
   void tag_invoke(json::value_from_tag, json::value& jv, Tx const& c ){
     jv = {
       {"from", addressToString(c.from)},
@@ -550,26 +550,66 @@ namespace weak{
   }
 
 
+  json::value BlkHeader::toJson() const noexcept {
+      return json::value_from(*this);
+    }
 
-  // This helper function deduces the type and assigns the value with the matching key
-  // 🦜 : Defining this allows us to use json::value_to<A>
-  // Tx tag_invoke(json::value_to_tag<Tx>, json::value const& v ) noexcept{
-  //   Tx t;
-  //   if (t.fromJson(v)) return t;
-  //   return {};
-  // }
-  // 🦜 ^^^ above is replaced by the following
-  ADD_FROM_JSON_TAG_INVOKE(Tx);
+  bool BlkHeader::fromJson(const json::value &v) noexcept{
+
+    BOOST_LOG_TRIVIAL(debug) << format("Forming BlkHeader from Json");
+    try {
+      optional<hash256> oh;
+      // json::object const& o = v.as_object();
+      this->number = value_to<uint64_t>(v.at("number"));
+      string p,h;
+      p= value_to<string>(v.at("parentHash"));
+
+      // <2024-02-06 Tue> 🦜 : change hash to method
+      // h= value_to<string>(v.at("hash"));
+      // oh = evmc::from_hex<hash256>(h);
+      // if (not oh) BOOST_THROW_EXCEPTION(std::runtime_error("Invalid hash = " + h));
+      // this->hash = oh.value();
+
+      oh = evmc::from_hex<hash256>(p);
+      if (not oh) BOOST_THROW_EXCEPTION(std::runtime_error("Invalid hash = " + h));
+      this->parentHash = oh.value();
+    }catch (std::exception &e){
+      BOOST_LOG_TRIVIAL(error) << format("❌️ error parsing json: %s") % e.what();
+      return false;
+    }
+
+    // BOOST_LOG_TRIVIAL(debug) << format("🐸 BlkHeader-%d fromed from Json") % this->number;
+    return true;
+  }
+
+  json::value Blk::toJson() const noexcept {
+      return json::value_from(*this);
+    }
+  bool Blk::fromJson(const json::value &v) noexcept {
+
+      // Parse number
+      BOOST_LOG_TRIVIAL(debug) << format("Forming Blk from Json");
+
+      if (not BlkHeader::fromJson(v)) return false;
+
+      try {
+        // json::object const& o = v.as_object();
+        this->txs = value_to<vector<Tx>>(v.at("txs"));
+        // boost::json knows about vector
+
+      }catch (std::exception &e){
+        BOOST_LOG_TRIVIAL(error) << format("❌️ error parsing json: %s") % e.what();
+        return false;
+      }
+
+     BOOST_LOG_TRIVIAL(debug) << format("🌱 Blk-%d fromed from Json") % this->number;
+      return true;
+    }
 
 
 
 } // weak
 
-
-// 🦜 : Teach boost::json how to convert a hash
-void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, ethash_hash256 const& h ){
-  jv.emplace_string() = weak::hashToString(h);
-}
 
 
 /**

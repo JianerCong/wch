@@ -217,7 +217,7 @@ namespace pure{
 // This helper function deduces the type and assigns the value with the matching key
 // 🦜 : Defining this allows us to use json::value_to<T>
 #define ADD_FROM_JSON_TAG_INVOKE(T)                           \
-  T tag_invoke(json::value_to_tag<T>, json::value const& v){  \
+  static T tag_invoke(json::value_to_tag<T>, json::value const& v){  \
     T t;                                                      \
     if (t.fromJson(v)) return t;                              \
     return {};                                                \

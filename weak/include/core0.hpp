@@ -87,7 +87,7 @@ namespace weak{
    * @param t The type to convert. Options include `evmc::address`, `evmc::bytes32`
    */
   template<typename T>
-  string toByteString(const T t){
+  static string toByteString(const T t){
     return string(reinterpret_cast<const char*>(t.bytes),sizeof(t.bytes));
   }
 
@@ -99,7 +99,7 @@ namespace weak{
    * wasteful, so we provided this specialization, which skips the leading zeros.
    */
   template<>
-  string toByteString<address>(const address t){
+  static string toByteString<address>(const address t){
     // 1. find the first non-zero byte
     size_t i = 0;
     for (;i<sizeof(t.bytes);i++){
@@ -110,7 +110,7 @@ namespace weak{
   }
 
   template<typename T>
-  T fromByteString(string_view s){
+  static T fromByteString(string_view s){
     if (s.size() != sizeof(T::bytes)){
       BOOST_THROW_EXCEPTION(std::runtime_error((format("Invalid size for %1%, should be %2%, but got %3%") % typeid(T).name() % sizeof(T::bytes) % s.size()).str()));
     }
@@ -128,7 +128,7 @@ namespace weak{
    * address, in that case, we need to add leading zeros.
    */
   template<>
-  address fromByteString<address>(string_view s){
+  static address fromByteString<address>(string_view s){
     // throw if there're more than 20 bytes
     if (s.size() > 20){
       BOOST_THROW_EXCEPTION(std::runtime_error((format("Invalid size for address, should be at most 20, but got %d") % s.size()).str()));
@@ -697,5 +697,179 @@ namespace weak{
 
   };
 
+  // json functions for Tx
+  // 🦜 : Defining this method allows us to use json::serialize(value_from(t))
+
+  void tag_invoke(json::value_from_tag, json::value& jv, Tx const& c );
+
+  // This helper function deduces the type and assigns the value with the matching key
+  // 🦜 : Defining this allows us to use json::value_to<A>
+  // Tx tag_invoke(json::value_to_tag<Tx>, json::value const& v ) noexcept{
+  //   Tx t;
+  //   if (t.fromJson(v)) return t;
+  //   return {};
+  // }
+  // 🦜 ^^^ above is replaced by the following
+  ADD_FROM_JSON_TAG_INVOKE(Tx);
+
+
+  class BlkHeader: virtual public IJsonizable {
+  public:
+    uint64_t number;
+    /// empty for genesis block
+    hash256 parentHash;
+    BlkHeader() = default;
+    BlkHeader(const uint64_t n,const hash256 p): number(n),parentHash(p){};
+
+    // hash256 hash;
+    virtual hash256 hash() const {
+      // 🦜 : we kinda have to provide a default implementation, because if we
+      // wanna jsonize it, it must have a default, ctor...
+      BOOST_THROW_EXCEPTION(std::runtime_error("hash() not implemented for BlkHeader"));
+    }
+
+    json::value toJson() const noexcept override ;
+    bool fromJson(const json::value &v) noexcept override ;
+  };
+
+  class Blk: public BlkHeader
+           ,virtual public IJsonizable
+           ,public ISerializableInPb<hiPb::Blk>
+           ,virtual public ISerializable
+  {
+  public:
+    /*
+      message BlkHeader {uint64 number = 1; bytes parentHash = 2; bytes hash = 3;}
+
+      message Blk {BlkHeader header = 1; repeated Tx txs = 2;} // []
+     */
+    // --------------------------------------------------
+    //<2024-01-30 Tue> 🦜 : let's add some pb
+    void fromPb(const hiPb::Blk & pb) override{
+      BOOST_LOG_TRIVIAL(debug) << format("Forming Blk from pb");
+      // 1. form the BlkHeader part
+      // --------------------------------------------------
+      this->number = pb.header().number();
+
+      string s = pb.header().parenthash();   // should be hash256 = 32 bytes
+
+      // BOOST_ASSERT(s.size() == 32); // throws my_assertion_error
+      this->parentHash = weak::fromByteString<hash256>(s); // may throw
+
+      // 2. form the txs part
+      // --------------------------------------------------
+      for (const hiPb::Tx & tx : pb.txs()){
+        Tx t;
+        t.fromPb(tx);          // may throw
+        this->txs.push_back(t);
+      }
+    }
+
+    hiPb::Blk toPb() const override {
+      hiPb::Blk pb;
+
+      // set the header
+      pb.mutable_header()->set_number(this->number);
+      pb.mutable_header()->set_parenthash(weak::toByteString<hash256>(this->parentHash));
+
+      // set the txs
+      for (const Tx& tx : txs){
+        pb.add_txs()->CopyFrom(tx.toPb());
+      }
+      return pb;
+    }
+
+    //<2024-01-30 Tue>
+    // --------------------------------------------------
+
+
+    Blk() = default;
+
+    /**
+     * @brief Construct the Blk and calculate the hash.
+     *
+     * In fact, most of the time the next ctor is used to make a `Blk` from
+     * `BlkForConsensus`
+     */
+    Blk(const uint64_t n,const hash256 p,vector<Tx> t):
+      BlkHeader(n,p),
+      txs(t)
+    {
+      BOOST_LOG_TRIVIAL(info) << format("Making block-%d,\n\tparentHash=%s,\n\ttx size=%d")
+        % number % hashToString(parentHash) % txs.size();
+    }
+
+    hash256 hash() const noexcept override {
+      // Calculate hash based on the hashes of txs
+      // TODO: 🦜 For now, we use serial hash, later should be changed to Merkle tree.
+      hash256 h = this->parentHash;
+      static uint8_t s[64];     // a buffer for hashing
+      for (const Tx& tx : this->txs){
+        // BOOST_LOG_TRIVIAL(debug) << format("Hashing for tx-%d") % tx.nonce;
+        std::copy_n(std::cbegin(tx.hash().bytes),32,s);
+        std::copy_n(std::cbegin(h.bytes),32,s + 32);
+        // s[:32] = tx.hash; s[32:] = h
+        h = ethash::keccak256(reinterpret_cast<uint8_t*>(s),64);
+        // BOOST_LOG_TRIVIAL(debug) << format("Now hash is %s") % hashToString(h);
+      }
+      return h;
+    }
+
+    vector<Tx> txs;
+    ADD_TO_FROM_STR_WITH_JSON_OR_PB
+
+    json::value toJson() const noexcept override ;
+    bool fromJson(const json::value &v) noexcept override ;
+  };
+
+  // json functions for BlkHeader
+  // 🦜 : Defining this method allows us to use json::serialize(value_from(t))
+  static void tag_invoke(json::value_from_tag, json::value& jv, BlkHeader const& b ){
+    jv = {
+      {"number", b.number},
+      {"hash", hashToString(b.hash())},
+      {"parentHash", hashToString(b.parentHash)},
+      // {"txs", json::value_from(b.txs)}
+      /* 🦜 : boost:json knows about std::vector, they turn it into array*/
+    };
+  };
+
+  // json functions for Blk
+  // 🦜 : Defining this method allows us to use json::serialize(value_from(t))
+  static void tag_invoke(json::value_from_tag, json::value& jv, Blk const& b ){
+    // jv = {
+    //   {"number", b.number},
+    //   {"hash", hashToString(b.hash)},
+    //   {"parentHash", hashToString(b.parentHash)},
+    //   {"txs", json::value_from(b.txs)}
+    //   /* 🦜 : boost:json knows about std::vector, they turn it into array*/
+    // };
+
+    // BOOST_LOG_TRIVIAL(debug) << format("Now json: %s") % json::serialize(jv);
+    jv = json::value_from((const BlkHeader &) b);
+    // BOOST_LOG_TRIVIAL(debug) << format("Now json: %s") % json::serialize(jv);
+    jv.as_object()["txs"] = json::value_from(b.txs);
+    // BOOST_LOG_TRIVIAL(debug) << format("Now json: %s") % json::serialize(jv);
+    /* 🦜 : boost:json knows about std::vector, they turn it into array*/
+
+  };
+
+  // This helper function deduces the type and assigns the value with the matching key
+  // 🦜 : Defining this allows us to use json::value_to<A>
+  // Blk tag_invoke(json::value_to_tag<Blk>, json::value const& v ) noexcept{
+  //   Blk b;
+  //   if (b.fromJson(v)) return b;
+  //   return {};
+  // }
+  // 🦜 ^^^ above is replaced by the following
+  ADD_FROM_JSON_TAG_INVOKE(Blk);
+  ADD_FROM_JSON_TAG_INVOKE(BlkHeader);
+
 } // weak
 
+
+
+// 🦜 : Teach boost::json how to convert a hash
+static void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, ethash_hash256 const& h ){
+  jv.emplace_string() = weak::hashToString(h);
+}
