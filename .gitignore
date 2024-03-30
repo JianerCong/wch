@@ -526,3 +526,4 @@ rsconnect/
 
 flycheck_*
 .pyvm_aaa/
+.vs/

@@ -56,7 +56,7 @@ cd ..
 # 🦜 : nope, we solved it using cmake magic..
 
 # 4. build the project
-rm -r build
+Remove-Item -Recurse build-weak
 cmake -S weak -B build-weak
 cmake --build build-weak --config Release --verbose
 cmake --build build-weak --config Release

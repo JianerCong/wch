@@ -20,25 +20,35 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(WITH_TEST "build test" ON)
 option(WITH_PROTOBUF "build protobuf" ON)
 option(WITH_PYTHON "build with python" ON)
-option(USE_DYNAMIC_LIBS "use dynamic linking (experimental)" ON)
+option(USE_DYNAMIC_LIBS "use dynamic linking (experimental)" OFF)
+
+
+if (WITH_PYTHON)
+  file(READ other/verifier.py PY_VERIFIER_CONTENT)
+  file(READ other/invoke-template.py PY_INVOKE_TEMPLATE)
+endif()
+configure_file(include/config.hpp.in config.hpp)
 
 include("cmake/deps.cmake")
-
 
 add_subdirectory(pkgs/intx-0.10.0 intx)        #brings in the intx
 add_subdirectory(pkgs/ethash-1.0.1 ethash)        #brings in ethash
 add_subdirectory(pkgs/evmweak)        #brings in the evmweak
 
-add_library(core-deps INTERFACE)
-
-target_link_libraries(core-deps INTERFACE
+add_library(core-deps include/core0.cpp)
+target_link_libraries(core-deps PUBLIC
   evmc::evmc_cpp
   OpenSSL::Crypto
   # evmc::loader evmc::instructions evmc::tooling
   Boost::unit_test_framework Boost::log Boost::json Boost::program_options
   intx::intx ethash::keccak
-  # hi_pb
 )
+target_include_directories(core-deps PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+
+# target_link_libraries(core-deps INTERFACE
+#   # hi_pb
+#   hi-core
+# )
 
 if (WITH_PROTOBUF)
   target_link_libraries(core-deps INTERFACE hi_pb)
@@ -51,17 +61,6 @@ else()
   target_link_libraries(deps INTERFACE core-deps RocksDB::rocksdb evmweak)
 endif()
 
-if (WITH_PYTHON)
-  file(READ other/verifier.py PY_VERIFIER_CONTENT)
-  file(READ other/invoke-template.py PY_INVOKE_TEMPLATE)
- #[=[
-  <2024-03-19 Tue> 🦜 : We have switched to use the c++11's raw string template
- #]=]
-
-endif()
-
-configure_file(include/config.hpp.in config.hpp)
-target_include_directories(core-deps INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
 # define WITH_PROTOBUF
 # target_compile_definitions(core-deps INTERFACE WITH_PROTOBUF)
 

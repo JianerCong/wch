@@ -50,7 +50,7 @@ namespace pure{
   using std::string;
 
 
-  string get_data_for_log(string_view data){
+  inline string get_data_for_log(string_view data){
 #if defined (WITH_PROTOBUF)
     // return encode_base64(data);
 
@@ -236,8 +236,9 @@ public:
   }
 };
 
+// 🐢 : Marking it static makes it visible only to this translation unit. 
 // Called when BOOST_ASSERT_MSG failed
-void boost::assertion_failed_msg(char const * expr, char const * function,
+static void boost::assertion_failed_msg(char const * expr, char const * function,
                                  char const * msg, char const * file, long line){
   std::string s = (format("❌️ [%s]\n\tassertion %s has failed. (func=%s,file=%s,line=%ld)")
                    % msg % expr % function % file % line).str();
@@ -245,7 +246,7 @@ void boost::assertion_failed_msg(char const * expr, char const * function,
 }
 
 // Called when BOOST_ASSERT failed
-void boost::assertion_failed(char const * expr, char const * function,
+static void boost::assertion_failed(char const * expr, char const * function,
                              char const * file, long line){
   std::string s = (format("❌️\n\tassertion %s has failed. (func=%s,file=%s,line=%ld)")
                    % expr % function % file % line).str();

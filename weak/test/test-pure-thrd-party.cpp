@@ -113,3 +113,18 @@ BOOST_AUTO_TEST_CASE(test_from_hex_for_bytes){
 }
 
 BOOST_AUTO_TEST_SUITE_END();
+
+#include "intx/intx.hpp"
+BOOST_AUTO_TEST_CASE(test_intx){
+  // uint64_t <-> bytes
+  uint64_t n = 0x1122334455667788;
+  uint8_t dst[8];
+  intx::be::store<uint64_t>(dst,n);
+  BOOST_CHECK_EQUAL(dst[0],0x11);
+  BOOST_CHECK_EQUAL(dst[7],0x88);
+  // 🦜 : Let's turn that to an std::string
+  string s(reinterpret_cast<const char *>(&(dst[0])),8);
+  BOOST_CHECK_EQUAL(s[0],'\x11');
+  BOOST_CHECK_EQUAL(s[7],'\x88');
+  BOOST_CHECK_EQUAL(s.size(),8);
+}

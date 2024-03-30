@@ -23,7 +23,7 @@ The second one is used when we are using \texttt{--serious-tx-check
 also check the \texttt{pk\_crt} field to see if it is signed by the CA \texttt{k}.
 
 \emoji{turtle} : Sounds alright. So where do all those SSL stuff come from ? I
-remember currently \texttt{core.hpp} is not including any SSL related headers.
+remember currently \texttt{core.hpp} doesn't not include any SSL related headers.
 And in order to reduce the footprint of OpenSSL, we have put all those crypto
 stuff in \text{class SslMsgMgr} in \texttt{net/pure-netAsstn.hpp}. Perhaps most
 importantly it contains a couple of static helper function (which is pretty much

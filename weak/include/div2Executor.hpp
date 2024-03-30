@@ -24,7 +24,6 @@ namespace bp =  boost::process;
 
 namespace weak{
 
-
   /**
    * @brief The ExoticTxExecutorBase that can execute Txs using the magic of command line.
    *
@@ -602,23 +601,4 @@ namespace weak{
 
   };                            // class Div2Executor
 
-
-
-  /**
-   * @brief The Div2Executor that checks the validity of the Tx. [2024-01-22]
-   *
-   * 🐢 : This executor can do SSL stuff such
-   *  1. checking the `Tx.signature` of the tx
-   *  2. deriving the `Tx.from` address from the `Tx.pk_pem`
-   *  3. checking `Tx.pk_crt` if needed.
-   *
-   * This is to really make the chain serious.
-   *
-   * 🦜 : So this is kinda a `Div2Executor` + `Tx` verifyer.
-   *
-   *
-   * @see Tx in `core.hpp` and its notes on [2024-01-22]
-   */
-  class SeriousDiv2Executor : public Div2Executor{
-  };
-}
+} // namespace weak
