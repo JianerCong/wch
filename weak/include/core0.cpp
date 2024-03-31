@@ -2,7 +2,6 @@
 
 namespace weak{
 
-
   void writeToFile(path p, string_view content){
     // trunc :: clear the file if it exists
     BOOST_LOG_TRIVIAL(debug) <<  "writing to the file: " << p << " content: " << content;
@@ -606,43 +605,33 @@ namespace weak{
       return true;
     }
 
+  void tag_invoke(json::value_from_tag, json::value& jv, BlkHeader const& b ){
+    jv = {
+      {"number", b.number},
+      {"hash", hashToString(b.hash())},
+      {"parentHash", hashToString(b.parentHash)},
+      // {"txs", json::value_from(b.txs)}
+      /* 🦜 : boost:json knows about std::vector, they turn it into array*/
+    };
+  };
 
+  void tag_invoke(json::value_from_tag, json::value& jv, Blk const& b ){
+    // jv = {
+    //   {"number", b.number},
+    //   {"hash", hashToString(b.hash)},
+    //   {"parentHash", hashToString(b.parentHash)},
+    //   {"txs", json::value_from(b.txs)}
+    //   /* 🦜 : boost:json knows about std::vector, they turn it into array*/
+    // };
+
+    // BOOST_LOG_TRIVIAL(debug) << format("Now json: %s") % json::serialize(jv);
+    jv = json::value_from((const BlkHeader &) b);
+    // BOOST_LOG_TRIVIAL(debug) << format("Now json: %s") % json::serialize(jv);
+    jv.as_object()["txs"] = json::value_from(b.txs);
+    // BOOST_LOG_TRIVIAL(debug) << format("Now json: %s") % json::serialize(jv);
+    /* 🦜 : boost:json knows about std::vector, they turn it into array*/
+
+  };
 
 } // weak
 
-
-
-/**
- * @brief Some helper functions for stl
- */
-namespace std {
-
-  // 🦜 : Order matters here.
-  // 🦜 Define this to help ostream to display uint256
-  ostream& operator<<(ostream& os, const intx::uint256& t){
-    os << intx::to_string<256>(t,16); // base=10
-    return os;
-  };
-
-  // 🦜 Define this to help ostream to display evmc::bytes32
-  ostream& operator<<(ostream& os, const evmc::bytes32& a){
-    os << intx::be::load<intx::uint<256>,evmc::bytes32>(a);
-    return os;
-  };
-
-
-  // 🦜 Define this to help ostream to display evmc::address
-  ostream& operator<<(ostream& os, const evmc::address& a){
-    // os << weak::addressToString(a);
-    os << intx::be::load<intx::uint<256>,evmc::address>(a);
-    return os;
-  };
-
-  // 🦜 Define this to help ostream to display evmc::bytes =
-  // std::basic_string<uint8_t>
-  ostream& operator<<(ostream& os, const std::basic_string<uint8_t>& a){
-    // os << intx::be::load<intx::uint<256>,evmc::bytes32>(a);
-    os << evmc::hex(a);         // bytes -> bytes_view ⇒ string
-    return os;
-  };
-}

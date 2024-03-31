@@ -4,7 +4,7 @@ using namespace weak;
 
 // 🦜 : Here we can test the Div2Executor, an extension of the EvmExecutor.
 
-BOOST_AUTO_TEST_CASE(test_exec0_hi, MY_TEST_THIS){
+BOOST_AUTO_TEST_CASE(test_exec0_hi){
   auto [return_val, result] = ExoticTxExecutorBase::exec0("echo hi");
   // BOOST_CHECK_EQUAL(result, "hi");
 
@@ -27,7 +27,7 @@ BOOST_AUTO_TEST_CASE(test_exec0_hi, MY_TEST_THIS){
 }
 
 
-BOOST_AUTO_TEST_CASE(test_exec_py,MY_TEST_THIS){
+BOOST_AUTO_TEST_CASE(test_exec_py){
   auto [return_val, result] = PyTxExecutor::exec_py("print('hi')");
 
 #if defined(_WIN32)
@@ -36,6 +36,11 @@ BOOST_AUTO_TEST_CASE(test_exec_py,MY_TEST_THIS){
   BOOST_CHECK_EQUAL(result, "hi");
 #endif
 }
+
+BOOST_AUTO_TEST_CASE(test_bad_py){
+  auto [return_val, result] = PyTxExecutor::exec_py("raise Exception('bad')");
+  BOOST_CHECK_NE(return_val, 0);
+  }
 
 // --------------------------------------------------
 // the pyvm test

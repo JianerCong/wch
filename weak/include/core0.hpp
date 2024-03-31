@@ -824,35 +824,11 @@ namespace weak{
 
   // json functions for BlkHeader
   // 🦜 : Defining this method allows us to use json::serialize(value_from(t))
-  static void tag_invoke(json::value_from_tag, json::value& jv, BlkHeader const& b ){
-    jv = {
-      {"number", b.number},
-      {"hash", hashToString(b.hash())},
-      {"parentHash", hashToString(b.parentHash)},
-      // {"txs", json::value_from(b.txs)}
-      /* 🦜 : boost:json knows about std::vector, they turn it into array*/
-    };
-  };
+  void tag_invoke(json::value_from_tag, json::value& jv, BlkHeader const& b );
 
   // json functions for Blk
   // 🦜 : Defining this method allows us to use json::serialize(value_from(t))
-  static void tag_invoke(json::value_from_tag, json::value& jv, Blk const& b ){
-    // jv = {
-    //   {"number", b.number},
-    //   {"hash", hashToString(b.hash)},
-    //   {"parentHash", hashToString(b.parentHash)},
-    //   {"txs", json::value_from(b.txs)}
-    //   /* 🦜 : boost:json knows about std::vector, they turn it into array*/
-    // };
-
-    // BOOST_LOG_TRIVIAL(debug) << format("Now json: %s") % json::serialize(jv);
-    jv = json::value_from((const BlkHeader &) b);
-    // BOOST_LOG_TRIVIAL(debug) << format("Now json: %s") % json::serialize(jv);
-    jv.as_object()["txs"] = json::value_from(b.txs);
-    // BOOST_LOG_TRIVIAL(debug) << format("Now json: %s") % json::serialize(jv);
-    /* 🦜 : boost:json knows about std::vector, they turn it into array*/
-
-  };
+  void tag_invoke(json::value_from_tag, json::value& jv, Blk const& b );
 
   // This helper function deduces the type and assigns the value with the matching key
   // 🦜 : Defining this allows us to use json::value_to<A>
@@ -868,6 +844,40 @@ namespace weak{
 } // weak
 
 
+/**
+ * @brief Some helper functions for stl
+ */
+namespace std {
+
+  // 🦜 : Order matters here.
+  // 🦜 Define this to help ostream to display uint256
+  static ostream& operator<<(ostream& os, const intx::uint256& t){
+    os << intx::to_string<256>(t,16); // base=10
+    return os;
+  };
+
+  // 🦜 Define this to help ostream to display evmc::bytes32
+  static ostream& operator<<(ostream& os, const evmc::bytes32& a){
+    os << intx::be::load<intx::uint<256>,evmc::bytes32>(a);
+    return os;
+  };
+
+
+  // 🦜 Define this to help ostream to display evmc::address
+  static ostream& operator<<(ostream& os, const evmc::address& a){
+    // os << weak::addressToString(a);
+    os << intx::be::load<intx::uint<256>,evmc::address>(a);
+    return os;
+  };
+
+  // 🦜 Define this to help ostream to display evmc::bytes =
+  // std::basic_string<uint8_t>
+  static ostream& operator<<(ostream& os, const std::basic_string<uint8_t>& a){
+    // os << intx::be::load<intx::uint<256>,evmc::bytes32>(a);
+    os << evmc::hex(a);         // bytes -> bytes_view ⇒ string
+    return os;
+  };
+}
 
 // 🦜 : Teach boost::json how to convert a hash
 static void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, ethash_hash256 const& h ){

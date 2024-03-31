@@ -19,12 +19,12 @@ endmacro()
 #]=]
 # set_test(test-core core-deps)
 # set_test(test-core2 core-deps) #20240130
-set_test(test-pure-thrd-party core-deps)
+# set_test(test-pure-thrd-party core-deps)
 # set_test(test-executeEvmTx deps) #<2024-03-23 Sat> Promblem on Win
 # set_test(test-executeDiv2Tx deps)
 # set_test(test-mempool core-deps)
 # set_test(test-sealer core-deps)
-# set_test(test-storageManager deps)
+set_test(test-storageManager deps) #<2024-03-31 Sun> window testing debug till here
 # set_test(test-storageManager2 deps)
 # set_test(test-forPostExec core-deps)
 
@@ -89,9 +89,9 @@ foreach(t d IN ZIP_LISTS l l-deps)
     ## --------------------------------------------------
     # <all|success|test_suite|unit_scope|message|warning|error|cpp_exception|system_error|fatal_error|nothing>
 
-    set(level all)
+    # set(level all)
     # set(level test_suite)
-    # set(level message)
+    set(level message)
     add_custom_target(run-${t} ALL ${exe} --log_level=${level} COMMENT "Testing Tests 🐸")
     # add_custom_target(run-${t} ALL ${exe} COMMENT "Testing Tests 🐸") #🦜 : quiter
   endif()

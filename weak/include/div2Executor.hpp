@@ -69,26 +69,26 @@ namespace weak{
      * @brief A function to execute a command and return the output
      */
     static tuple<int,string> exec0(string cmd, const int timeout_s = 2,
-                                   filesystem::path wd = filesystem::current_path() // 🦜: let's keep it simple.
+                                   filesystem::path wd = filesystem::current_path(), // 🦜: let's keep it simple.
+                                   bool raw = false
                                    ) {
       //get a handle to the current environment
       auto env = boost::this_process::environment();
       //change the current wording directory
       env["PWD"] = wd.string();
 
+
+      // on windows, resort to pwsh, and its redirection capabilities
       bp::ipstream out, err;
-      // on windows, resort to pwsh
+      string output;
 #if defined(_WIN32)
-      cmd = "powershell -NoProfile -NonInteractive -NoLogo -Command \"& {" + cmd + "}\"";
+      // cmd = "powershell -NoProfile -NonInteractive -NoLogo -Command \"& {" + cmd + "} *>&1 | Out-File -FilePath " + o.string() + " -Encoding utf8 \"";
+      if (not raw) cmd = "powershell -NoProfile -NonInteractive -NoLogo -Command \"& {" + cmd + "}\"";
 #endif
 
-      bp::child c(cmd, bp::std_out > out, bp::std_err > err, env);
-      /*
-        🦜 : Let's just collect both stdout and stderr, and then we can log them.
-      */
+      bp::child c(cmd, bp::std_out > out, bp::std_err > err , env);
 
-      string output;
-      std::jthread listener([&]{
+      std::jthread listener([&output, &c, &out]{
         string line;
         while (c.running() and out and std::getline(out, line) and !line.empty()) {
           // BOOST_TEST_MESSAGE((format("🦜 recieved: %s") % line).str());
@@ -97,18 +97,30 @@ namespace weak{
         // BOOST_LOG_TRIVIAL(trace) <<  "\tListener thread exited";
       });
 
+
       if (wait_for_and_terminate(c, timeout_s))
         return make_tuple(-1, "timed out");
       /*
         🦜 : In fact, we can get some logs here, but for now let's just ignore it
       */
 
-      BOOST_LOG_TRIVIAL(debug) <<  "\tGot stderr(): " << err.rdbuf();
-      BOOST_LOG_TRIVIAL(debug) <<  "\tGot stdout(): " << output;
-      std::ostringstream eo;
-      eo << err.rdbuf();        // read the error output
 
-      return make_tuple(c.exit_code(), output + eo.str()); // joined here
+      string errorOutput, errorLine;
+      while (err and std::getline(err, errorLine) and !errorLine.empty()) {
+        errorOutput += errorLine;
+      }
+
+#if defined(_WIN32)   // 🦜 : It seems like there're some problem displaying the error on win terminal?? Feels like it's something wrng with the bad encoding?
+      // so instead we write it to a file
+      path o = wd / "log.txt";
+      ofstream(o.c_str()) << errorOutput;
+      BOOST_LOG_TRIVIAL(debug) <<  "🪟 : Error log written to " << o.string();
+#else
+      BOOST_LOG_TRIVIAL(debug) <<  "🦜 : Reading the error stream:" << errorOutput;
+#endif
+
+      // return make_tuple(c.exit_code(), output + eo.str()); // joined here
+      return make_tuple(c.exit_code(), output);
     }
   };                            // class ExoticTxExecutorBase
 
@@ -136,8 +148,9 @@ namespace weak{
       (ofstream(p.c_str()) << py_code_content).flush();
 
       // 3. execute
-      return ExoticTxExecutorBase::exec0("python3 -I " + p.string(), timeout_s,
-                                         wd);
+      string cmd = "python3 -I " + p.string();
+      BOOST_LOG_TRIVIAL(debug) << "⚙️ executing cmdline: " S_CYAN << cmd << S_NOR;
+      return ExoticTxExecutorBase::exec0(cmd, timeout_s, wd, true);
     }
 
 
@@ -145,26 +158,28 @@ namespace weak{
      * @brief Invoke the verifier.py
      */
     static optional<string> verifyPyContract(const string  py_code){
-      // 1. prepare the wd
+      // 1. prepare the wd and remove the old files
       path wd = prepareWorkingDir();
+      path r = wd / "verifier-result.json";
+
       // 2. write the py_code to hi.py
       path p = wd / "hi.py";
       writeToFile(p, py_code);
       // 3. just invoke the PY_VERIFIER_CONTENT
+
       auto [exit_code, output] = exec_py(PY_VERIFIER_CONTENT, 5, wd);
 
-      // 🦜 : If it failed, it throws
-      if (exit_code != 0) {
+
+      BOOST_LOG_TRIVIAL(debug) <<  "🦜 : verifier.py exited with " << exit_code << " and output: " << output;
+
+      // 🦜 : If it failed, it throws. on success, it should produces verifier-result.json.
+      if ((exit_code != 0) or (not filesystem::exists(r))) {
         BOOST_LOG_TRIVIAL(info) <<  "❌️ Failed to verify python-vm contract:\n" << S_RED << output << S_NOR;
         return {};
       }
 
-      // On success, it should produces verifier-result.json.
-      path r = wd / "verifier-result.json";
-      BOOST_ASSERT( filesystem::exists(r) );
-
       // the abi is produced
-      return readAllText(r);
+      return weak::readAllText(r);
     }
 
     /**
@@ -352,10 +367,11 @@ namespace weak{
       BOOST_LOG_TRIVIAL(debug) <<  "⚙️ prepareWorkingDir entered";
       // 0. prepare our working dir
       path wd = filesystem::current_path() / ".pyvm_aaa";
-      // 0.1 create if not exists
-      if (not filesystem::exists(wd)) {
-        filesystem::create_directory(wd);
+      // 0.1 remove it if it exists
+      if (filesystem::exists(wd)) {
+        filesystem::remove_all(wd);
       }
+      filesystem::create_directory(wd);
       return wd;
     }
 
