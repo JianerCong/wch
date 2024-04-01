@@ -324,21 +324,4 @@ namespace weak {
     }
   };
 
-  // /**
-  //  * 存储管理员：
-  //  *
-  //  * 危险⚡，这个会直接访问底层存储的数据。除非你来自数据归档和日志回放团队，否
-  //  * 则慎用。
-  //  */
-  // class StorageManager {
-  //   enum DBTYPE {
-  //     DBTYPE_BLOCK,
-  //     DBTYPE_JOURNAL,
-  //     DBTYPE_RECEIPT,
-
-  //     DBTYPE_CHAIN,
-  //     DBTYPE_STATE,
-  //   };
-  // };
-
 }

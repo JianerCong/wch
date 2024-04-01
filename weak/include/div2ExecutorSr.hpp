@@ -122,5 +122,12 @@ namespace weak {
      * `Div2Executor::executeTx`
      */
 
+    optional<tuple<vector<StateChange>,bytes>> executeTx(IAcnGettable * const w,
+                                                         const Tx & t) const noexcept override{
+      if (not this->verify(t)){
+        return {};
+      }
+      return Div2Executor::executeTx(w,t); // call the base
+    }
   };  // SeriousDiv2Executor
 }     // weak

@@ -635,3 +635,17 @@ namespace weak{
 
 } // weak
 
+// 🐢 : Marking it static makes it visible only to this translation unit. 
+        // Called when BOOST_ASSERT_MSG failed
+void boost::assertion_failed_msg(char const * expr, char const * function, char const * msg, char const * file, long line){
+  std::string s = (format("❌️ [%s]\n\tassertion %s has failed. (func=%s,file=%s,line=%ld)")
+                   % msg % expr % function % file % line).str();
+  BOOST_THROW_EXCEPTION(my_assertion_error(s));
+}
+
+// Called when BOOST_ASSERT failed
+void boost::assertion_failed(char const * expr, char const * function, char const * file, long line){
+  std::string s = (format("❌️\n\tassertion %s has failed. (func=%s,file=%s,line=%ld)")
+                   % expr % function % file % line).str();
+  BOOST_THROW_EXCEPTION(my_assertion_error(s));
+}

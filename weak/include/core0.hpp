@@ -99,7 +99,7 @@ namespace weak{
    * wasteful, so we provided this specialization, which skips the leading zeros.
    */
   template<>
-  static string toByteString<address>(const address t){
+  string toByteString<address>(const address t){
     // 1. find the first non-zero byte
     size_t i = 0;
     for (;i<sizeof(t.bytes);i++){
@@ -108,6 +108,7 @@ namespace weak{
     // 2. copy the rest
     return string(reinterpret_cast<const char*>(t.bytes+i),sizeof(t.bytes)-i);
   }
+  // <2024-04-01 Mon> 🦜 : g++ says  explicit template specialization cannot have a storage class
 
   template<typename T>
   static T fromByteString(string_view s){
@@ -128,7 +129,7 @@ namespace weak{
    * address, in that case, we need to add leading zeros.
    */
   template<>
-  static address fromByteString<address>(string_view s){
+  address fromByteString<address>(string_view s){
     // throw if there're more than 20 bytes
     if (s.size() > 20){
       BOOST_THROW_EXCEPTION(std::runtime_error((format("Invalid size for address, should be at most 20, but got %d") % s.size()).str()));

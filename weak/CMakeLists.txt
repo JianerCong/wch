@@ -45,13 +45,8 @@ target_link_libraries(core-deps PUBLIC
 )
 target_include_directories(core-deps PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 
-# target_link_libraries(core-deps INTERFACE
-#   # hi_pb
-#   hi-core
-# )
-
 if (WITH_PROTOBUF)
-  target_link_libraries(core-deps INTERFACE hi_pb)
+  target_link_libraries(core-deps PUBLIC hi_pb)
 endif()
 
 add_library(deps INTERFACE)     #the ALL dependency target = core + rdb (currently)
