@@ -114,6 +114,13 @@
  *          to initialize. ([2024-1-3] 🦜 : This use to be EvmExecutor, but now
  *          it's Div2Executor, it can switch between VMs.)
  *
+ *          <2024-04-02 Tue> 🦜 : Now we introduce SeriousDiv2Executor, which
+ *          can verify the Tx. We also added `--tx-mode-serious` option which is
+ *          stored in the `o.tx_mode_serious` variable. It can be `debug`,
+ *          `public` or `ca@/path/to/ca_pk_pem`. 🦜 : So here we need a function
+ *          `[bool serious, string ca_pk_pem=""]
+ *          figure_out_tx_mode(o.tx_mode_serious)`. Let's write it here...
+ *
  *       4.1.2 an `IPoolSettable`: this is where exe can throw `Tx` in. Serious
  *       implementation is `Mempool` (cnsss/mempool.hpp).
  *
@@ -262,7 +269,7 @@
 #include "net/pure-httpNetAsstn.hpp"
 #include "net/pure-udpNetAsstn.hpp"
 
-#include "div2Executor.hpp"
+#include "div2ExecutorSr.hpp"
 #include "execManager.hpp"
 #include "cnsss/mempool.hpp"
 #include "cnsss/exeForCnsss.hpp"
@@ -285,7 +292,7 @@ namespace weak{
    * @param path The path to the file.
    * @return The content of the file.
    */
-  string read_file(string path){
+  string read_file(const string & path){
     filesystem::path p(path);
     if (not filesystem::exists(p)){
       BOOST_THROW_EXCEPTION(std::runtime_error((format("File %s does not exist") % path).str()));
@@ -396,6 +403,7 @@ namespace weak{
   inline string turn_addr_port_into_raw_endpoint(string addr_port){
     return ::pure::SignedData::serialize_3_strs("<mock-pk>",addr_port,"");
   }
+
 
   namespace ranges = std::ranges;
   template<class T>
@@ -509,22 +517,56 @@ namespace weak{
     return make_tuple(move(n),move(h),move(vh));
   }
 
+
+  /**
+   * @brief Figure out the tx mode from the string.
+   *
+   * @param s The string to be parsed. It can be `debug`, `public`, `ca@/path/to/ca.pem`
+   *
+   * @return the pair [serious, ca_pk_pem]
+   */
+  tuple<bool,string> figure_out_tx_mode(const string & s){
+    if (s == "debug"){
+      return make_tuple(false,"");
+    }else if (s == "public"){
+      return make_tuple(true,"");
+    }else if (s.starts_with("ca@")){
+      // 🦜 : We need to remove the "ca@" prefix
+      return make_tuple(true,read_file(s.substr(3)));
+    }else{
+      BOOST_THROW_EXCEPTION(std::runtime_error((format("Error parsing tx mode %s, it should be one of 'debug', 'public', 'ca@/path/to/ca.pem'") % s).str()));
+    }
+  }
+
+
   struct LightExeAndPartners{
+
     unique_ptr<Div2Executor> tx_exe; // <! [2024-01-03] change to Div2Executor
+    unique_ptr<SeriousDiv2Executor> stx_exe; // <! <2024-04-02 Tue> 🦜 : we add this
+
     unique_ptr<BlkExecutor> blk_exe;
     unique_ptr<LightExecutorForCnsss> exe;
 
     LightExeAndPartners(IWorldChainStateSettable* w1,
                         IAcnGettable * w2,
+                        bool serious = false, // <2024-04-02 Tue> 🦜 : This and the next line are added.
+                        const string & ca_pk_pem = "",
                         uint64_t next_blk_number=0,
                         hash256 previous_hash = {},
                         int optimization_level = 2,
                         IPoolSettable * p = nullptr,
-                        IForSealerTxHashesGettable * m = nullptr){
+                        IForSealerTxHashesGettable * m = nullptr
+                        ){
 
-      this->tx_exe = make_unique<Div2Executor>();
-      this->blk_exe = make_unique<BlkExecutor>(w1,
-                                               dynamic_cast<ITxExecutable*>(&(*this->tx_exe)),
+      if (serious){
+        this->stx_exe = make_unique<SeriousDiv2Executor>(ca_pk_pem);
+      }else{
+        this->tx_exe = make_unique<Div2Executor>();
+      }
+
+      this->blk_exe = make_unique<BlkExecutor>(w1, dynamic_cast<ITxExecutable*>(
+                                                                                serious ? this->stx_exe.get() : this->tx_exe.get()
+                                                                                ),
                                                w2);
 
       // 🦜 : ^^ above copied from ExeAndPartners
@@ -539,26 +581,34 @@ namespace weak{
 
   struct ExeAndPartners{
     unique_ptr<Div2Executor> tx_exe;
+    unique_ptr<SeriousDiv2Executor> stx_exe; // <! <2024-04-02 Tue> 🦜 : we add this
+
     unique_ptr<BlkExecutor> blk_exe;
     unique_ptr<ExecutorForCnsss> exe;
 
     ExeAndPartners(
                    IWorldChainStateSettable* w1,
                    IAcnGettable * w2,
-                   IPoolSettable * p
-                   ){
+                   IPoolSettable * p,
+                   bool serious = false, // <2024-04-02 Tue> 🦜 : This and the next line are added.
+                   const string & ca_pk_pem = ""){
       /*
         🦜 : I just realize that Div2Executor is stateless...
 
         🐢 : It is, but we have to make it a class so that it can "implement" a
         method. A namespace can't.
       */
-      this->tx_exe = make_unique<Div2Executor>();
-      this->blk_exe = make_unique<BlkExecutor>(
-                                               w1,
-                                               dynamic_cast<ITxExecutable*>(&(*this->tx_exe)),
-                                               w2
-                                               );
+      if (serious){
+        this->stx_exe = make_unique<SeriousDiv2Executor>(ca_pk_pem);
+      }else{
+        this->tx_exe = make_unique<Div2Executor>();
+      }
+
+      this->blk_exe = make_unique<BlkExecutor>(w1, dynamic_cast<ITxExecutable*>(
+                                                                                serious ? this->stx_exe.get() : this->tx_exe.get()
+                                                                                ),
+                                               w2);
+
       this->exe = make_unique<ExecutorForCnsss>(
                                                 dynamic_cast<IBlkExecutable*>(&(*this->blk_exe)),
                                                 p
@@ -695,27 +745,33 @@ namespace weak{
 
           exe.iForConsensusExecutable = dynamic_cast<::pure::IForConsensusExecutable*>(&(*exe.mock));
         }else{
+          // <2024-04-02 Tue> 🦜 prepare the tx-mode config
+          auto [serious,ca_pk_pem] = figure_out_tx_mode(o.tx_mode_serious);
+
           if (o.light_exe == "yes"){
             if (fresh_start){
               BOOST_LOG_TRIVIAL(info) << format("\t⚙️ Starting [fresh-start] " S_CYAN "`light exe`" S_NOR " for cnsss");
               exe.light = make_unique<LightExeAndPartners>(w.iWorldChainStateSettable,
-                                                           w.iAcnGettable);
+                                                           w.iAcnGettable,
+                                                           serious, ca_pk_pem);
             }else{
               BOOST_LOG_TRIVIAL(info) << format("\t⚙️ Starting [persisted] " S_CYAN "`light exe`" S_NOR
                                                 " for cnsss, current chain size: " S_CYAN " %d " S_NOR) % (*latest_blk_hash);
               exe.light = make_unique<LightExeAndPartners>(w.iWorldChainStateSettable,
                                                            w.iAcnGettable,
+                                                            serious, ca_pk_pem,
                                                            boost::numeric_cast<uint64_t>(*latest_blk_num) + 1,
                                                            *latest_blk_hash
                                                            );
             }
-
             exe.iForConsensusExecutable = dynamic_cast<::pure::IForConsensusExecutable*>(&(*(exe.light->exe)));
+
           }else{
             BOOST_LOG_TRIVIAL(info) << format("\t⚙️ Starting " S_CYAN "`normal exe`" S_NOR " for cnsss");
             exe.normal = make_unique<ExeAndPartners>(w.iWorldChainStateSettable,
                                                      w.iAcnGettable,
-                                                     dynamic_cast<IPoolSettable*>(&pool));
+                                                     dynamic_cast<IPoolSettable*>(&pool),
+                                                      serious, ca_pk_pem);
 
             exe.iForConsensusExecutable = dynamic_cast<::pure::IForConsensusExecutable*>(&(*(exe.normal->exe)));
           }

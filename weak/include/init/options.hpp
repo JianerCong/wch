@@ -68,6 +68,8 @@ namespace weak{
 
     vector<string> Bft_node_list;
 
+    string tx_mode_serious;
+
     tuple<options_description,options_description,
           program_options::positional_options_description
           > define_options(){
@@ -87,6 +89,30 @@ namespace weak{
       o2.add_options()
         ("without-sealer", program_options::value<string>(&(this->without_sealer))->implicit_value("yes"),
          "Enable sealer")
+        ("tx-mode-serious", program_options::value<string>(&(this->tx_mode_serious))->implicit_value("debug"),
+         R"---(
+
+The tx mode to use. Available options are:
+    debug(default)  public, ca@<ca_pk_pem_file>
+This determines how the tx is checked.
+
+🦜 : In `debug` mode, we don't check the tx at all. So no signature is needed,
+and user can fill the `.from` field at will. This is the default mode.
+
+🦜 : In `public` mode, we check the signature of the tx. So `tx.signature` and
+`tx.pk_pem` should be filled. In addition to that, we also derive the `tx.from`
+from the `tx.pk_pem` (so the `tx.from` field is ignored). `tx.signature` should
+be in hex when using json.
+
+🦜 : In `ca` mode, we, in addition to the signature, we also require that
+`tx.pk_crt` is filled. (hex when using json) This shows that the `tx.pk_pem` is
+signed by the CA's private key. The ca public key is read from file following
+the `@` char. So one can do
+
+   --tx-mode-serious ca@/home/me/ca_pk.pem
+
+)---"
+         )
 #if defined(__unix__)
         ("unix-socket", program_options::value<string>(&(this->unix_socket))->implicit_value("/tmp/weak.sock"),
          "the unix-domain socket to listen on, default to /tmp/weak.sock")
