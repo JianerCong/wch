@@ -248,6 +248,14 @@ namespace weak{
     // Type related
     enum class Type {evm, data, python};
 
+    /**
+     * @brief get the payload that we need to sign
+     */
+    string getToSignPayload() const noexcept{
+      // return (format("%d") % this->nonce).str()
+      return std::to_string(this->nonce) + weak::toString(this->data);
+    }
+
     static string typeToString(Type t){
       static const string s[] = {"evm", "data", "python"};
       return string(s[static_cast<int>(t)]);

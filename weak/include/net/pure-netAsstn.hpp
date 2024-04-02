@@ -421,7 +421,7 @@ namespace pure{
       if (not d.fromString(msg)){
         BOOST_LOG_TRIVIAL(warning) <<  "⚠️ Wrong format for <msg>";
         return {};              // failed to parse data
-}
+      }
 
       // --------------------------------------------------
       // get the from <endpoint>
@@ -466,6 +466,10 @@ namespace pure{
       string my_pk_pem = dump_key_to_pem(this->my_secret_key.get(), false /*is_secret*/);
       string ep = ::pure::SignedData::serialize_3_strs(my_pk_pem, this->my_addr_port,this->my_cert);
       return ep;
+    }
+
+    static UniquePtr<EVP_PKEY> new_key_pair(){
+      return UniquePtr<EVP_PKEY>(EVP_PKEY_Q_keygen(NULL, NULL, "ED25519"));
     }
 
     /**
@@ -566,6 +570,7 @@ namespace pure{
     static string do_sign(EVP_PKEY *ed_key, string msg){
       return do_sign(ed_key, (unsigned char*)msg.c_str(), msg.size());
     }
+
 
     static bool do_verify(EVP_PKEY *ed_key,const string msg, const string sig){
       // 🐢 : Use EVP_DigestVerify

@@ -493,4 +493,4 @@ def hi(_storage: dict[str, Any], y : int):
   BOOST_CHECK_EQUAL(v.size(), 0);
 }
 
-// 🦜 : Finally, let's deploy + invoke
+// 🦜 : Finally, let's deploy + invoke 🐢 : done in python...

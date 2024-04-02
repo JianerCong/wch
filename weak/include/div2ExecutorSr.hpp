@@ -27,15 +27,15 @@ namespace weak {
    * This is to really make the chain serious.
    *
    * 🐢 : So this is kinda a `Div2Executor` + `Tx` verifyer. So when this
-   * executor is used, two modes are possible:
+   * executor is used, two tx_modes are possible:
    *
-   *     1. public mode : every body can generate key pairs, and use it to
+   *     1. public tx_mode : every body can generate key pairs, and use it to
    *     send tx.
    *
-   *     2. ca mode : only keys signed by `the ca` can send tx.
+   *     2. ca tx_mode : only keys signed by `the ca` can send tx.
    *
-   *     When operating in mode 2, the `ca_crt_pem` argument needs to be passed
-   *     to the ctor, otherwise, it's mode 1.
+   *     When operating in tx_mode 2, the `ca_crt_pem` argument needs to be passed
+   *     to the ctor, otherwise, it's tx_mode 1.
    *
    *  🦜 : So how does this work?
    *
@@ -47,16 +47,23 @@ namespace weak {
    */
   class SeriousDiv2Executor : public Div2Executor{
   public:
-    :pure::UniquePtr<EVP_PKEY> ca_public_key;
-    const bool is_public_mode;
-    SeriousDiv2Executor(string_view ca_crt_pem = ""): is_public_mode(ca_crt_pem.empty()){
+    ::pure::UniquePtr<EVP_PKEY> ca_public_key;
+    const bool is_public_tx_mode;
+    SeriousDiv2Executor(const string & ca_crt_pem = ""): is_public_tx_mode(ca_crt_pem.empty()){
+      /*
+        🦜 : What's the difference between `const string &` and `string_view` ?
+        🐢 : `string_view` can only get `.data()`, but `const string &` can get `.c_str()`
+       */
       if (not ca_crt_pem.empty()) {
+        BOOST_LOG_TRIVIAL(debug) <<  S_GREEN "\t📗️ SeriousDiv2Executor started in ca tx_mode."  S_NOR;
         optional<pure::UniquePtr<EVP_PKEY>> o = SslMsgMgr::load_key_from_pem(ca_crt_pem, false /* is_sk*/);
         if (not o){
           BOOST_THROW_EXCEPTION(std::runtime_error("Failed to load the ca public key from the pem:" +
                                                    ca_crt_pem));
         }
         ca_public_key = std::move(o.value()); // move
+      }else{
+        BOOST_LOG_TRIVIAL(debug) <<  S_GREEN "\t📗️ SeriousDiv2Executor started in public tx_mode."  S_NOR;
       }
     }
 
@@ -64,22 +71,20 @@ namespace weak {
      * @brief Verify a Tx
      * @param t the tx to verify
      *
-     * When operating in public mode, we check that
+     * When operating in public tx_mode, we check that
      *
      * 1. `t.from` == `t.getFromFromPkPem()`
      * 2. `do_verify(t.pk,t.nonce + t.data,t.signature)`
      *
-     * In addition, when operating in ca mode, we also check that:
+     * In addition, when operating in ca tx_mode, we also check that:
      *
      * 0. `do_verify(ca_public_key,tx.pk_pem,tx.pk_crt)`
      */
-    bool verify(const Tx & t){
-      // 1. check the pk if we are in ca mode
-      
+    bool verify(const Tx & t)const {
+      // 1. check the pk if we are in ca tx_mode
 
-
-      if (not this->is_public_mode) {
-        if (not SslMsgMgr::do_verify(ca_public_key.get(), t.pk_pem, t.pk_crt)) {
+      if (not this->is_public_tx_mode) {
+        if (not SslMsgMgr::do_verify(ca_public_key.get(), t.pk_pem, toString(t.pk_crt))) {
           BOOST_LOG_TRIVIAL(info) <<  "\t Error verifying the tx.pk_crt";
           return false;
         }
@@ -102,12 +107,10 @@ namespace weak {
         string n(reinterpret_cast<const char *>(&(dst[0])),8);
       */
       // Method 2: 🦜 : Wait, why don't we just use toString?
-      string n = (format("%d") % t.nonce).str()
-
-      // Now let's check `
+      // Now let's check
       if (not SslMsgMgr::do_verify(t.pk_pem,
-                                   n + weak::toString(t.data),
-                                   t.signature)){
+                                   t.getToSignPayload(),
+                                   toString(t.signature))){
         BOOST_LOG_TRIVIAL(debug) << "❌️ Invalid signature";
         return false;
       }
