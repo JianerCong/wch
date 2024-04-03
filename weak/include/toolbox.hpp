@@ -9,6 +9,8 @@
 #include "net/pure-netAsstn.hpp" // for ssl stuff
 #include "core.hpp"
 
+using std::endl;
+using std::cout;
 namespace weak{
   using pure::SslMsgMgr;
   /**
@@ -23,7 +25,7 @@ namespace weak{
       BOOST_THROW_EXCEPTION(std::runtime_error((format("File %s does not exist") % path).str()));
     }
 
-    ifstream ifs(p.c_str(), std::ios::binary);
+    std::ifstream ifs(p.c_str(), std::ios::binary);
     if (not ifs.is_open()){
       BOOST_THROW_EXCEPTION(std::runtime_error((format("File %s cannot be opened") % path).str()));
     }
@@ -50,10 +52,10 @@ namespace weak{
   }
 
   class Toolbox {
-    const char * help = R"---(
+    static constexpr const char * const help = R"---(
 Usage :
-   wcm toolbox --help
-   wcm toolbox -h
+   wch toolbox --help
+   wch toolbox -h
    wch toolbox new-keypair <out-pk.pem> <out-sk.pem>
    wch toolbox do-sign <sk.pem> <msg.txt> <out-sig.bin>
    wch toolbox do-verify <pk.pem> <msg.txt> <sig.bin>
@@ -64,7 +66,7 @@ Usage :
 starting with `out-` are generated files, otherwise the file must exist.
 )---";
   public:
-    static void new_keypair(path out_pk, path out_sk){
+    static void new_key_pair(path out_pk, path out_sk){
       // 1. generate a new keypair
       pure::UniquePtr<EVP_PKEY> sk = SslMsgMgr::new_key_pair();
       weak::writeToFile(out_sk, SslMsgMgr::dump_key_to_pem(sk.get(), true /* is_secret*/));
@@ -82,10 +84,10 @@ starting with `out-` are generated files, otherwise the file must exist.
       string sig = SslMsgMgr::do_sign(sk.get(), msg);
 
       // 3. write the signature to the file
-      writeToFile(out_sig_p, sig);
+      writeToFile(out_sig_p, sig, true /* binary*/);
     }
 
-    bool do_verify(path pk_p, path msg_p, path sig_p){
+    static bool do_verify(path pk_p, path msg_p, path sig_p){
       // 1. load the public key
       optional<pure::UniquePtr<EVP_PKEY>> o = SslMsgMgr::load_key_from_file(pk_p, false /* is_secret*/);
       BOOST_ASSERT_MSG(o.has_value(), "Failed to load the public key");
@@ -105,11 +107,17 @@ starting with `out-` are generated files, otherwise the file must exist.
       return is_valid;
     }
 
-    void tx_sign(path tx_p, path sk_p, optional<path> crt_sig_p, path out_tx_p){
+    static void tx_sign(path tx_p, path sk_p, optional<path> crt_sig_p, path out_tx_p){
+      BOOST_LOG_TRIVIAL(debug) << "🦜 : tx_sign called with:" S_CYAN
+                               << "\n\ttx_p: " << tx_p
+                               << "\n\tsk_p: " << sk_p
+                               << "\n\tcrt_sig_p: " << (crt_sig_p.has_value() ? crt_sig_p.value() : "nullopt")
+                               << "\n\tout_tx_p: " << out_tx_p << S_NOR
+        ;
       // 1. load the secret key
-      optional<pure::UniquePtr<EVP_PKEY>> o = SslMsgMgr::load_key_from_file(sk_p, true /* is_secret*/);
-      BOOST_ASSERT_MSG(o.has_value(), "Failed to load the secret key");
-      pure::UniquePtr<EVP_PKEY> sk = std::move(o.value());
+      optional<pure::UniquePtr<EVP_PKEY>> osk = SslMsgMgr::load_key_from_file(sk_p, true /* is_secret*/);
+      BOOST_ASSERT_MSG(osk.has_value(), "Failed to load the secret key");
+      pure::UniquePtr<EVP_PKEY> sk = std::move(osk.value());
 
       // 2. read the transaction
       string tx_json_s = read_file(tx_p);
@@ -119,23 +127,24 @@ starting with `out-` are generated files, otherwise the file must exist.
         .nonce
         and optionally
         .type = "" | "evm" | "data" | "python"
-       */
+      */
       json::value jv = json::parse(tx_json_s);
+      BOOST_LOG_TRIVIAL(debug) << "🦜 : parsed json: " << jv ;
       BOOST_ASSERT(jv.is_object());
-      BOOST_ASSERT(jv.has_field("data"));
-      BOOST_ASSERT(jv.has_field("nonce"));
+      json::object o = jv.as_object();
+      BOOST_ASSERT(o.contains("data"));
+      BOOST_ASSERT(o.contains("nonce"));
 
-      string data = jv["data"].as_string();
-      uint64_t nonce = jv["nonce"].as_uint64();
+      string data = json::value_to<string>(o["data"]);uint64_t nonce = json::value_to<uint64_t>(o["nonce"]);
       /*
         2.2 if .type is present, we check it. The `data` field is in hex unless `.type == "python" | "data"`.
-       */
-      string type = jv.has_field("type") ? jv["type"].as_string() : "";
+      */
+      json::string type = o.contains("type") ? o["type"].as_string() : "";
       if (type == "" or type == "evm"){
-        optional<bytes> o = evmc::from_hex(data);
-        if (not o)
+        optional<bytes> ob = evmc::from_hex(data);
+        if (not ob)
           BOOST_THROW_EXCEPTION(std::runtime_error("The data field for an evm Tx should be in hex"));
-        data = weak::toString(o.value());
+        data = weak::toString(ob.value());
       }
 
       // 3. get the signature
@@ -144,15 +153,55 @@ starting with `out-` are generated files, otherwise the file must exist.
 
       // 4. add the fields to the json object:
       // .signature (hex), .pk_pem (string), .pk_crt (optional hex)
-      json::object o;
       o["signature"] = evmc::hex(weak::bytesFromString(sig));
       o["pk_pem"] = SslMsgMgr::dump_key_to_pem(sk.get(), false /* is_secret*/);
       if (crt_sig_p){
         string crt_sig = read_file(crt_sig_p.value().string());
         o["pk_crt"] = evmc::hex(weak::bytesFromString(crt_sig));
       }
+
+      // 5. write the json object to the file
+      writeToFile(out_tx_p, json::serialize(o));
     }
 
-    void run(int argc, char* argv[]){ }
+#define ARGV_SHIFT()  { argc--; argv++; }
+    static int run(int argc, char* argv[]){
+      try{
+        // Skip `executable name` and the `toolbox` keyword
+        ARGV_SHIFT();
+        ARGV_SHIFT();
+
+        if (!strcmp("--help", argv[0]) or !strcmp("-h", argv[0])){
+          cout << Toolbox::help << endl;
+        }
+
+        // switch on the method:
+        if (!strcmp("new-keypair", argv[0])){
+          BOOST_ASSERT_MSG(argc == 2, "new-keypair requires 2 arguments: <out-pk.pem> <out-sk.pem>");
+          new_key_pair(argv[1], argv[2]);
+        }else if (!strcmp("do-sign", argv[0])){
+          BOOST_ASSERT_MSG(argc == 3, "do-sign requires 3 arguments: <sk.pem> <msg.txt> <out-sig.bin>");
+          do_sign(argv[1], argv[2], argv[3]);
+        }else if (!strcmp("do-verify", argv[0])){
+          BOOST_ASSERT_MSG(argc == 3, "do-verify requires 3 arguments: <pk.pem> <msg.txt> <sig.bin>");
+          if (do_verify(argv[1], argv[2], argv[3]))
+            std::exit(0);
+          else
+            std::exit(1);
+        }else if (!strcmp("tx-sign", argv[0])){
+          BOOST_ASSERT_MSG(argc == 4, "tx-sign requires 4 arguments: <tx.json> <sk.pem> <crt.sig> <out-tx.json>");
+          tx_sign(argv[1], argv[2], argv[3], argv[4]);
+        }else if (!strcmp("tx-sign-no-crt", argv[0])){
+          BOOST_ASSERT_MSG(argc == 3, "tx-sign-no-crt requires 3 arguments: <tx.json> <sk.pem> <out-tx.json>");
+          tx_sign(argv[1], argv[2], std::nullopt, argv[3]);
+        }else{
+          cout << "Unknown command: " << argv[0] << endl;
+        }
+        std::exit(0);
+      } catch (std::exception & e){
+        cout << "Error: " << e.what() << endl;
+        std::exit(1);
+      }
+    }
   };
 }

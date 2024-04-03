@@ -1,59 +1,67 @@
 # Here we document how to build wrack-chain
-#
+Clean=true
 
 # --------------------------------------------------
-# 1. Install Boost>=1.75
-rm .pre -rfv
-mkdir .pre -v
+# 0.
+if $Clean; then
+    rm -rfv .pre
+    rm -rfv build-weak
+    mkdir .pre
+fi
 cd .pre
-# wget https://boostorg.jfrog.io/artifactory/main/release/1.82.0/source/boost_1_82_0.tar.bz2
-wget https://boostorg.jfrog.io/artifactory/main/release/1.84.0/source/boost_1_84_0.tar.bz2
-echo "⚙️ Extracting boost"
-tar -xf boost_1_84_0.tar.bz2 --verbose
-echo "🐸 Boost extracted"
-cd boost_1_84_0
 
-./bootstrap.sh
-sudo apt install libpython-all-dev
-sudo apt install libpython3-all-dev
-./b2 --show-libraries
-# - atomic - chrono - container - context - contract - coroutine - date_time
-# - exception - fiber
-# - filesystem - graph - graph_parallel - headers - iostreams - json - locale
-# - log - math - mpi - nowide - program_options - python
-# - random - regex - serialization - stacktrace - system - test
-# - thread - timer - type_erasure - url - wave
+#
+# --------------------------------------------------
+# 1. Install Boost>=1.75
+# wget https://boostorg.jfrog.io/artifactory/main/release/1.84.0/source/boost_1_84_0.tar.bz2
+if [ ! -f boost_1_84_0.tar.bz2 ]; then
+    wget https://boostorg.jfrog.io/artifactory/main/release/1.84.0/source/boost_1_84_0.tar.bz2
+fi
 
-# build the static libraries (for deployment)
-./b2 --with-json --with-program_options --with-test --with-headers --with-log link=static
-# build the shared libraries (for development)
-./b2 --with-json --with-program_options --with-test --with-headers --with-log link=shared
-echo "🐸 Boost installed"
-cd ..
+if [ ! -d boost_1_84_0 ]; then
+    tar -xf boost_1_84_0.tar.bz2 --verbose
+    echo "⚙️ Extracting boost"
+    tar -xf boost_1_84_0.tar.bz2 --verbose
+    echo "🐸 Boost extracted, start building"
+
+    cd boost_1_84_0
+    ./bootstrap.sh
+    # sudo apt install libpython3-all-dev
+    # ./b2 --show-libraries
+    # - atomic - chrono - container - context - contract - coroutine - date_time
+    # - exception - fiber
+    # - filesystem - graph - graph_parallel - headers - iostreams - json - locale
+    # - log - math - mpi - nowide - program_options - python
+    # - random - regex - serialization - stacktrace - system - test
+    # - thread - timer - type_erasure - url - wave
+
+    # build the static libraries (for deployment)
+    ./b2 --with-json --with-program_options --with-test --with-headers --with-log link=static
+    # build the shared libraries (for development)
+    ./b2 --with-json --with-program_options --with-test --with-headers --with-log link=shared
+    echo "🐸 Boost installed"
+    cd ..
+fi
 
 # --------------------------------------------------
 # 2.Install rocksdb [in .pre/ folder]
 # 2.1 install the dependencies for rocksdb
-# sudo apt install libgflags-dev \
-#      libsnappy-dev zlib1g-dev libbz2-dev \
-#      liblz4-dev libzstd-dev libjemalloc-dev \
-#      liburing-dev -y
-
-# 🦜 : Maybe we can just lz4
-# sudo apt install liblz4-dev
 
 # 2.2 install rocksdb
-wget https://github.com/facebook/rocksdb/archive/refs/tags/v8.3.2.tar.gz
-tar zxf v8.3.2.tar.gz
-# cmake -S rocksdb-8.3.2/ -B build-rocksdb/ -DWITH_JEMALLOC=1 -DWITH_LIBURING=1 \
-#       -DWITH_SNAPPY=1 -DWITH_LZ4=1 -DWITH_ZLIB=1 -DWITH_ZSTD=1 -DCMAKE_BUILD_TYPE=Release
+if [ ! -f v9.0.0.tar.gz ]; then
+    wget https://github.com/facebook/rocksdb/archive/refs/tags/v9.0.0.tar.gz
+fi
 
-# try to build with lz4 ? 🦜
-sudo apt install libgflags-dev liblz4-dev liburing-dev -y
-cmake -S rocksdb-8.3.2/ -B build-rocksdb/ -DWITH_LZ4=1 -DCMAKE_BUILD_TYPE=Release
+# tar zxf v9.0.0.tar.gz
+if [ ! -d rocksdb-9.0.0 ]; then
+    tar zxf v9.0.0.tar.gz
+    sudo apt install libgflags-dev liblz4-dev liburing-dev -y
+    # try to build with lz4 ? 🦜
+    cmake -S rocksdb-9.0.0/ -B build-rocksdb/ -DWITH_LZ4=1 -DCMAKE_BUILD_TYPE=Release
+fi
+
 cmake --build build-rocksdb
 cmake --install build-rocksdb --prefix installed-rocksdb
-
 
 # --------------------------------------------------
 # 3. add protobuf [in .pre/ folder]
@@ -76,5 +84,6 @@ cmake --install build-pb --prefix installed-pb
 
 # --------------------------------------------------
 # Finally we build the chain
+cd ..
 cmake -S weak -B build-weak
 cmake --build build-weak/

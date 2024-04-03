@@ -581,6 +581,13 @@ namespace weak{
   };
 
   void init(int argc, char* argv[]){
+
+    // 🦜 : <2024-04-03 Wed> If argv[1] is `toolbox`, we let the toolbox in
+    if (argc > 1 and string(argv[1]) == "toolbox"){
+      ::weak::Toolbox::run(argc,argv);
+      return;
+    }
+
     Options o{argc,argv};
     BOOST_LOG_TRIVIAL(debug) << format("⚙️ Chain started: cnsss=" S_CYAN "%s" S_NOR ",port=" S_CYAN "%d" S_NOR)
       % o.consensus_name % o.port;

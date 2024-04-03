@@ -2,9 +2,12 @@
 
 namespace weak{
 
-  void writeToFile(path p, string_view content){
+  void writeToFile(path p, string_view content, bool binary){
     // trunc :: clear the file if it exists
-    BOOST_LOG_TRIVIAL(debug) <<  "writing to the file: " << p << " content: " << content;
+    if (not binary)
+      BOOST_LOG_TRIVIAL(debug) <<  "writing to the file: " << p << " content: " S_CYAN << content << S_NOR;
+    else
+      BOOST_LOG_TRIVIAL(debug) <<  "writing to the file: " << p << " content: " S_CYAN "<binary data of size " << content.size() << ">";
     (ofstream(p.c_str(), std::ios::out | std::ios::trunc | std::ios::binary) << content).flush();
     // 🦜 : Make sure we used the binary mode, so that the content is written as is. (char wouldn't be escaped
   }

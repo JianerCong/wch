@@ -72,7 +72,7 @@ namespace weak{
   using std::make_unique;
   using std::make_shared;
 
-  void writeToFile(path p, string_view content);
+  void writeToFile(path p, string_view content, bool binary = false);
   string readAllText(path p);
   bool contains(json::array a, string s);
 
