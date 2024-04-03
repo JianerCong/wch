@@ -6,11 +6,13 @@
 rm .pre -rfv
 mkdir .pre -v
 cd .pre
-wget https://boostorg.jfrog.io/artifactory/main/release/1.82.0/source/boost_1_82_0.tar.bz2
+# wget https://boostorg.jfrog.io/artifactory/main/release/1.82.0/source/boost_1_82_0.tar.bz2
+wget https://boostorg.jfrog.io/artifactory/main/release/1.84.0/source/boost_1_84_0.tar.bz2
 echo "⚙️ Extracting boost"
-tar -xf boost_1_82_0.tar.bz2 --verbose
+tar -xf boost_1_84_0.tar.bz2 --verbose
 echo "🐸 Boost extracted"
-cd boost_1_82_0
+cd boost_1_84_0
+
 ./bootstrap.sh
 sudo apt install libpython-all-dev
 sudo apt install libpython3-all-dev
@@ -32,10 +34,13 @@ cd ..
 # --------------------------------------------------
 # 2.Install rocksdb [in .pre/ folder]
 # 2.1 install the dependencies for rocksdb
-sudo apt install libgflags-dev \
-     libsnappy-dev zlib1g-dev libbz2-dev \
-     liblz4-dev libzstd-dev libjemalloc-dev \
-     liburing-dev -y
+# sudo apt install libgflags-dev \
+#      libsnappy-dev zlib1g-dev libbz2-dev \
+#      liblz4-dev libzstd-dev libjemalloc-dev \
+#      liburing-dev -y
+
+# 🦜 : Maybe we can just lz4
+# sudo apt install liblz4-dev
 
 # 2.2 install rocksdb
 wget https://github.com/facebook/rocksdb/archive/refs/tags/v8.3.2.tar.gz
@@ -43,9 +48,9 @@ tar zxf v8.3.2.tar.gz
 # cmake -S rocksdb-8.3.2/ -B build-rocksdb/ -DWITH_JEMALLOC=1 -DWITH_LIBURING=1 \
 #       -DWITH_SNAPPY=1 -DWITH_LZ4=1 -DWITH_ZLIB=1 -DWITH_ZSTD=1 -DCMAKE_BUILD_TYPE=Release
 
-# try to build with lz4
+# try to build with lz4 ? 🦜
 sudo apt install libgflags-dev liblz4-dev liburing-dev -y
-# cmake -S rocksdb-8.3.2/ -B build-rocksdb/ -DWITH_LZ4=1 -DCMAKE_BUILD_TYPE=Release
+cmake -S rocksdb-8.3.2/ -B build-rocksdb/ -DWITH_LZ4=1 -DCMAKE_BUILD_TYPE=Release
 cmake --build build-rocksdb
 cmake --install build-rocksdb --prefix installed-rocksdb
 
@@ -56,9 +61,12 @@ cmake --install build-rocksdb --prefix installed-rocksdb
 # sudo apt install libabsl-dev -y # 🦜 : Nope, pd now is smart enough to take
 # care of itself's dependencies
 
-git clone -b v25.1 https://github.com/protocolbuffers/protobuf.git
+git clone --depth 1 -b v26.1 https://github.com/protocolbuffers/protobuf.git
+# 🦜 : --depth 1 only fetches the latest commit
 cd protobuf
+git switch -c b1
 git submodule update --init --recursive
+
 cd ..
 cmake -S protobuf -B build-pb -DABSL_PROPAGATE_CXX_STD=ON
 cmake --build build-pb

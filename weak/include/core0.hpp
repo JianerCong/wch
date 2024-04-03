@@ -252,8 +252,11 @@ namespace weak{
      * @brief get the payload that we need to sign
      */
     string getToSignPayload() const noexcept{
-      // return (format("%d") % this->nonce).str()
-      return std::to_string(this->nonce) + weak::toString(this->data);
+      // return std::to_string(this->nonce) + weak::toString(this->data);
+      return getToSignPayload0(this->nonce,weak::toString(this->data));
+    }
+    static string getToSignPayload0(const uint64_t nonce, const string & data) noexcept{
+      return std::to_string(nonce) + data;
     }
 
     static string typeToString(Type t){

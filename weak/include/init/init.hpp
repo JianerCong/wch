@@ -282,47 +282,11 @@
 #include <boost/log/core.hpp>
 #include <boost/log/expressions.hpp>
 
+#include "toolbox.hpp"
 namespace weak{
 
 
 
-  /**
-   * @brief Read the content of a file.
-   *
-   * @param path The path to the file.
-   * @return The content of the file.
-   */
-  string read_file(const string & path){
-    filesystem::path p(path);
-    if (not filesystem::exists(p)){
-      BOOST_THROW_EXCEPTION(std::runtime_error((format("File %s does not exist") % path).str()));
-    }
-
-    ifstream ifs(p.c_str(), std::ios::binary);
-    if (not ifs.is_open()){
-      BOOST_THROW_EXCEPTION(std::runtime_error((format("File %s cannot be opened") % path).str()));
-    }
-
-    char * buffer;
-    // get the length of the file
-    // ifs.seekg(0, ifs.end);
-    // size_t length = ifs.tellg();
-    // ifs.seekg(0, ifs.beg);
-    size_t length = filesystem::file_size(p);
-    // 🦜 : Yeah, the smart file_size() is better.
-
-    // allocate memory:
-    buffer = new char [length];
-
-    // read data as a block:
-    ifs.read(buffer,length);
-    // close
-    ifs.close();
-    string o(buffer,length);
-    delete[] buffer;
-
-    return o;
-  }
 
 
   struct PeerCryptoInfo {
