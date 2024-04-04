@@ -1,7 +1,6 @@
 #include "core0.hpp"
 
-namespace weak{
-
+namespace pure{
   void writeToFile(path p, string_view content, bool binary){
     // trunc :: clear the file if it exists
     if (not binary)
@@ -35,6 +34,10 @@ namespace weak{
     BOOST_LOG_TRIVIAL(debug) <<  "🦜 Text read from file " S_CYAN << p.string() << S_NOR ":\n" S_GREEN << s << S_NOR  "\n";;
     return s;
   }
+}
+
+namespace weak{
+
 
   bool contains(json::array a, string s){
     for (const json::value & v : a){

@@ -69,8 +69,8 @@ starting with `out-` are generated files, otherwise the file must exist.
     static void new_key_pair(path out_pk, path out_sk){
       // 1. generate a new keypair
       pure::UniquePtr<EVP_PKEY> sk = SslMsgMgr::new_key_pair();
-      weak::writeToFile(out_sk, SslMsgMgr::dump_key_to_pem(sk.get(), true /* is_secret*/));
-      weak::writeToFile(out_pk, SslMsgMgr::dump_key_to_pem(sk.get(), false /* is_secret*/));
+      pure::writeToFile(out_sk, SslMsgMgr::dump_key_to_pem(sk.get(), true /* is_secret*/));
+      pure::writeToFile(out_pk, SslMsgMgr::dump_key_to_pem(sk.get(), false /* is_secret*/));
     }
 
     static void do_sign(path sk_p, path msg_p, path out_sig_p){
@@ -84,7 +84,7 @@ starting with `out-` are generated files, otherwise the file must exist.
       string sig = SslMsgMgr::do_sign(sk.get(), msg);
 
       // 3. write the signature to the file
-      writeToFile(out_sig_p, sig, true /* binary*/);
+      pure::writeToFile(out_sig_p, sig, true /* binary*/);
     }
 
     static bool do_verify(path pk_p, path msg_p, path sig_p){
@@ -162,7 +162,7 @@ starting with `out-` are generated files, otherwise the file must exist.
       }
 
       // 5. write the json object to the file
-      writeToFile(out_tx_p, json::serialize(o));
+      pure::writeToFile(out_tx_p, json::serialize(o));
     }
 
 #define ARGV_SHIFT()  { argc--; argv++; }

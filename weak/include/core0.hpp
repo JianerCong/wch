@@ -72,8 +72,6 @@ namespace weak{
   using std::make_unique;
   using std::make_shared;
 
-  void writeToFile(path p, string_view content, bool binary = false);
-  string readAllText(path p);
   bool contains(json::array a, string s);
 
   inline string resultToString(const evmc::Result& result){
@@ -595,7 +593,7 @@ namespace weak{
             BOOST_LOG_TRIVIAL(debug) << "❌️ Error reading data from file (file not found):"  S_RED << p << S_NOR;
             return {};
           }
-          o["data"] = json::string(weak::readAllText(p));
+          o["data"] = json::string(pure::readAllText(p));
         }
 
         Tx tx;

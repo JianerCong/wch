@@ -34,6 +34,7 @@ using std::string_view;
 #include <string>
 using std::string;
 
+#include <filesystem>
 namespace pure{
 
   using std::vector;
@@ -49,6 +50,11 @@ namespace pure{
   using std::string_view;
   using std::string;
 
+  using std::ofstream;
+  namespace filesystem = std::filesystem;
+  using std::filesystem::path;
+  void writeToFile(path p, string_view content, bool binary = false);
+  string readAllText(path p);
 
   inline string get_data_for_log(string_view data){
 #if defined (WITH_PROTOBUF)
@@ -216,11 +222,11 @@ namespace pure{
 
 // This helper function deduces the type and assigns the value with the matching key
 // 🦜 : Defining this allows us to use json::value_to<T>
-#define ADD_FROM_JSON_TAG_INVOKE(T)                           \
-  static T tag_invoke(json::value_to_tag<T>, json::value const& v){  \
-    T t;                                                      \
-    if (t.fromJson(v)) return t;                              \
-    return {};                                                \
+#define ADD_FROM_JSON_TAG_INVOKE(T)                                 \
+  static T tag_invoke(json::value_to_tag<T>, json::value const& v){ \
+    T t;                                                            \
+    if (t.fromJson(v)) return t;                                    \
+    return {};                                                      \
   }
 
 

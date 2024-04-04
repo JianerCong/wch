@@ -109,6 +109,7 @@ BOOST_AUTO_TEST_CASE(test_mockedMsgMgr){
   BOOST_CHECK_EQUAL(m->prepare_msg("abc"),"abc");
   auto r = m->tear_msg_open("abc");
 
+
   BOOST_REQUIRE(r);
   auto [from, data] = r.value();
   BOOST_CHECK_EQUAL(from,"N1");
@@ -205,7 +206,22 @@ BOOST_AUTO_TEST_CASE(test_make_post_bad_handler){
   BOOST_CHECK(res.starts_with("Error executing handler")); // okay
 }
 
-BOOST_AUTO_TEST_SUITE(test_SslMsgMgr, MY_TEST_THIS);
+BOOST_AUTO_TEST_SUITE(test_SslMsgMgr);
+
+BOOST_AUTO_TEST_CASE(test_pure_openssl){
+  string s = "-----BEGIN PRIVATE KEY-----\n"
+    "MC4CAQAwBQYDK2VwBCIEIDdCupRSMP7AqAT50TZwDzlYIfrgDpLL+km+0usqrWpB\n"
+    "-----END PRIVATE KEY-----\n";
+
+  BIO * b = BIO_new_mem_buf(s.c_str(),-1);
+  EVP_PKEY * k =  PEM_read_bio_PrivateKey(b, nullptr, nullptr, nullptr);
+
+  BOOST_CHECK_EQUAL(EVP_PKEY_get0_type_name(k),"ED25519");
+  // BIO_free_all(b);// 🦜 : We created a read-only BIO, so no need to free
+  BIO_set_close(b, BIO_NOCLOSE); /* So BIO_free() leaves BUF_MEM alone */
+  BIO_free(b);// 🦜 : We created a read-only BIO, so no need to free
+  EVP_PKEY_free(k);
+}
 
 BOOST_AUTO_TEST_CASE(test_load_keys_from_pem){
   string s = "-----BEGIN PRIVATE KEY-----\n"
@@ -223,7 +239,6 @@ BOOST_AUTO_TEST_CASE(test_load_keys_from_pem){
   BOOST_REQUIRE(r.value());
   BOOST_REQUIRE(r1.value());
   BOOST_REQUIRE(not r2);
-  // UniquePtr<EVP_PKEY> sk = r.value();
   BOOST_CHECK_EQUAL(EVP_PKEY_get0_type_name(r.value().get()),"ED25519");
   BOOST_CHECK_EQUAL(EVP_PKEY_get0_type_name(r1.value().get()),"ED25519");
 }
@@ -257,7 +272,7 @@ BOOST_AUTO_TEST_CASE(test_extract_public_key){
   SslMsgMgr::print_key(pk1.get(), false /* is_secret*/);
 }
 
-BOOST_AUTO_TEST_CASE(test_load_keys_from_file){
+BOOST_AUTO_TEST_CASE(test_load_keys_from_file, MY_TEST_THIS){
   string s = "-----BEGIN PRIVATE KEY-----\n"
     "MC4CAQAwBQYDK2VwBCIEIDdCupRSMP7AqAT50TZwDzlYIfrgDpLL+km+0usqrWpB\n"
     "-----END PRIVATE KEY-----\n";
@@ -271,14 +286,16 @@ BOOST_AUTO_TEST_CASE(test_load_keys_from_file){
     "-----END PUBLIC KEY-----\n";
 
   // write to tmpdir
-  path f = filesystem::temp_directory_path() / "secret.pem";
-  path f1 = filesystem::temp_directory_path() / "public.pem";
+  path f = filesystem::current_path() / "secret.pem";
+  path f1 = filesystem::current_path() / "public.pem";
   // remove the file if it exists
   if (filesystem::exists(f)) filesystem::remove(f);
   if (filesystem::exists(f1)) filesystem::remove(f1);
 
-  (std::ofstream(f.c_str()) << s).close();
-  (std::ofstream(f1.c_str()) << p).close();
+  // (std::ofstream(f.c_str()) << s).flush();
+  (std::ofstream(f.c_str(), std::ios::out | std::ios::trunc | std::ios::binary) << s).flush();
+  // (std::ofstream(f1.c_str()) << p).flush();
+  (std::ofstream(f1.c_str(), std::ios::out | std::ios::trunc | std::ios::binary) << p).flush();
 
   optional<UniquePtr<EVP_PKEY>> r = SslMsgMgr::load_key_from_file(f,true /*is_secret*/);
   auto r1 = SslMsgMgr::load_key_from_file(f1,false /*is_secret*/);
@@ -290,9 +307,9 @@ BOOST_AUTO_TEST_CASE(test_load_keys_from_file){
   BOOST_REQUIRE(not r2);
   BOOST_CHECK_EQUAL(EVP_PKEY_get0_type_name(r.value().get()),"ED25519");
   BOOST_CHECK_EQUAL(EVP_PKEY_get0_type_name(r1.value().get()),"ED25519");
-  }
+} // <2024-04-04 Thu> 🦜 : failed on windows... also feels useless
 
-BOOST_AUTO_TEST_CASE(test_sign){
+BOOST_AUTO_TEST_CASE(test_sign, MY_TEST_THIS){
   string s = "-----BEGIN PRIVATE KEY-----\n"
     "MC4CAQAwBQYDK2VwBCIEIDdCupRSMP7AqAT50TZwDzlYIfrgDpLL+km+0usqrWpB\n"
     "-----END PRIVATE KEY-----\n";

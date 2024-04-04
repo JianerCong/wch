@@ -482,6 +482,8 @@ namespace pure{
                                                            bool is_secret = true) {
 
       UniquePtr<BIO> bio(BIO_new_mem_buf(s.c_str(), -1));
+      BIO_set_close(bio.get(), BIO_NOCLOSE); /* So BIO_free() leaves BUF_MEM alone */
+      // BIO* bio = BIO_new_mem_buf(s.c_str(), -1); // <2024-04-04 Thu> It seems like we don't need to free the read-only buffer
       if (not bio.get()){
         BOOST_LOG_TRIVIAL(error) << S_RED "❌ Error reading bio from string" S_NOR;
         return {};
@@ -520,6 +522,12 @@ namespace pure{
      * @brief Read secret or public key from a string.
      */
     static optional<UniquePtr<EVP_PKEY>> load_key_from_file(path p, bool is_secret = true){
+#if defined(_WIN32)
+      // FILE * fp = fopen(reinterpret_cast<const char*>(p.c_str()), "rb, ccs=UTF-8");
+      // 🦜 : this doesn't seem to work on win... let's resort to load_key_from_pem...
+      string s = readAllText(p);
+      return load_key_from_pem(s,is_secret);
+#else
       FILE * fp = fopen(
                         reinterpret_cast<const char*>(p.c_str())
                         ,"rb");
@@ -540,7 +548,9 @@ namespace pure{
         return {};
       }
       return sk;
+#endif
     }
+    // <2024-04-04 Thu> 🦜 : failed on windows... also feels useless
 
     /**
        ,* @brief Sign a message with a key (ED25519).

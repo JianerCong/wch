@@ -164,7 +164,7 @@ namespace weak{
 
       // 2. write the py_code to hi.py
       path p = wd / "hi.py";
-      writeToFile(p, py_code);
+      pure::writeToFile(p, py_code);
       // 3. just invoke the PY_VERIFIER_CONTENT
 
       auto [exit_code, output] = exec_py(PY_VERIFIER_CONTENT, 5, wd);
@@ -179,7 +179,7 @@ namespace weak{
       }
 
       // the abi is produced
-      return weak::readAllText(r);
+      return pure::readAllText(r);
     }
 
     /**
@@ -423,7 +423,7 @@ namespace weak{
         // 2. write the args to args.json
         path args_path = wd / "args.json";
         // (ofstream(args_path.c_str(), out | trunc) << json::serialize(args)).flush();
-        writeToFile(args_path, json::serialize(args));
+        pure::writeToFile(args_path, json::serialize(args));
 
         // 3. make the python script
         string py_code_content = makePyTxCode(py_code,PY_INVOKE_TEMPLATE, method);
@@ -439,7 +439,7 @@ namespace weak{
         // 4. 🦜 : read the result and return it
         path result_path = wd / "result.json";
         // ifstream(result_path.c_str()) >> result_json;
-        string result_json = readAllText(result_path);
+        string result_json = pure::readAllText(result_path);
         json::error_code ec;
         json::value result_v = json::parse(result_json, ec);
         json::object result = result_v.as_object();
