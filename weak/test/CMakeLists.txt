@@ -25,7 +25,7 @@ endmacro()
 # set_test(test-executeSr deps)
 # set_test(test-mempool core-deps)
 # set_test(test-sealer core-deps)
-# set_test(test-storageManager deps) #<2024-03-31 Sun> window testing debug till here
+set_test(test-storageManager deps) #<2024-03-31 Sun> window testing debug till here 🦜 : It seems like there's something wrong with filesystem::remove_all on windows...
 # set_test(test-storageManager2 deps)
 # set_test(test-forPostExec core-deps)
 
@@ -34,7 +34,7 @@ endmacro()
 # set_test(test-forCnsss core-deps)
 # set_test(test-pure-forCnsss core-deps)
 # set_test(test-cnsssBlkChainAsstn core-deps)
-# set_test(test-httpNetAsstn core-deps)
+# set_test(test-httpNetAsstn core-deps) #<2024-04-03 Wed> win debug till here, 🦜 : It seems like on windows it has some permission issue?
 
 # set_test(test-httpNetAsstn2 core-deps)
 # set_test(test-exeForCnsss core-deps)
@@ -54,7 +54,7 @@ endmacro()
 # set_test(test-udpNetAssnt core-deps)
 
 
-set_test(test-toolbox core-deps)
+# set_test(test-toolbox core-deps)
 
 # Add the above tests
 foreach(t d IN ZIP_LISTS l l-deps)
@@ -93,9 +93,9 @@ foreach(t d IN ZIP_LISTS l l-deps)
     ## --------------------------------------------------
     # <all|success|test_suite|unit_scope|message|warning|error|cpp_exception|system_error|fatal_error|nothing>
 
-    # set(level all)
+    set(level all)
     # set(level test_suite)
-    set(level message)
+    # set(level message)
     add_custom_target(run-${t} ALL ${exe} --log_level=${level} COMMENT "Testing Tests 🐸")
     # add_custom_target(run-${t} ALL ${exe} COMMENT "Testing Tests 🐸") #🦜 : quiter
   endif()

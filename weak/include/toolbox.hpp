@@ -80,7 +80,7 @@ starting with `out-` are generated files, otherwise the file must exist.
       pure::UniquePtr<EVP_PKEY> sk = std::move(o.value());
 
       // 2. read the message and sign it
-      string msg = read_file(msg_p);
+      string msg = read_file(msg_p.string());
       string sig = SslMsgMgr::do_sign(sk.get(), msg);
 
       // 3. write the signature to the file
@@ -94,16 +94,17 @@ starting with `out-` are generated files, otherwise the file must exist.
       pure::UniquePtr<EVP_PKEY> pk = std::move(o.value());
 
       // 2. read the message and signature
-      string msg = read_file(msg_p);
-      string sig = read_file(sig_p);
+      string msg = read_file(msg_p.string());
+      string sig = read_file(sig_p.string());
 
       // 3. verify the signature
       bool is_valid = SslMsgMgr::do_verify(pk.get(), msg, sig);
       if (is_valid){
         cout << "The signature is valid" << endl;
-      } else {
+      }else{
         cout << "The signature is invalid" << endl;
       }
+
       return is_valid;
     }
 
@@ -120,7 +121,7 @@ starting with `out-` are generated files, otherwise the file must exist.
       pure::UniquePtr<EVP_PKEY> sk = std::move(osk.value());
 
       // 2. read the transaction
-      string tx_json_s = read_file(tx_p);
+      string tx_json_s = read_file(tx_p.string());
       /*
         2.1 🦜 : parse the json object, it should contain the fields
         .data

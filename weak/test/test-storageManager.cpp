@@ -77,11 +77,11 @@ BOOST_AUTO_TEST_CASE(acn_toJson_withStorage){
     BOOST_CHECK_EQUAL(ks.back(),s_key);
     BOOST_CHECK_EQUAL(vs.back(),s_val);
     ks.pop_back(); vs.pop_back();
-}
+  }
 
 }
 
-BOOST_AUTO_TEST_CASE(acn_toJson_withMultiStorage ){
+BOOST_AUTO_TEST_CASE(acn_toJson_withMultiStorage){
   Acn a{123,evmc::from_hex("0011").value()};
 
   // Save two kv
@@ -125,9 +125,9 @@ BOOST_AUTO_TEST_CASE(acn_fromJson_noStorage){
   BOOST_CHECK_EQUAL(a.nonce,123);
   BOOST_CHECK_EQUAL(evmc::hex(a.code),"0011");
   BOOST_CHECK(a.storage.empty());
-  }
+}
 
-BOOST_AUTO_TEST_CASE(acn_fromJson_withStorage ){
+BOOST_AUTO_TEST_CASE(acn_fromJson_withStorage){
   Acn a;
   json::object  v;
 
@@ -182,10 +182,18 @@ BOOST_AUTO_TEST_CASE(IAcnGettable){
   // In unique_ptr, we have to specify the full class name
   // So the weak:: prefix is necessary.
   // unique_ptr<IAcnGettable> p(new A());
-  unique_ptr<weak::IAcnGettable> p(new mockedAcnPrv::A());
-  unique_ptr<weak::IAcnGettable> p2(new mockedAcnPrv::B());
-  unique_ptr<weak::IAcnGettable> p3(new mockedAcnPrv::C());
 
+
+  // unique_ptr<weak::IAcnGettable> p(new mockedAcnPrv::A());
+  // unique_ptr<weak::IAcnGettable> p2(new mockedAcnPrv::B());
+  // unique_ptr<weak::IAcnGettable> p3(new mockedAcnPrv::C());
+
+  mockedAcnPrv::A ah;
+  weak::IAcnGettable * p = dynamic_cast<weak::IAcnGettable*>(&ah);
+  mockedAcnPrv::B bh;
+  weak::IAcnGettable * p2 = dynamic_cast<weak::IAcnGettable*>(&bh);
+  mockedAcnPrv::C ch;
+  weak::IAcnGettable * p3 = dynamic_cast<weak::IAcnGettable*>(&ch);
 
 
   BOOST_CHECK(!p->getAcn({}));
@@ -196,7 +204,7 @@ BOOST_AUTO_TEST_CASE(IAcnGettable){
   BOOST_CHECK(p3->getAcn(makeAddress(1)));
   Acn a3 = p3->getAcn(makeAddress(1)).value();
   BOOST_CHECK_EQUAL(a3.nonce,123);
-  }
+}
 
 // }}}
 
@@ -237,7 +245,6 @@ namespace mockedWorldState {
       return true;
     };
   };
-
 }
 
 BOOST_AUTO_TEST_CASE(testMockedWorldState_apply_jounal){
@@ -266,15 +273,33 @@ BOOST_AUTO_TEST_CASE(testMockedWorldState_get_set){
   BOOST_CHECK_EQUAL(v,"v1");
 }
 
-BOOST_AUTO_TEST_CASE(WorldStorage_ctor){
+#if defined(_WIN32)
+void win_remove_all(path p){
+  // 🦜 : It seems like msvc didn't yet implement recursive removal of folders,
+  // so we resort to powershell...
+  string cmd = "powershell -NoProfile -NonInteractive -NoLogo -Command \"& {"
+    "Remove-Item -Recurse -Force " + p.string()
+    + "}\"";
+  BOOST_TEST_MESSAGE("🚮️ : Executing cmd: " + cmd);
+  std::system(cmd.c_str());
+}
+#endif
+
+BOOST_AUTO_TEST_CASE(WorldStorage_ctor, MY_TEST_THIS){
   WorldStorage s;               // init at current dir
   filesystem::path p = filesystem::current_path();
   BOOST_REQUIRE(filesystem::exists(p / "chainDB"));
   BOOST_REQUIRE(filesystem::exists(p / "stateDB"));
 
-  // remove the data
+  // remove the data (unless on windows)
+#if defined(_WIN32)
+  // 🦜 : It seems like msvc didn't yet implement recursive removal of folders
+  win_remove_all(p / "chainDB");
+  win_remove_all(p / "stateDB");
+#else
   BOOST_CHECK(filesystem::remove_all(p / "chainDB"));
   BOOST_CHECK(filesystem::remove_all(p / "stateDB"));
+#endif
 }
 
 
@@ -285,16 +310,24 @@ BOOST_AUTO_TEST_CASE(WorldStorage_ctor_at_other_dir){
   BOOST_REQUIRE(filesystem::exists(p / "stateDB"));
 
   // remove the data
+
+#if defined(_WIN32)
+  win_remove_all(p / "chainDB");
+  win_remove_all(p / "stateDB");
+#else
   BOOST_CHECK(filesystem::remove_all(p / "chainDB"));
   BOOST_CHECK(filesystem::remove_all(p / "stateDB"));
+#endif
+
 }
 
 struct TmpWorldStorage{
   filesystem::path p{filesystem::temp_directory_path()};
 
-  unique_ptr<WorldStorage> w{new WorldStorage(p)};
+  WorldStorage * w;
   TmpWorldStorage(){
     BOOST_TEST_MESSAGE("Setting up fixture WorldStorage");
+    w = new WorldStorage{p};
 
     // the data should be there now.
     BOOST_REQUIRE(filesystem::exists(p / "chainDB"));
@@ -306,11 +339,16 @@ struct TmpWorldStorage{
     /* 🦜: This is necessary, because you have to `delete db` before removing
        the associated folder. Otherwise you'll get a Segementation fault error.
     */
-    delete w.release();  // released the managed obj
+    delete w;  // released the managed obj
 
     // remove the data
+#if defined(_WIN32)
+    win_remove_all(p / "chainDB");
+    win_remove_all(p / "stateDB");
+#else
     BOOST_CHECK(filesystem::remove_all(p / "chainDB"));
     BOOST_CHECK(filesystem::remove_all(p / "stateDB"));
+#endif
     BOOST_REQUIRE(not filesystem::exists(p / "chainDB"));
     BOOST_REQUIRE(not filesystem::exists(p / "stateDB"));
   }
@@ -322,6 +360,7 @@ BOOST_FIXTURE_TEST_CASE(get_set_chainDB, TmpWorldStorage){
   BOOST_CHECK(w->setInChainDB("k2","v2"));
   BOOST_CHECK_EQUAL(w->getFromChainDB("k1").value(),"v1");
   BOOST_CHECK(not w->getFromChainDB("k3"));
+
 }
 
 BOOST_FIXTURE_TEST_CASE(test_applyJournal, TmpWorldStorage){
@@ -441,7 +480,7 @@ void veq(vector<T> v, vector<T> v2){
 BOOST_FIXTURE_TEST_CASE(test_prefix, TmpWorldStorage){
   /*
     🦜 : Here we test wether out implementation about IChainDBPrefixKeyGettable works.
-   */
+  */
   // save some keys
   BOOST_REQUIRE(w->setInChainDB("kkkk1","abc"));
   BOOST_REQUIRE(w->setInChainDB("kkkk2","abc"));
@@ -458,8 +497,6 @@ BOOST_FIXTURE_TEST_CASE(test_prefix, TmpWorldStorage){
   ks = w->getKeysStartWith("bad");
   BOOST_REQUIRE(ks.empty());
   // get keys
-
-
-  }
+}
 
 BOOST_AUTO_TEST_SUITE_END(); // WorldStorage
