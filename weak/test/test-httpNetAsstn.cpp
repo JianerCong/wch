@@ -272,7 +272,7 @@ BOOST_AUTO_TEST_CASE(test_extract_public_key){
   SslMsgMgr::print_key(pk1.get(), false /* is_secret*/);
 }
 
-BOOST_AUTO_TEST_CASE(test_load_keys_from_file, MY_TEST_THIS){
+BOOST_AUTO_TEST_CASE(test_load_keys_from_file){
   string s = "-----BEGIN PRIVATE KEY-----\n"
     "MC4CAQAwBQYDK2VwBCIEIDdCupRSMP7AqAT50TZwDzlYIfrgDpLL+km+0usqrWpB\n"
     "-----END PRIVATE KEY-----\n";
@@ -309,7 +309,7 @@ BOOST_AUTO_TEST_CASE(test_load_keys_from_file, MY_TEST_THIS){
   BOOST_CHECK_EQUAL(EVP_PKEY_get0_type_name(r1.value().get()),"ED25519");
 } // <2024-04-04 Thu> 🦜 : failed on windows... also feels useless
 
-BOOST_AUTO_TEST_CASE(test_sign, MY_TEST_THIS){
+BOOST_AUTO_TEST_CASE(test_sign){
   string s = "-----BEGIN PRIVATE KEY-----\n"
     "MC4CAQAwBQYDK2VwBCIEIDdCupRSMP7AqAT50TZwDzlYIfrgDpLL+km+0usqrWpB\n"
     "-----END PRIVATE KEY-----\n";
@@ -382,7 +382,7 @@ tuple<UniquePtr<EVP_PKEY>,
   return make_tuple(std::move(ca_sk), ca_pk_pem,std::move(node_sks), node_certs);
 }
 
-BOOST_AUTO_TEST_CASE(test_ctor_ok){
+BOOST_AUTO_TEST_CASE(test_ctor_ok, MY_TEST_THIS){
   auto [ca_sk, ca_pk_pem, node_sks, node_certs] = prepare_keys();
   // Now we can initialize the SslMsgMgr
   /*
