@@ -161,11 +161,18 @@ namespace pure {
             if (not r)
               return {};        // failed to make conn
 
-            conn = r.value();
+            conn = std::move(r.value());
+#if defined(_WIN32)
+            // 🦜 : It seems like the above line has something wrong on
+            // windows... I t causes writing to bad address x24
+#else
             {
               std::unique_lock g(this->lock_for_conns);
               this->conns.insert_or_assign(k,conn);
+              // copy
+              // this->conns[k] = shared_ptr<tcp_stream>(conn);
             } // unlocks here
+#endif
           }
 
           /* 🦜 : Now we should have an ok conn */
@@ -176,6 +183,7 @@ namespace pure {
           try{
             auto r = GreenHttpClient::request_with_conn(conn,move(req));
             return r;
+            // return {};
           }catch (const std::exception & e ){
 
             if (not retry){

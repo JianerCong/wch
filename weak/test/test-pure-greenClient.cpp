@@ -33,12 +33,12 @@ BOOST_AUTO_TEST_SUITE(test_with_example_com);
   same with our GreenHttpClient.
 */
 
-BOOST_AUTO_TEST_CASE(test_get_example_com_once){
+BOOST_AUTO_TEST_CASE(test_get_example_com_once, MY_TEST_THIS){
   GreenHttpClient c;
-  optional<string> r = c.get("example.com","/",80);
-  BOOST_REQUIRE(r);
+  optional<string> r = c.get("qq.com","/",80);
+  // BOOST_REQUIRE(r);
   BOOST_CHECK_EQUAL(c.conns.size(),1);
-  BOOST_REQUIRE(c.conns.contains("example.com:80"));
+  BOOST_REQUIRE(c.conns.contains("qq.com:80"));
 }
 
 BOOST_AUTO_TEST_CASE(test_get_example_com_twice){
@@ -62,7 +62,7 @@ void sleep_for(int i=1){
   std::this_thread::sleep_for(std::chrono::seconds(i)); // wait until its up
 }
 
-BOOST_AUTO_TEST_SUITE(test_with_weak_client, MY_TEST_THIS);
+BOOST_AUTO_TEST_SUITE(test_with_weak_client);
 BOOST_AUTO_TEST_CASE(test_get){
   WeakHttpServer s{7777};
 

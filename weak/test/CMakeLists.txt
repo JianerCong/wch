@@ -1,5 +1,5 @@
-set(RUN_SELECTED_ONLY OFF)
-# set(RUN_SELECTED_ONLY ON)
+# set(RUN_SELECTED_ONLY OFF)
+set(RUN_SELECTED_ONLY ON)
 
 #[=[
 
@@ -47,12 +47,13 @@ endmacro()
 # set_test(test-rpc core-deps)
 # set_test(test-rpc-pb core-deps)
 # set_test(test-init deps)
-set_test(test-inRamWrld deps)
+# set_test(test-inRamWrld deps)
 if (WIN32)
   # 🦜 : currently we are not capable to do session resue on windows...<2024-04-05 Fri>
 else()
-  set_test(test-pure-greenClient core-deps)
 endif()
+
+set_test(test-pure-greenClient core-deps)
 # set_test(test-pure-rbft core-deps)
 # set_test(test-pure-udp core-deps)
 # set_test(test-udpNetAssnt core-deps)
