@@ -129,7 +129,7 @@ namespace pure {
         return {};
       }
       return r.body();
-}
+    }
 
     /**
      * @brief Make a request
@@ -139,6 +139,7 @@ namespace pure {
         template<bool is_post>
         optional<http::response<http::string_body>> request(string_view host, string_view target,
                                                             uint16_t port, string_view body="", bool retry=false){
+          BOOST_LOG_TRIVIAL(debug) <<  "🦜 : request called";
           string k = GreenHttpClient::combine_addr_port(host,port);
           shared_ptr<tcp_stream> conn;
           bool found{false};
@@ -155,6 +156,7 @@ namespace pure {
           } // unlocks here
 
           if (not found){
+            BOOST_LOG_TRIVIAL(debug) << format("🌱 Making new connection with" S_CYAN " %s " S_NOR) % k;
             optional<shared_ptr<beast::tcp_stream>> r = make_conns(host,port);
             if (not r)
               return {};        // failed to make conn
@@ -167,7 +169,9 @@ namespace pure {
           }
 
           /* 🦜 : Now we should have an ok conn */
+          BOOST_LOG_TRIVIAL(debug) << "\tPreparing request";
           auto req = this->prepare_request<is_post>(host, target, body);
+          BOOST_LOG_TRIVIAL(debug) << "\tRequest prepared";
 
           try{
             auto r = GreenHttpClient::request_with_conn(conn,move(req));
@@ -213,8 +217,8 @@ namespace pure {
      */
     template<bool is_post>
     http::request<http::string_body> prepare_request(string_view host, string_view target, string_view body = "") noexcept{
-      BOOST_LOG_TRIVIAL(debug) << format("🌱 Preparing request with host=%s, target=%s,body=%s")
-        % host % target % body;
+      BOOST_LOG_TRIVIAL(debug) << format("🌱 Preparing request with host=%s, target=%s, body size=%d")
+        % host % target % body.length();
       // Set up an HTTP POST request message
       http::request<http::string_body> req;
       if (is_post){
@@ -320,9 +324,9 @@ namespace pure {
           BOOST_LOG_TRIVIAL(info) << format("👋 Client Connection " S_CYAN "%s" S_NOR" closed" S_GREEN " gracefully." S_NOR) % k;
         }
       }// unlock here
-      BOOST_LOG_TRIVIAL(debug) <<  "Stopping ioc";
+      // BOOST_LOG_TRIVIAL(debug) <<  "\tStopping ioc in GreenHttpClient";
       this->ioc.stop();
-      BOOST_LOG_TRIVIAL(debug) <<  "Stopped ioc";
+      // BOOST_LOG_TRIVIAL(debug) <<  "\tStopped ioc in GreenHttpClient";
     }
 
 
@@ -346,6 +350,7 @@ namespace pure {
      * @return the body if everything went well.
      */
     optional<string> post(string_view h, string_view t, uint16_t p, string_view b) noexcept {
+      // return {};
       return this->get_post_impl<true>(h,t,p,b);
     }
 

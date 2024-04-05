@@ -34,10 +34,10 @@ endmacro()
 # set_test(test-forCnsss core-deps)
 # set_test(test-pure-forCnsss core-deps)
 # set_test(test-cnsssBlkChainAsstn core-deps)
-set_test(test-httpNetAsstn core-deps) #<2024-04-03 Wed> win debug till here, 🦜 : It seems like on windows it has some permission issue?
+# set_test(test-httpNetAsstn core-deps) #<2024-04-03 Wed> win debug till here, 🦜 : It seems like on windows it has some permission issue?
 
 # set_test(test-httpNetAsstn2 core-deps)
-# set_test(test-exeForCnsss core-deps)
+set_test(test-exeForCnsss core-deps)
 # set_test(test-exeForCnsss2 core-deps)
 
 ## [deprecated:🦜 we have moved to WeakAsyncHttpServer, so enable test-pure-anet

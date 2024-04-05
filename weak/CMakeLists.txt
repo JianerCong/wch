@@ -18,6 +18,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # 🦜 : Enable the following
 option(WITH_TEST "build test" ON)
+option(TEST_ONLY "build test only" ON)
 option(WITH_PROTOBUF "build protobuf" ON)
 option(WITH_PYTHON "build with python" ON)
 option(USE_DYNAMIC_LIBS "use dynamic linking (experimental)" OFF)
@@ -47,6 +48,7 @@ target_include_directories(core-deps PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 
 if (WITH_PROTOBUF)
   target_link_libraries(core-deps PUBLIC hi_pb)
+  target_link_libraries(core-deps INTERFACE protobuf::libprotobuf)
 endif()
 
 add_library(deps INTERFACE)     #the ALL dependency target = core + rdb (currently)
@@ -68,15 +70,10 @@ if(WITH_TEST)
   add_subdirectory(test)
 endif()
 
-add_executable(wch main.cpp)
-
-if (WITH_PROTOBUF)
-  # 🦜 : Add that definitions
-  target_compile_definitions(wch PUBLIC WITH_PROTOBUF)
-  target_link_libraries(wch PUBLIC hi_pb)
-  target_link_libraries(deps INTERFACE protobuf::libprotobuf)
+if (TEST_ONLY)
+  return()
 endif()
-
+add_executable(wch main.cpp)
 target_include_directories(wch PUBLIC ${PROJECT_SOURCE_DIR}/include)
 target_link_libraries(wch PUBLIC deps)
 

@@ -52,33 +52,35 @@ BOOST_AUTO_TEST_CASE(test_basic_listen){
 
 
 
-BOOST_AUTO_TEST_CASE(test_listen_and_send_to_self, MY_TEST_THIS){
+BOOST_AUTO_TEST_CASE(test_listen_and_send_to_self){
   // --------------------------------------------------
   // Start a server
   NaiveMsgMgr mh("N0");
   IMsgManageable * m = dynamic_cast<IMsgManageable*>(&mh);
-  WeakAsyncTcpHttpServer s{7778};             // listen 7777
-  sleep_for(1);                 // wait until server's up
   {
-    IPBasedHttpNetAsstn a{dynamic_cast<IHttpServable*>(&s),m};
+    WeakAsyncTcpHttpServer s{7778};             // listen 7777
+    sleep_for(1);                 // wait until server's up
+    {
+      IPBasedHttpNetAsstn a{dynamic_cast<IHttpServable*>(&s),m};
 
-    IEndpointBasedNetworkable * n = dynamic_cast<IEndpointBasedNetworkable*>(&a);
-    auto f = [](string endpoint,string data) -> optional<string>{
-      return (format("aaa recieved: %s") % data).str();
-    };
-    n->listen("/aaa",f);
+      IEndpointBasedNetworkable * n = dynamic_cast<IEndpointBasedNetworkable*>(&a);
+      auto f = [](string endpoint,string data) -> optional<string>{
+        return (format("aaa recieved: %s") % data).str();
+      };
+      n->listen("/aaa",f);
 
-    // --------------------------------------------------
-    // Send a request
-    string endpoint = SignedData::serialize_3_strs("to-be-ignored","localhost:7778","");
-    auto r = n->send(endpoint,"/aaa","123"); // should call http://localhost:7777/p2p/aaa -d 123
+      // --------------------------------------------------
+      // Send a request
+      string endpoint = SignedData::serialize_3_strs("to-be-ignored","localhost:7778","");
+      auto r = n->send(endpoint,"/aaa","123"); // should call http://localhost:7777/p2p/aaa -d 123
 
-    BOOST_CHECK(r);
-    // BOOST_TEST_MESSAGE((format("Got response: %s") % r.value()).str());
-    BOOST_CHECK_EQUAL(r.value(),(format("aaa recieved: %s") % "123").str());
-  }               // client closed
-  sleep_for(1);                 // wait until server's up
-}                               //server closed here
+      BOOST_CHECK(r);
+      BOOST_TEST_MESSAGE((format("Got response: %s") % r.value()).str());
+      BOOST_CHECK_EQUAL(r.value(),(format("aaa recieved: %s") % "123").str());
+    }               // client closed
+    sleep_for(1);                 // wait until server's closed
+  }//server closed here
+}
 
 BOOST_AUTO_TEST_CASE(test_listen2_and_send_to_other){
   // --------------------------------------------------
