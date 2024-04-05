@@ -572,7 +572,7 @@ BOOST_AUTO_TEST_CASE(test_handle_get_latest_Blk){
 
   auto [ok,s] = rpc.handle_get_latest_Blk({});
 
-  auto test_get_latest_blk = [&rpc,&b](int expected_i=1,
+  auto test_get_latest_blk = [&rpc,&b](int expected_i,
                                      optional<unordered_map<string,string>> m){
     bool ok;
     string s;

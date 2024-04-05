@@ -3,7 +3,7 @@
 #include "init/init.hpp"
 
 using namespace weak;
-BOOST_AUTO_TEST_SUITE(test_init_helpers,MY_TEST_THIS);
+BOOST_AUTO_TEST_SUITE(test_init_helpers);
 
 void test_ok_hash(const string &hex){
   hash256 h = get_hash_from_key("/tx/" + hex);
@@ -238,7 +238,7 @@ BOOST_AUTO_TEST_CASE(test_prepare_endpoint_list_bad_nonunique){
 }
 
 vector<filesystem::path> prepare_pk_and_sig_files(){
-  filesystem::path tmp = std::filesystem::temp_directory_path();
+  filesystem::path tmp = std::filesystem::current_path();
   vector<string> needed_files{"N0-pk.pem","N0-cert.sig","N1-pk.pem","N1-cert.sig","N2-pk.pem","N2-cert.sig"};
   vector<filesystem::path> paths;
   for (auto f : needed_files){
@@ -265,6 +265,13 @@ BOOST_AUTO_TEST_CASE(test_parse_peer_json_ok){
     "\"localhost:7779\" : {\"pk_pem_file\" : \"" + paths[4].string() + "\", \"cert_file\" : \"" + paths[5].string() + "\"}\n"
     "}";
 
+  BOOST_TEST_MESSAGE( "🦜 : The json string is: " + s);
+
+#if defined(_WIN32)
+  // 🦜 : On windows, we need to escape the backslash
+  boost::replace_all(s, "\\", "\\\\");
+#endif
+
   // 3. parse it
   unordered_map<string,PeerCryptoInfo> m = PeerCryptoInfo::parse_peer_json(s);
   BOOST_CHECK_EQUAL(m.size(),3);
@@ -272,7 +279,7 @@ BOOST_AUTO_TEST_CASE(test_parse_peer_json_ok){
   BOOST_CHECK_EQUAL(m["localhost:7778"].pk_pem,"abc");
 }
 
-BOOST_AUTO_TEST_CASE(test_parse_peer_json_required_keys_ok){
+BOOST_AUTO_TEST_CASE(test_parse_peer_json_required_keys_ok,MY_TEST_THIS){
   vector<filesystem::path> paths = prepare_pk_and_sig_files();
   // 2. prepare the json string
   string s = "{\n"
@@ -280,6 +287,10 @@ BOOST_AUTO_TEST_CASE(test_parse_peer_json_required_keys_ok){
     "\"localhost:7778\" : {\"pk_pem_file\" : \"" + paths[2].string() + "\", \"cert_file\" : \"" + paths[3].string() + "\"},\n"
     "\"localhost:7779\" : {\"pk_pem_file\" : \"" + paths[4].string() + "\", \"cert_file\" : \"" + paths[5].string() + "\"}\n"
     "}";
+#if defined(_WIN32)
+  // 🦜 : On windows, we need to escape the backslash
+  boost::replace_all(s, "\\", "\\\\");
+#endif
 
   // 3. parse it
   unordered_map<string,PeerCryptoInfo> m = PeerCryptoInfo::parse_peer_json(s,
@@ -299,6 +310,10 @@ BOOST_AUTO_TEST_CASE(test_parse_peer_json_required_keys_bad){
   string s = "{\n"
     "\"localhost:7777\" : {\"pk_pem_file\" : \"" + paths[0].string() + "\", \"cert_file\" : \"" + paths[1].string() + "\"}\n"
     "}";
+#if defined(_WIN32)
+  // 🦜 : On windows, we need to escape the backslash
+  boost::replace_all(s, "\\", "\\\\");
+#endif
   auto f = [&](){
     unordered_map<string,PeerCryptoInfo> m = PeerCryptoInfo::parse_peer_json(s,
                                                                              {
@@ -333,9 +348,13 @@ BOOST_AUTO_TEST_CASE(test_parse_peer_json_from_file){
     "\"localhost:7778\" : {\"pk_pem_file\" : \"" + paths[2].string() + "\", \"cert_file\" : \"" + paths[3].string() + "\"},\n"
     "\"localhost:7779\" : {\"pk_pem_file\" : \"" + paths[4].string() + "\", \"cert_file\" : \"" + paths[5].string() + "\"}\n"
     "}";
+#if defined(_WIN32)
+  // 🦜 : On windows, we need to escape the backslash
+  boost::replace_all(s, "\\", "\\\\");
+#endif
 
   // 2. write json to file
-  filesystem::path tmp = std::filesystem::temp_directory_path();
+  filesystem::path tmp = std::filesystem::current_path();
   filesystem::path p = tmp / "peer.json";
   (std::ofstream(p.c_str()) << s).flush();
   // 3. parse it
