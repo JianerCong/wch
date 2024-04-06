@@ -60,8 +60,9 @@ Remove-Item -Recurse build-weak
 cmake -S weak -B build-weak
 cmake --build build-weak --config Release --verbose
 cmake --build build-weak --config Release
-
-
+.\build-weak\Release\wch.exe toolbox -h
+.\build-weak\Release\wch.exe toolbox new-keypair
 # --------------------------------------------------
 cmake -S hi -B build
 cmake --build build --config Release
+

@@ -18,7 +18,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # 🦜 : Enable the following
 option(WITH_TEST "build test" ON)
-option(TEST_ONLY "build test only" ON)
+option(TEST_ONLY "build test only" OFF)
 option(WITH_PROTOBUF "build protobuf" ON)
 option(WITH_PYTHON "build with python" ON)
 option(USE_DYNAMIC_LIBS "use dynamic linking (experimental)" OFF)

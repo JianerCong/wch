@@ -68,7 +68,10 @@ starting with `out-` are generated files, otherwise the file must exist.
   public:
     static void new_key_pair(path out_pk, path out_sk){
       // 1. generate a new keypair
+      cout << "Writing pk to " << out_pk << endl;
+      cout << "Writing sk to " << out_sk << endl;
       pure::UniquePtr<EVP_PKEY> sk = SslMsgMgr::new_key_pair();
+
       pure::writeToFile(out_sk, SslMsgMgr::dump_key_to_pem(sk.get(), true /* is_secret*/));
       pure::writeToFile(out_pk, SslMsgMgr::dump_key_to_pem(sk.get(), false /* is_secret*/));
     }
@@ -172,8 +175,14 @@ starting with `out-` are generated files, otherwise the file must exist.
         ARGV_SHIFT();
         ARGV_SHIFT();
 
+        std::cout << "toolbox received now " << argc << " arguments, which are:";
+        for (int i = 0; i < argc; i++){
+          std::cout << "argv[" << i << "] = " << argv[i] << std::endl;
+        }
+
         if (!strcmp("--help", argv[0]) or !strcmp("-h", argv[0])){
           cout << Toolbox::help << endl;
+          std::exit(0);
         }
 
         // switch on the method:
