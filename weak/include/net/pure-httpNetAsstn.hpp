@@ -3,11 +3,7 @@
 #include "pure-common.hpp"
 #include "cnsss/pure-forCnsss.hpp"
 
-#if defined(_WIN32)
-#include "pure-weakHttpClient.hpp"
-#else
 #include "pure-greenHttpClient.hpp"
-#endif
 /*
   🐢 : Previously, we used WeakHttpClient for p2p which will send the request
   and close the connection. Here we have migrated to greenHttpClient, which will
@@ -25,11 +21,7 @@ namespace pure{
   public:
     using postHandler_t = IHttpServable::postHandler_t;
     IHttpServable * const serv;
-
-#if ! defined(_WIN32)
     GreenHttpClient cln;
-#else
-#endif
 
     const string PREFIX{"/p2p"};
 
@@ -118,11 +110,7 @@ namespace pure{
 
         string msg = this->mgr->prepare_msg(move(data));
 
-        #if defined(_WIN32)     // 🦜 : we use the old connection-less http client on win for now...
-        return weakHttpClient::post(addr,this->PREFIX + target,port,msg);
-        #else
         return this->cln.post(addr,this->PREFIX + target,port,msg);
-        #endif
       }catch (const std::runtime_error & e){
         // BOOST_LOG_TRIVIAL(debug) << e.what();
         BOOST_LOG_TRIVIAL(error) << S_RED "❌️ Exception happened when sending HTTP request: " << e.what() << S_NOR;

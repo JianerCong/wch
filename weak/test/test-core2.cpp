@@ -166,7 +166,7 @@ BOOST_AUTO_TEST_CASE(test_read_file_feature){
   filesystem::path p = filesystem::temp_directory_path() / "hi.txt";
 
   // 2. write some content
-  weak::writeToFile(p,"aaaa");
+  pure::writeToFile(p,"aaaa");
 
   // 3. try the feature defined in Tx::parse_txs_json_rpc
   json::array a;
@@ -191,7 +191,7 @@ BOOST_AUTO_TEST_CASE(test_read_file2_data){
   filesystem::path p = filesystem::temp_directory_path() / "hi.txt";
 
   // 2. write some content
-  weak::writeToFile(p,"aaa");
+  pure::writeToFile(p,"aaa");
 
   // 3. try the feature defined in Tx::parse_txs_json_rpc
   json::array a;

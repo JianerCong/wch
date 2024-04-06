@@ -117,7 +117,10 @@ namespace pure {
       }
 
       auto r = ro.value();
-      if (r.result_int() != 200){
+      if (
+          // r.result_int() != 200
+          r.result_int() > 400 // 🦜 : redirect often has code 302.. so let's forgive that...
+          ){
         BOOST_LOG_TRIVIAL(error) << format("❌️ Response got code %d (!=200)，Headers:\n")
           % r.result_int();
         for (auto it = r.cbegin(); it != r.cend(); it++ ){
@@ -141,14 +144,11 @@ namespace pure {
                                                             uint16_t port, string_view body="", bool retry=false){
           BOOST_LOG_TRIVIAL(debug) <<  "🦜 : request called";
           string k = GreenHttpClient::combine_addr_port(host,port);
-          shared_ptr<tcp_stream> conn;
+          tcp_stream * conn;
           bool found{false};
           {
            std::unique_lock g(this->lock_for_conns);
-           if (this->conns.contains(k)
-               and
-               this->conns.at(k)->socket().is_open()
-               ){
+           if (this->conns.contains(k) and this->conns.at(k)->socket().is_open()){
              conn = this->conns.at(k);
              found = true;
              BOOST_LOG_TRIVIAL(debug) << format("📗️ Resuing existing connection with" S_CYAN " %s " S_NOR) % k;
@@ -157,22 +157,20 @@ namespace pure {
 
           if (not found){
             BOOST_LOG_TRIVIAL(debug) << format("🌱 Making new connection with" S_CYAN " %s " S_NOR) % k;
-            optional<shared_ptr<beast::tcp_stream>> r = make_conns(host,port);
+            beast::tcp_stream* r = make_conns(host,port);
             if (not r)
               return {};        // failed to make conn
 
-            conn = std::move(r.value());
-#if defined(_WIN32)
+            conn = r;
             // 🦜 : It seems like the above line has something wrong on
-            // windows... I t causes writing to bad address x24
-#else
+            // windows... I t causes writing to bad address x24. <2024-04-06 Sat> It seems like the problem is due to the use of 
             {
               std::unique_lock g(this->lock_for_conns);
               this->conns.insert_or_assign(k,conn);
               // copy
               // this->conns[k] = shared_ptr<tcp_stream>(conn);
             } // unlocks here
-#endif
+
           }
 
           /* 🦜 : Now we should have an ok conn */
@@ -261,7 +259,7 @@ namespace pure {
      *
      * 🦜 : Most of the code below is copied from weakHttpClient.hpp
      */
-    static http::response<http::string_body> request_with_conn(shared_ptr<tcp_stream> conn,
+    static http::response<http::string_body> request_with_conn(tcp_stream * conn,
                                                                http::request<http::string_body> && req){
       BOOST_LOG_TRIVIAL(debug) << format("Requesting with conn");
 
@@ -286,12 +284,12 @@ namespace pure {
      *
      * 🦜 : This is used by request()
      */
-    optional<shared_ptr<beast::tcp_stream>> make_conns(string_view host, uint16_t port){
-      shared_ptr<tcp_stream> conn;
+    beast::tcp_stream* make_conns(string_view host, uint16_t port){
+      tcp_stream * conn;
       BOOST_LOG_TRIVIAL(debug) << format("⚙️ Making connection with " S_CYAN "%s:%d" S_NOR) % host % port;
       try{
         tcp::resolver resolver(this->ioc);
-        conn = make_shared<tcp_stream>(this->ioc);
+        conn = new tcp_stream(this->ioc);
         // Look up the domain name
         auto const results = resolver.resolve(host, lexical_cast<string>(port));
         // Make the connection on the IP address we get from a lookup
@@ -299,18 +297,19 @@ namespace pure {
       }catch( const std::exception & e){
         BOOST_LOG_TRIVIAL(error) << format("❌️ Error making conn with %s:%d: " S_RED "\n%s" S_NOR)
           % host % port % e.what();
-        return {};
+        return nullptr;
       }
       return conn;
     }
   public:
-    unordered_map<string,shared_ptr<beast::tcp_stream>> conns;
+    unordered_map<string,beast::tcp_stream*> conns;
     mutable std::mutex lock_for_conns; // the mutex is mutable (m-m rule)
     boost::asio::io_service ioc;
+    std::thread th;
 
     GreenHttpClient(){
       BOOST_LOG_TRIVIAL(debug) << format("GreenHttpClient started.");
-      std::thread{[&](){ioc.run();}}.detach(); // grab a thread.
+      this->th = std::thread{[&](){ioc.run();}}; // grab a thread.
     }
 
     ~GreenHttpClient(){
@@ -318,6 +317,7 @@ namespace pure {
       {
         std::unique_lock g(this->lock_for_conns);
         BOOST_LOG_TRIVIAL(debug) << format("Start closing conns");
+
         for (auto & [k,conn] : this->conns){
           BOOST_LOG_TRIVIAL(debug) << format("Closing conn: " S_CYAN "%s" S_NOR) % k;
           // Gracefully close the socket
@@ -330,11 +330,15 @@ namespace pure {
           }
 
           BOOST_LOG_TRIVIAL(info) << format("👋 Client Connection " S_CYAN "%s" S_NOR" closed" S_GREEN " gracefully." S_NOR) % k;
+          delete conn;
+
         }
       }// unlock here
+
       // BOOST_LOG_TRIVIAL(debug) <<  "\tStopping ioc in GreenHttpClient";
       this->ioc.stop();
       // BOOST_LOG_TRIVIAL(debug) <<  "\tStopped ioc in GreenHttpClient";
+      this->th.join();
     }
 
 
