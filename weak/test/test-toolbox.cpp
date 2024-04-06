@@ -11,6 +11,13 @@ BOOST_AUTO_TEST_CASE(test_new_key_pair){
   out_pk = filesystem::temp_directory_path() / "pk.pem";
   out_sk = filesystem::temp_directory_path() / "sk.pem";
 
+  if (filesystem::exists(out_pk)){
+    filesystem::remove(out_pk);
+  }
+  if (filesystem::exists(out_sk)){
+    filesystem::remove(out_sk);
+  }
+
   BOOST_REQUIRE(not filesystem::exists(out_pk));
   BOOST_REQUIRE(not filesystem::exists(out_sk));
 
@@ -20,8 +27,8 @@ BOOST_AUTO_TEST_CASE(test_new_key_pair){
   BOOST_REQUIRE(filesystem::exists(out_sk));
 
   // see the content
-  string pk_pem = readAllText(out_pk);
-  string sk_pem = readAllText(out_sk);
+  string pk_pem = pure::readAllText(out_pk);
+  string sk_pem = pure::readAllText(out_sk);
   BOOST_REQUIRE(not pk_pem.empty());
   BOOST_REQUIRE(not sk_pem.empty());
   BOOST_TEST_MESSAGE("🦜 : Generated pk pem: " + pk_pem);
@@ -43,14 +50,14 @@ BOOST_AUTO_TEST_CASE(test_do_sign){
   Toolbox::new_key_pair(pk_p, sk_p);
 
   // 2. write a message
-  weak::writeToFile(msg_p, "aaa");
+  pure::writeToFile(msg_p, "aaa");
 
   // 3. sign the message
   Toolbox::do_sign(sk_p, msg_p, out_sig_p);
 
   // 4. check the signature
   BOOST_REQUIRE(filesystem::exists(out_sig_p));
-  string sig = readAllText(out_sig_p);
+  string sig = pure::readAllText(out_sig_p);
   BOOST_REQUIRE(not sig.empty());
 
   // 5. verify
@@ -58,7 +65,7 @@ BOOST_AUTO_TEST_CASE(test_do_sign){
   BOOST_CHECK(is_valid);
 
   // 5.1 if we change the message, the signature should be invalid
-  weak::writeToFile(msg_p, "bbb");
+  pure::writeToFile(msg_p, "bbb");
   is_valid = Toolbox::do_verify(pk_p, msg_p, out_sig_p);
   BOOST_CHECK(not is_valid);
 
@@ -70,7 +77,7 @@ BOOST_AUTO_TEST_CASE(test_do_sign){
 }
 
 void prepare_json_file(path p, json::object o){
-  weak::writeToFile(p, json::serialize(o));
+  pure::writeToFile(p, json::serialize(o));
 }
 BOOST_AUTO_TEST_CASE(test_tx_sign){
   // path tx_p, sk_p, pk_p, crt_sig_p, out_tx_p;
@@ -91,14 +98,14 @@ BOOST_AUTO_TEST_CASE(test_tx_sign){
   prepare_json_file(m["tx_p"], o);
 
   // 3. prepare a crt (in raw bytes)
-  weak::writeToFile(m["crt_sig_p"], "\xaa\xbb\xcc", true /* binary*/);
+  pure::writeToFile(m["crt_sig_p"], "\xaa\xbb\xcc", true /* binary*/);
 
   // 3. sign the transaction
   Toolbox::tx_sign(m["tx_p"], m["sk_p"], m["crt_sig_p"], m["out_tx_p"]);
   BOOST_REQUIRE(filesystem::exists(m["out_tx_p"]));
 
   // 4. read the signed transaction
-  json::object o2 = json::parse(readAllText(m["out_tx_p"])).as_object();
+  json::object o2 = json::parse(pure::readAllText(m["out_tx_p"])).as_object();
   BOOST_TEST_MESSAGE("🦜 : Signed transaction: " + json::serialize(o2));
   // the `.signature`, `.pk_pem`, `.pk_crt` is there.
   BOOST_REQUIRE(o2.contains("signature"));
@@ -110,7 +117,7 @@ BOOST_AUTO_TEST_CASE(test_tx_sign){
   filesystem::remove(m["out_tx_p"]);
   Toolbox::tx_sign(m["tx_p"], m["sk_p"], {} , m["out_tx_p"]);
   BOOST_REQUIRE(filesystem::exists(m["out_tx_p"]));
-  json::object o3 = json::parse(readAllText(m["out_tx_p"])).as_object();
+  json::object o3 = json::parse(pure::readAllText(m["out_tx_p"])).as_object();
   BOOST_REQUIRE(o3.contains("pk_pem"));
   BOOST_REQUIRE(not o3.contains("pk_crt"));
 

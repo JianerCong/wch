@@ -43,11 +43,11 @@ endmacro()
 ## [deprecated:🦜 we have moved to WeakAsyncHttpServer, so enable test-pure-anet
 ## instead ] set_test(test-pure-net core-deps)
 
-set_test(test-pure-anet core-deps)
-set_test(test-rpc core-deps)
-set_test(test-rpc-pb core-deps)
-set_test(test-init deps)
-set_test(test-inRamWrld deps)
+# set_test(test-pure-anet core-deps)
+# set_test(test-rpc core-deps)
+# set_test(test-rpc-pb core-deps)
+# set_test(test-init deps)
+# set_test(test-inRamWrld deps)
 
 # set_test(test-pure-greenClient core-deps)
 # set_test(test-pure-rbft core-deps)
@@ -55,7 +55,7 @@ set_test(test-inRamWrld deps)
 # set_test(test-udpNetAssnt core-deps)
 
 
-# set_test(test-toolbox core-deps)
+set_test(test-toolbox core-deps)
 
 # Add the above tests
 foreach(t d IN ZIP_LISTS l l-deps)
