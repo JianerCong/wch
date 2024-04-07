@@ -421,7 +421,7 @@ namespace weak{
    */
   class IBlkExecutable {
   public:
-    virtual ExecBlk executeBlk(const Blk & b) const noexcept = 0;
+    virtual ExecBlk executeBlk(Blk && b) const noexcept = 0;
     virtual bool commitBlk(const ExecBlk & b) noexcept = 0;
   };
 

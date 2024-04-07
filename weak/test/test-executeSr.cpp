@@ -1,5 +1,5 @@
 #include "h.hpp"
-#include "div2ExecutorSr.hpp"
+#include "txVerifier.hpp"
 using namespace weak;
 
 
@@ -43,7 +43,7 @@ BOOST_AUTO_TEST_CASE(test_verify_public_tx_mode){
   t.signature = bytesFromString(SslMsgMgr::do_sign(sk.get(), t.getToSignPayload()));
 
   // 2. up the div2ExecutorSr
-  SeriousDiv2Executor e;
+  TxVerifier e;
   BOOST_REQUIRE(e.verify(t));
 
   // 2.1 🦜 : if the `from` is wrong, then the verification should also fail
@@ -73,7 +73,7 @@ BOOST_AUTO_TEST_CASE(test_verify_ca_tx_mode){
   t.signature = bytesFromString(SslMsgMgr::do_sign(user_sk.get(), t.getToSignPayload()));
 
   // 2. up the div2ExecutorSr and give it the ca pk
-  SeriousDiv2Executor e{SslMsgMgr::dump_key_to_pem(ca_sk.get(), false /* is_secret*/)};
+  TxVerifier e{SslMsgMgr::dump_key_to_pem(ca_sk.get(), false /* is_secret*/)};
   BOOST_REQUIRE(e.verify(t));
   // 2.1 🦜 : if we don't have a sig, then the verification should fail
   t.signature = bytes{};

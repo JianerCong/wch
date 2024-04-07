@@ -68,8 +68,8 @@ starting with `out-` are generated files, otherwise the file must exist.
   public:
     static void new_key_pair(path out_pk, path out_sk){
       // 1. generate a new keypair
-      cout << "Writing pk to " << out_pk << endl;
-      cout << "Writing sk to " << out_sk << endl;
+      cout << "📗️ Writing pk to " << out_pk << endl;
+      cout << "📗️ Writing sk to " << out_sk << endl;
       pure::UniquePtr<EVP_PKEY> sk = SslMsgMgr::new_key_pair();
 
       pure::writeToFile(out_sk, SslMsgMgr::dump_key_to_pem(sk.get(), true /* is_secret*/));
@@ -111,6 +111,42 @@ starting with `out-` are generated files, otherwise the file must exist.
       return is_valid;
     }
 
+    /**
+     * @brief Sign a transaction.
+     *
+     * @param o The transaction object, should contains the fields `data` and `nonce`.
+     */
+    static json::object tx_sign_this(json::object o, EVP_PKEY* sk, optional<path> crt_sig_p){
+      BOOST_ASSERT(o.contains("data"));
+      BOOST_ASSERT(o.contains("nonce"));
+
+      string data = json::value_to<string>(o["data"]);uint64_t nonce = json::value_to<uint64_t>(o["nonce"]);
+      /*
+        2.2 if .type is present, we check it. The `data` field is in hex unless `.type == "python" | "data"`.
+      */
+      json::string type = o.contains("type") ? o["type"].as_string() : "";
+      if (type == "" or type == "evm"){
+        optional<bytes> ob = evmc::from_hex(data);
+        if (not ob)
+          BOOST_THROW_EXCEPTION(std::runtime_error("The data field for an evm Tx should be in hex"));
+        data = weak::toString(ob.value());
+      }
+
+      // 3. get the signature
+      // static string getToSignPayload0(const uint64_t nonce, const bytes & data) noexcept{
+      string sig = SslMsgMgr::do_sign(sk, Tx::getToSignPayload0(nonce, data));
+
+      // 4. add the fields to the json object:
+      // .signature (hex), .pk_pem (string), .pk_crt (optional hex)
+      o["signature"] = evmc::hex(weak::bytesFromString(sig));
+      o["pk_pem"] = SslMsgMgr::dump_key_to_pem(sk, false /* is_secret*/);
+      if (crt_sig_p){
+        string crt_sig = read_file(crt_sig_p.value().string());
+        o["pk_crt"] = evmc::hex(weak::bytesFromString(crt_sig));
+      }
+      return o;
+    }
+
     static void tx_sign(path tx_p, path sk_p, optional<path> crt_sig_p, path out_tx_p){
       BOOST_LOG_TRIVIAL(debug) << "🦜 : tx_sign called with:" S_CYAN
                                << "\n\ttx_p: " << tx_p
@@ -133,39 +169,25 @@ starting with `out-` are generated files, otherwise the file must exist.
         .type = "" | "evm" | "data" | "python"
       */
       json::value jv = json::parse(tx_json_s);
-      BOOST_LOG_TRIVIAL(debug) << "🦜 : parsed json: " << jv ;
-      BOOST_ASSERT(jv.is_object());
-      json::object o = jv.as_object();
-      BOOST_ASSERT(o.contains("data"));
-      BOOST_ASSERT(o.contains("nonce"));
-
-      string data = json::value_to<string>(o["data"]);uint64_t nonce = json::value_to<uint64_t>(o["nonce"]);
-      /*
-        2.2 if .type is present, we check it. The `data` field is in hex unless `.type == "python" | "data"`.
-      */
-      json::string type = o.contains("type") ? o["type"].as_string() : "";
-      if (type == "" or type == "evm"){
-        optional<bytes> ob = evmc::from_hex(data);
-        if (not ob)
-          BOOST_THROW_EXCEPTION(std::runtime_error("The data field for an evm Tx should be in hex"));
-        data = weak::toString(ob.value());
+      BOOST_LOG_TRIVIAL(debug) << "🦜 : parsed tx json: " << jv ;
+      // <2024-04-07 Sun> 🦜 : If the input is an array, we assume that it is a list of transactions. Otherwise, we assume it is a single transaction.
+      if (jv.is_array()){
+        json::array a = jv.as_array();
+        json::array oa;
+        for (json::value & v : a){
+          BOOST_ASSERT(v.is_object());
+          json::object o = v.as_object();
+          oa.push_back(tx_sign_this(o, sk.get(), crt_sig_p));
+        }
+        // 5. write the json object to the file
+        pure::writeToFile(out_tx_p, json::serialize(oa));
+      }else{
+        BOOST_ASSERT(jv.is_object());
+        json::object o = jv.as_object();
+        o = tx_sign_this(o, sk.get(), crt_sig_p);
+        // 5. write the json object to the file
+        pure::writeToFile(out_tx_p, json::serialize(o));
       }
-
-      // 3. get the signature
-      // static string getToSignPayload0(const uint64_t nonce, const bytes & data) noexcept{
-      string sig = SslMsgMgr::do_sign(sk.get(), Tx::getToSignPayload0(nonce, data));
-
-      // 4. add the fields to the json object:
-      // .signature (hex), .pk_pem (string), .pk_crt (optional hex)
-      o["signature"] = evmc::hex(weak::bytesFromString(sig));
-      o["pk_pem"] = SslMsgMgr::dump_key_to_pem(sk.get(), false /* is_secret*/);
-      if (crt_sig_p){
-        string crt_sig = read_file(crt_sig_p.value().string());
-        o["pk_crt"] = evmc::hex(weak::bytesFromString(crt_sig));
-      }
-
-      // 5. write the json object to the file
-      pure::writeToFile(out_tx_p, json::serialize(o));
     }
 
 #define ARGV_SHIFT()  { argc--; argv++; }
@@ -187,9 +209,9 @@ starting with `out-` are generated files, otherwise the file must exist.
 
         // switch on the method:
         if (!strcmp("new-keypair", argv[0])){
-          cout << "Generating a new key pair" << endl;
+          // cout << "Generating a new key pair" << endl;
           BOOST_ASSERT_MSG(argc == 3, "new-keypair requires 2 arguments: <out-pk.pem> <out-sk.pem>");
-          cout << "Generating a new key pair" << endl;
+          // cout << "Generating a new key pair" << endl;
           new_key_pair(argv[1], argv[2]);
         }else if (!strcmp("do-sign", argv[0])){
           BOOST_ASSERT_MSG(argc == 4, "do-sign requires 3 arguments: <sk.pem> <msg.txt> <out-sig.bin>");

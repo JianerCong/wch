@@ -72,7 +72,7 @@ BOOST_AUTO_TEST_CASE(test_makeExecBlk){
     TxReceipt(false)            // failed tx
   };
 
-  ExecBlk b{b0,j,r};
+  ExecBlk b{std::move(b0),j,r};
 
 
   BOOST_CHECK_EQUAL(b.number,1);
@@ -102,11 +102,12 @@ BOOST_AUTO_TEST_CASE(test_ExecBlk_to_json){
     TxReceipt(false)            // failed tx
   };
 
-  ExecBlk b{b0,j,r};
+  json::value v0 = b0.toJson(); // original block
+  // ExecBlk b{b0,j,r};
+  ExecBlk b{std::move(b0),j,r};
   // 2. --------------------------------------------------
   // Get json
   json::value v = b.toJson();
-  json::value v0 = b0.toJson();
 
   BOOST_REQUIRE(v.is_object());
   BOOST_REQUIRE(v0.is_object()); // This check is not necessary
@@ -155,7 +156,8 @@ BOOST_AUTO_TEST_CASE(test_ExecBlk_from_json){
     TxReceipt(false)            // failed tx
   };
 
-  ExecBlk b{b0,j,r};
+  // ExecBlk b{b0,j,r};
+  ExecBlk b{std::move(b0),j,r};
   // 2. --------------------------------------------------
   // Get json
   json::value v = b.toJson();

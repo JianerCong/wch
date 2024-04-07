@@ -29,7 +29,7 @@ endmacro()
 
 # set_test(test-storageManager deps) #<2024-03-31 Sun> window testing debug till here 🦜 : It seems like there's something wrong with filesystem::remove_all on windows...
 # set_test(test-storageManager2 deps)
-# set_test(test-forPostExec core-deps)
+set_test(test-forPostExec core-deps)
 # set_test(test-forPostExec-20240201 core-deps)
 # set_test(test-execManager core-deps)
 # set_test(test-forCnsss core-deps)

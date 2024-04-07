@@ -1,6 +1,7 @@
 #pragma once
 #include "core.hpp"
 #include "forPostExec.hpp"
+#include "txVerifier.hpp"
 #include <boost/numeric/conversion/cast.hpp>
 #include <boost/lexical_cast.hpp>
 
@@ -36,16 +37,24 @@ namespace weak{
     IWorldChainStateSettable* const world;
     ITxExecutable* const txExecutor;
     IAcnGettable* const readOnlyWorld;
+    ITxVerifiable * const txVerifier;
 
     BlkExecutor(IWorldChainStateSettable* const w,
                 ITxExecutable* const e,
-                IAcnGettable* const r
+                IAcnGettable* const r,
+                ITxVerifiable * const v = nullptr
                 ): world(w),
                    txExecutor(e),
-                   readOnlyWorld(r){};
+                   readOnlyWorld(r),
+                    txVerifier(v)
+    {};
 
-    ExecBlk executeBlk(const Blk & b) const noexcept override{
+    ExecBlk executeBlk(Blk && b) const noexcept override{
       BOOST_LOG_TRIVIAL(warning) << format("Executing " S_CYAN "blk-%d" S_NOR) % b.number;
+
+      // <2024-04-07 Sun> 🦜 : We filter out the failed txs
+      if (this->txVerifier)
+        this->txVerifier->filterTxs(b.txs);
 
       // The results
       vector<vector<StateChange>> J;
@@ -67,6 +76,9 @@ namespace weak{
           R.push_back(TxReceipt(b,t.type)); /*Implicitly call TxReceipt(bytes)*/
         }
       }
+
+      // --------------------------------------------------
+
       return ExecBlk(b,J,R);
     }
 

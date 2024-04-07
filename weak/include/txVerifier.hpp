@@ -1,23 +1,35 @@
 
 /**
- * @file div2Executor.hpp
+ * @file txVerifier.hpp
  * @author Jianer Cong
- * @brief The Diverse2Executor and colleagues.
- *
- * 🦜 : This executor extends the EvmExecutor to support the new Tx types. 2 means
- * it's kinda newer than the EvmExecutor
  */
 
 #pragma once
-#include "div2Executor.hpp"
-
+#include "core.hpp"
 #include "intx/intx.hpp"
 #include "net/pure-netAsstn.hpp"
+
+
 namespace weak {
+  class ITxVerifiable {
+  public:
+    virtual bool verify(const Tx & t)const = 0;
+    void filterTxs(vector<Tx> & txs){
+      for (vector<Tx>::iterator it = txs.begin();it != txs.end();){
+        if (not verify(*it)){
+          // 🦜 : If the verifier is here and it blocked you....
+          BOOST_LOG_TRIVIAL(debug) << format("❌️ Failed to verify tx-%d") % it->nonce;
+          it = txs.erase(it);
+        }else{
+          it++;
+        }
+      }
+    }
+  };
   using ::pure::SslMsgMgr;
 
   /**
-   * @brief The Div2Executor that checks the validity of the Tx. [2024-01-22]
+   * @brief The verifyer that checks the validity of the Tx. [2024-01-22]
    *
    * 🐢 : This executor can do SSL stuff such
    *  1. checking the `Tx.signature` of the tx
@@ -26,7 +38,7 @@ namespace weak {
    *
    * This is to really make the chain serious.
    *
-   * 🐢 : So this is kinda a `Div2Executor` + `Tx` verifyer. So when this
+   * 🐢 : So this is a `Tx` verifyer. So when this
    * executor is used, two tx_modes are possible:
    *
    *     1. public tx_mode : every body can generate key pairs, and use it to
@@ -45,11 +57,11 @@ namespace weak {
    *
    * @see Tx in `core.hpp` and its notes on [2024-01-22]
    */
-  class SeriousDiv2Executor : public Div2Executor{
+  class TxVerifier : public ITxVerifiable {
   public:
     ::pure::UniquePtr<EVP_PKEY> ca_public_key;
     const bool is_public_tx_mode;
-    SeriousDiv2Executor(const string & ca_crt_pem = ""): is_public_tx_mode(ca_crt_pem.empty()){
+    TxVerifier(const string & ca_crt_pem = ""): is_public_tx_mode(ca_crt_pem.empty()){
       /*
         🦜 : What's the difference between `const string &` and `string_view` ?
         🐢 : `string_view` can only get `.data()`, but `const string &` can get `.c_str()`
@@ -80,7 +92,7 @@ namespace weak {
      *
      * 0. `do_verify(ca_public_key,tx.pk_pem,tx.pk_crt)`
      */
-    bool verify(const Tx & t)const {
+    bool verify(const Tx & t)const override{
       // 1. check the pk if we are in ca tx_mode
 
       if (not this->is_public_tx_mode) {
@@ -116,21 +128,5 @@ namespace weak {
       }
       return true;
     } // verifyTx
-
-    /**
-     * @brief Execute a Tx
-     * @param t the tx to execute
-     *
-     * This function first verifies the tx, if it's valid, it calls
-     * `Div2Executor::executeTx`
-     */
-
-    optional<tuple<vector<StateChange>,bytes>> executeTx(IAcnGettable * const w,
-                                                         const Tx & t) const noexcept override{
-      if (not this->verify(t)){
-        return {};
-      }
-      return Div2Executor::executeTx(w,t); // call the base
-    }
   };  // SeriousDiv2Executor
 }     // weak

@@ -4,6 +4,7 @@
  */
 #pragma once
 #include "core.hpp"
+#include "txVerifier.hpp"
 #include "pure-forCnsss.hpp"
 #include "forCnsss.hpp"
 #include "forPostExec.hpp"
@@ -101,7 +102,7 @@ namespace weak {
       if (not r)
         return clear_cmd_and_complain(cmd,"Failed to turn BlkForConsensus into Blk");
 
-      if (not execute_Blk(r.value()))
+      if (not execute_Blk(std::move(r.value())))
         return clear_cmd_and_complain(cmd,"Error committing Blk");
 
       return "OK";
@@ -112,9 +113,9 @@ namespace weak {
      *
      * This will make use of the underlying `IBlkExecutable`
      */
-    bool execute_Blk(const Blk & b){
+    bool execute_Blk(Blk && b){
       BOOST_LOG_TRIVIAL(debug) << format("⚙️ Calling underlying IBlkExecutable");
-      return exe->commitBlk(exe->executeBlk(b));
+      return exe->commitBlk(exe->executeBlk(std::move(b)));
     }
 
     /**
@@ -217,6 +218,7 @@ namespace weak {
   class LightExecutorForCnsss: public virtual ExecutorForCnsss{
   public:
     IForSealerTxHashesGettable * const mempool;
+    ITxVerifiable * const txVerifier;
     uint64_t next_blk_number;
     hash256 previous_hash;
     const int optimization_level;
@@ -234,10 +236,12 @@ namespace weak {
     LightExecutorForCnsss(IBlkExecutable * const e,
                           IPoolSettable * const p,
                           IForSealerTxHashesGettable * const m,
+                          ITxVerifiable * const v = nullptr,
                           int o = 2,
                           uint64_t n = 0,
                           hash256 h = {}
                           ): ExecutorForCnsss(e,p),
+                             txVerifier(v),
                              next_blk_number(n), mempool(m), previous_hash(h),optimization_level(o)
     {}
 
@@ -249,7 +253,7 @@ namespace weak {
       if (not b.fromString(arg))
         return clear_cmd_and_complain(cmd, "Error parsing Blk");
 
-      if (not execute_Blk(b))
+      if (not execute_Blk(std::move(b)))
         return clear_cmd_and_complain(cmd,"Error committing Blk");
 
       return "OK";
@@ -261,7 +265,10 @@ namespace weak {
      * This should modifies the txs so that it only contains valid Tx.
      */
     void verify_txs_and_filter_maybe(vector<Tx> & txs){
-      BOOST_LOG_TRIVIAL(warning) << format("⚠️ verify_txs_and_filter_maybe called but not implemented yet");
+      // BOOST_LOG_TRIVIAL(warning) << format("⚠️ verify_txs_and_filter_maybe called but not implemented yet");
+      // 🦜 : <2024-04-07 Sun> Here we are
+      if (this->txVerifier)
+        this->txVerifier->filterTxs(txs);
     }
 
     string  seal_Blk_and_update_cmd(vector<Tx> && txs, string & cmd){
@@ -269,19 +276,19 @@ namespace weak {
             this->previous_hash,
             txs};
 
-
-      if (not execute_Blk(b))
-        return clear_cmd_and_complain(cmd,"Error committing Blk");
-
-      // 🦜 : Looks like it's an okay blk, so we update the state.
-      this->next_blk_number++;
-      this->previous_hash = b.hash();
-
+      auto h1 = b.hash();
+      auto cmd1 = static_cast<char>(Cmd::EXECUTE_BLK) + b.toString();
       BOOST_LOG_TRIVIAL(debug) << format("Making " S_MAGENTA " EXECUTE_BLK() " S_NOR " cmd for "
                                          S_CYAN " Blk-%d, txs size: %d" S_NOR)
         % b.number % b.txs.size();
 
-      cmd = static_cast<char>(Cmd::EXECUTE_BLK) + b.toString();
+      if (not execute_Blk(std::move(b)))
+        return clear_cmd_and_complain(cmd,"Error committing Blk");
+
+      // 🦜 : Looks like it's an okay blk, so we update the state.
+      this->next_blk_number++;
+      this->previous_hash = h1;
+      cmd = cmd1;
       BOOST_LOG_TRIVIAL(debug) << format("cmd updated to : " S_MAGENTA " %s" S_NOR) % pure::get_data_for_log(cmd);
 
       return "OK";

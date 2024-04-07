@@ -269,7 +269,9 @@
 #include "net/pure-httpNetAsstn.hpp"
 #include "net/pure-udpNetAsstn.hpp"
 
-#include "div2ExecutorSr.hpp"
+#include "div2Executor.hpp"
+#include "txVerifier.hpp"       // <2024-04-07 Sun> 🦜 : We need this to respond to the `--tx-mode-serious` option.
+
 #include "execManager.hpp"
 #include "cnsss/mempool.hpp"
 #include "cnsss/exeForCnsss.hpp"
@@ -506,37 +508,27 @@ namespace weak{
   struct LightExeAndPartners{
 
     unique_ptr<Div2Executor> tx_exe; // <! [2024-01-03] change to Div2Executor
-    unique_ptr<SeriousDiv2Executor> stx_exe; // <! <2024-04-02 Tue> 🦜 : we add this
-
     unique_ptr<BlkExecutor> blk_exe;
     unique_ptr<LightExecutorForCnsss> exe;
 
     LightExeAndPartners(IWorldChainStateSettable* w1,
                         IAcnGettable * w2,
-                        bool serious = false, // <2024-04-02 Tue> 🦜 : This and the next line are added.
-                        const string & ca_pk_pem = "",
+                        ITxVerifiable * txf,
                         uint64_t next_blk_number=0,
                         hash256 previous_hash = {},
                         int optimization_level = 2,
                         IPoolSettable * p = nullptr,
                         IForSealerTxHashesGettable * m = nullptr
                         ){
-
-      if (serious){
-        this->stx_exe = make_unique<SeriousDiv2Executor>(ca_pk_pem);
-      }else{
-        this->tx_exe = make_unique<Div2Executor>();
-      }
-
-      this->blk_exe = make_unique<BlkExecutor>(w1, dynamic_cast<ITxExecutable*>(
-                                                                                serious ? this->stx_exe.get() : this->tx_exe.get()
-                                                                                ),
-                                               w2);
+      this->tx_exe = make_unique<Div2Executor>();
+      this->blk_exe = make_unique<BlkExecutor>(w1, dynamic_cast<ITxExecutable*>(this->tx_exe.get()),w2,
+                                                txf);
 
       // 🦜 : ^^ above copied from ExeAndPartners
       this->exe = make_unique<LightExecutorForCnsss>(
                                                      dynamic_cast<IBlkExecutable*>(&(*this->blk_exe)),
                                                      p,m,
+                                                     txf, // 🦜 : Also one for you
                                                      optimization_level,
                                                      next_blk_number,
                                                      previous_hash);
@@ -545,8 +537,6 @@ namespace weak{
 
   struct ExeAndPartners{
     unique_ptr<Div2Executor> tx_exe;
-    unique_ptr<SeriousDiv2Executor> stx_exe; // <! <2024-04-02 Tue> 🦜 : we add this
-
     unique_ptr<BlkExecutor> blk_exe;
     unique_ptr<ExecutorForCnsss> exe;
 
@@ -554,29 +544,20 @@ namespace weak{
                    IWorldChainStateSettable* w1,
                    IAcnGettable * w2,
                    IPoolSettable * p,
-                   bool serious = false, // <2024-04-02 Tue> 🦜 : This and the next line are added.
-                   const string & ca_pk_pem = ""){
+                   ITxVerifiable * txf
+                   ){
       /*
         🦜 : I just realize that Div2Executor is stateless...
 
         🐢 : It is, but we have to make it a class so that it can "implement" a
         method. A namespace can't.
       */
-      if (serious){
-        this->stx_exe = make_unique<SeriousDiv2Executor>(ca_pk_pem);
-      }else{
-        this->tx_exe = make_unique<Div2Executor>();
-      }
+      this->tx_exe = make_unique<Div2Executor>();
 
-      this->blk_exe = make_unique<BlkExecutor>(w1, dynamic_cast<ITxExecutable*>(
-                                                                                serious ? this->stx_exe.get() : this->tx_exe.get()
-                                                                                ),
-                                               w2);
+      this->blk_exe = make_unique<BlkExecutor>(w1, dynamic_cast<ITxExecutable*>(this->tx_exe.get()),
+                                               w2, txf);
 
-      this->exe = make_unique<ExecutorForCnsss>(
-                                                dynamic_cast<IBlkExecutable*>(&(*this->blk_exe)),
-                                                p
-                                                );
+      this->exe = make_unique<ExecutorForCnsss>(dynamic_cast<IBlkExecutable*>(&(*this->blk_exe)), p);
     }
   };
 
@@ -697,6 +678,9 @@ namespace weak{
           unique_ptr<LightExeAndPartners> light;
           unique_ptr<::pure::mock::Executable> mock;
           ::pure::IForConsensusExecutable* iForConsensusExecutable;
+
+          unique_ptr<TxVerifier> tx_verifier;
+          ITxVerifiable * iTxVerifiable = nullptr;
         } exe;
 
         if (o.mock_exe == "yes"){
@@ -718,19 +702,25 @@ namespace weak{
         }else{
           // <2024-04-02 Tue> 🦜 prepare the tx-mode config
           auto [serious,ca_pk_pem] = figure_out_tx_mode(o.tx_mode_serious);
+          if (serious){
+            BOOST_LOG_TRIVIAL(info) << format("\t⚙️ Starting " S_CYAN "`serious exe`" S_NOR " for cnsss");
+            exe.tx_verifier = make_unique<TxVerifier>(ca_pk_pem);
+            exe.iTxVerifiable = dynamic_cast<ITxVerifiable*>(&(*exe.tx_verifier));
+          }
 
           if (o.light_exe == "yes"){
             if (fresh_start){
               BOOST_LOG_TRIVIAL(info) << format("\t⚙️ Starting [fresh-start] " S_CYAN "`light exe`" S_NOR " for cnsss");
               exe.light = make_unique<LightExeAndPartners>(w.iWorldChainStateSettable,
                                                            w.iAcnGettable,
-                                                           serious, ca_pk_pem);
+                                                           exe.iTxVerifiable);
             }else{
               BOOST_LOG_TRIVIAL(info) << format("\t⚙️ Starting [persisted] " S_CYAN "`light exe`" S_NOR
                                                 " for cnsss, current chain size: " S_CYAN " %d " S_NOR) % (*latest_blk_hash);
+
               exe.light = make_unique<LightExeAndPartners>(w.iWorldChainStateSettable,
                                                            w.iAcnGettable,
-                                                            serious, ca_pk_pem,
+                                                            exe.iTxVerifiable,
                                                            boost::numeric_cast<uint64_t>(*latest_blk_num) + 1,
                                                            *latest_blk_hash
                                                            );
@@ -742,7 +732,7 @@ namespace weak{
             exe.normal = make_unique<ExeAndPartners>(w.iWorldChainStateSettable,
                                                      w.iAcnGettable,
                                                      dynamic_cast<IPoolSettable*>(&pool),
-                                                      serious, ca_pk_pem);
+                                                      exe.iTxVerifiable);
 
             exe.iForConsensusExecutable = dynamic_cast<::pure::IForConsensusExecutable*>(&(*(exe.normal->exe)));
           }
