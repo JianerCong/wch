@@ -87,3 +87,8 @@ cmake --install build-pb --prefix installed-pb
 cd ..
 cmake -S weak -B build-weak
 cmake --build build-weak/
+
+# try
+./build-weak/wch toolbox -h
+./build-weak/wch toolbox new-keypair out-pk.pem out-sk.pem
+

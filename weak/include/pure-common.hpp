@@ -236,7 +236,9 @@ namespace pure{
 class my_assertion_error: public std::exception{
 public:
   std::string w;
-  my_assertion_error(std::string ww=""): w(ww){}
+  my_assertion_error(std::string ww=""): w(ww){
+    std::cout << "my_assertion_error: " << w << std::endl;
+}
   std::string what(){
     return w;
   }

@@ -175,10 +175,10 @@ starting with `out-` are generated files, otherwise the file must exist.
         ARGV_SHIFT();
         ARGV_SHIFT();
 
-        std::cout << "toolbox received now " << argc << " arguments, which are:";
-        for (int i = 0; i < argc; i++){
-          std::cout << "argv[" << i << "] = " << argv[i] << std::endl;
-        }
+        // std::cout << "toolbox received now " << argc << " arguments, which are:";
+        // for (int i = 0; i < argc; i++){
+        //   std::cout << "argv[" << i << "] = " << argv[i] << std::endl;
+        // }
 
         if (!strcmp("--help", argv[0]) or !strcmp("-h", argv[0])){
           cout << Toolbox::help << endl;
@@ -187,22 +187,24 @@ starting with `out-` are generated files, otherwise the file must exist.
 
         // switch on the method:
         if (!strcmp("new-keypair", argv[0])){
-          BOOST_ASSERT_MSG(argc == 2, "new-keypair requires 2 arguments: <out-pk.pem> <out-sk.pem>");
+          cout << "Generating a new key pair" << endl;
+          BOOST_ASSERT_MSG(argc == 3, "new-keypair requires 2 arguments: <out-pk.pem> <out-sk.pem>");
+          cout << "Generating a new key pair" << endl;
           new_key_pair(argv[1], argv[2]);
         }else if (!strcmp("do-sign", argv[0])){
-          BOOST_ASSERT_MSG(argc == 3, "do-sign requires 3 arguments: <sk.pem> <msg.txt> <out-sig.bin>");
+          BOOST_ASSERT_MSG(argc == 4, "do-sign requires 3 arguments: <sk.pem> <msg.txt> <out-sig.bin>");
           do_sign(argv[1], argv[2], argv[3]);
         }else if (!strcmp("do-verify", argv[0])){
-          BOOST_ASSERT_MSG(argc == 3, "do-verify requires 3 arguments: <pk.pem> <msg.txt> <sig.bin>");
+          BOOST_ASSERT_MSG(argc == 4, "do-verify requires 3 arguments: <pk.pem> <msg.txt> <sig.bin>");
           if (do_verify(argv[1], argv[2], argv[3]))
             std::exit(0);
           else
             std::exit(1);
         }else if (!strcmp("tx-sign", argv[0])){
-          BOOST_ASSERT_MSG(argc == 4, "tx-sign requires 4 arguments: <tx.json> <sk.pem> <crt.sig> <out-tx.json>");
+          BOOST_ASSERT_MSG(argc == 5, "tx-sign requires 4 arguments: <tx.json> <sk.pem> <crt.sig> <out-tx.json>");
           tx_sign(argv[1], argv[2], argv[3], argv[4]);
         }else if (!strcmp("tx-sign-no-crt", argv[0])){
-          BOOST_ASSERT_MSG(argc == 3, "tx-sign-no-crt requires 3 arguments: <tx.json> <sk.pem> <out-tx.json>");
+          BOOST_ASSERT_MSG(argc == 4, "tx-sign-no-crt requires 3 arguments: <tx.json> <sk.pem> <out-tx.json>");
           tx_sign(argv[1], argv[2], std::nullopt, argv[3]);
         }else{
           cout << "Unknown command: " << argv[0] << endl;
