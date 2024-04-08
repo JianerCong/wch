@@ -609,7 +609,7 @@ namespace pure{
       bool ok = do_verify(ed_key.get(),msg,sig);
       if (not ok){
         BOOST_LOG_TRIVIAL(debug) <<  S_RED "❌️ Signature verification failed with pk_pem: \n" << ed_key_pem
-                                 << "\nmsg:" << msg << "\nsig-len:" << sig.size() <<
+                                 << "\nmsg-len:" << msg.size() << "\nsig-len:" << sig.size() <<
           S_NOR;
 }
       return ok;

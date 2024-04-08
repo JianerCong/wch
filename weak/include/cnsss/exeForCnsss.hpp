@@ -218,7 +218,6 @@ namespace weak {
   class LightExecutorForCnsss: public virtual ExecutorForCnsss{
   public:
     IForSealerTxHashesGettable * const mempool;
-    ITxVerifiable * const txVerifier;
     uint64_t next_blk_number;
     hash256 previous_hash;
     const int optimization_level;
@@ -236,12 +235,10 @@ namespace weak {
     LightExecutorForCnsss(IBlkExecutable * const e,
                           IPoolSettable * const p,
                           IForSealerTxHashesGettable * const m,
-                          ITxVerifiable * const v = nullptr,
                           int o = 2,
                           uint64_t n = 0,
                           hash256 h = {}
                           ): ExecutorForCnsss(e,p),
-                             txVerifier(v),
                              next_blk_number(n), mempool(m), previous_hash(h),optimization_level(o)
     {}
 
@@ -265,10 +262,7 @@ namespace weak {
      * This should modifies the txs so that it only contains valid Tx.
      */
     void verify_txs_and_filter_maybe(vector<Tx> & txs){
-      // BOOST_LOG_TRIVIAL(warning) << format("⚠️ verify_txs_and_filter_maybe called but not implemented yet");
-      // 🦜 : <2024-04-07 Sun> Here we are
-      if (this->txVerifier)
-        this->txVerifier->filterTxs(txs);
+      BOOST_LOG_TRIVIAL(warning) << format("⚠️ verify_txs_and_filter_maybe called but not implemented yet");
     }
 
     string  seal_Blk_and_update_cmd(vector<Tx> && txs, string & cmd){

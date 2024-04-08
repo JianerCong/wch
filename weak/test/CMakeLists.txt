@@ -22,14 +22,14 @@ endmacro()
 # set_test(test-pure-thrd-party core-deps)
 # set_test(test-executeEvmTx deps)
 # set_test(test-executeDiv2Tx deps)
-# set_test(test-executeSr deps)
+set_test(test-executeSr deps)
 # set_test(test-mempool core-deps)
 # set_test(test-sealer core-deps)
 
 
 # set_test(test-storageManager deps) #<2024-03-31 Sun> window testing debug till here 🦜 : It seems like there's something wrong with filesystem::remove_all on windows...
 # set_test(test-storageManager2 deps)
-set_test(test-forPostExec core-deps)
+# set_test(test-forPostExec core-deps)
 # set_test(test-forPostExec-20240201 core-deps)
 # set_test(test-execManager core-deps)
 # set_test(test-forCnsss core-deps)
@@ -54,7 +54,7 @@ set_test(test-forPostExec core-deps)
 # set_test(test-pure-rbft core-deps)
 # set_test(test-pure-udp core-deps)
 # set_test(test-udpNetAssnt core-deps)
-set_test(test-toolbox core-deps)
+# set_test(test-toolbox core-deps)
 
 # Add the above tests
 foreach(t d IN ZIP_LISTS l l-deps)

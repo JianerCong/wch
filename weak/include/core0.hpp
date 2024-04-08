@@ -228,6 +228,27 @@ namespace weak{
     bool fromJson(const json::value &v) noexcept override;
   };
 
+  class Tx;
+
+  class ITxVerifiable {
+  public:
+    virtual bool verify(const Tx & t)const = 0;
+    void filterTxs(vector<Tx> & txs){
+      // for (vector<Tx>::iterator it = txs.begin();it != txs.end();){
+      //   if (not verify(*it)){
+      //     // 🦜 : If the verifier is here and it blocked you....
+      //     BOOST_LOG_TRIVIAL(debug) << format("❌️ Failed to verify tx-%d") % it->nonce;
+      //     it = txs.erase(it);
+      //   }else{
+      //     it++;
+      //   }
+      // }
+      auto erased = std::erase_if(txs,[this](const Tx & t){
+        return not this->verify(t);
+      });
+      BOOST_LOG_TRIVIAL(debug) <<  "📗️ Erased " << erased << " tx" + pure::pluralizeOn(erased);
+    }
+  };
 
 
   class Tx: virtual public IJsonizable
@@ -235,7 +256,6 @@ namespace weak{
           , virtual public ISerializable
   {
   public:
-
     hiPb::Tx toPb() const override;
     void fromPb(const hiPb::Tx & pb) override;
 
@@ -537,7 +557,7 @@ namespace weak{
      *
      * 🦜 : The detail of the input and output of this command @see Rpc().
      */
-    static optional<tuple<string,vector<Tx>>> parse_txs_jsonString_for_rpc(string_view s) noexcept {
+    static optional<tuple<string,vector<Tx>>> parse_txs_jsonString_for_rpc(string_view s, ITxVerifiable * const txf=nullptr) noexcept {
       try {
         // BOOST_LOG_TRIVIAL(debug) << format("Parsing txs JSON sent from client. %s") % s ;
         // Parse the Json (let it throw)
@@ -551,7 +571,7 @@ namespace weak{
         // Turning Json into array
         json::array a = v.as_array();
 
-        return Tx::parse_txs_json_for_rpc(move(a));
+        return Tx::parse_txs_json_for_rpc(move(a), txf);
       }catch (std::exception const & e){
         BOOST_LOG_TRIVIAL(debug) << format("❌️ Error parsing client JSON:\n" S_MAGENTA "%s" S_NOR
                                            "\n" "Info:" S_RED "\n%s" S_NOR) %
@@ -569,7 +589,7 @@ namespace weak{
      * client and `txs` is the parse Txs. This function throws on error.(🦜 :
      * The exception should be caught by `parse_txs_jsonString_for_rpc()`).
      */
-    static optional<tuple<string,vector<Tx>>> parse_txs_json_for_rpc(json::array && a) {
+    static optional<tuple<string,vector<Tx>>> parse_txs_json_for_rpc(json::array && a, ITxVerifiable * const txf=nullptr) {
       json::array os;           // output object
 
       vector<Tx> txs;
@@ -600,6 +620,11 @@ namespace weak{
         tx.fromJson0(o);
         // tx.timestamp = std::time(nullptr);
 
+        // <2024-04-08 Mon> 🦜 : If the verifier is set, then we need to verify the tx
+        if (txf and not txf->verify(tx)){
+          BOOST_LOG_TRIVIAL(debug) << format("❌️ Failed to verify tx-%d's signature/certificate") % tx.nonce;
+          continue;
+        }
 
         json::object o0;
         o0["hash"] = hashToString(tx.hash());
@@ -658,14 +683,14 @@ namespace weak{
      * }                               // [x]
      * message Txs {repeated Tx txs = 1;} // [x]
      */
-    static optional<tuple<string,vector<Tx>>> parse_txs_pbString_for_rpc(string_view s) noexcept {
+    static optional<tuple<string,vector<Tx>>> parse_txs_pbString_for_rpc(string_view s, ITxVerifiable * const txf=nullptr) noexcept {
       hiPb::Txs pb;
       if (not pb.ParseFromString(string(s))){
         BOOST_LOG_TRIVIAL(debug) << format("❌️ Error parsing Txs pbString");
         return {};
       }
 
-      return Tx::parse_txs_pb_for_rpc(pb);
+      return Tx::parse_txs_pb_for_rpc(pb, txf);
     }
 
     /**
@@ -677,7 +702,7 @@ namespace weak{
      * client and `txs` is the parse Txs. This function throws on error.(🦜 :
      * The exception should be caught by `parse_txs_pbString_for_rpc()`).
      */
-    static optional<tuple<string,vector<Tx>>> parse_txs_pb_for_rpc(const hiPb::Txs & pb) {
+    static optional<tuple<string,vector<Tx>>> parse_txs_pb_for_rpc(const hiPb::Txs & pb, ITxVerifiable * const txf=nullptr) {
       hiPb::AddTxsReply atx;    // the output object
 
       vector<Tx> txs;
@@ -688,6 +713,13 @@ namespace weak{
 
           // 🦜 : similarly, add the `timestamp` field for the client
           t.timestamp = std::time(nullptr);
+
+          // <2024-04-08 Mon> 🦜 : If the verifier is set, then we need to verify the tx
+          if (txf and not txf->verify(t)){
+            BOOST_LOG_TRIVIAL(debug) << format("❌️ Failed to verify tx-%d's signature/certificate") % t.nonce;
+            continue;
+          }
+
           txs.push_back(t);
 
           hiPb::AddTxReply atx0;

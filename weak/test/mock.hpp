@@ -255,7 +255,7 @@ namespace mockedHashTxGetter{
 namespace mockedBlkExe{
   class A: public virtual IBlkExecutable{
   public:
-    ExecBlk executeBlk(const Blk & b) const noexcept override{
+    ExecBlk executeBlk(Blk && b) const noexcept override{
       return {};
     }
     bool commitBlk(const ExecBlk & b) noexcept override{
@@ -265,7 +265,8 @@ namespace mockedBlkExe{
 
   class B: public virtual IBlkExecutable{
   public:
-    ExecBlk executeBlk(const Blk & b) const noexcept override{
+    // ExecBlk executeBlk(const Blk & b) const noexcept override{
+    ExecBlk executeBlk(Blk && b) const noexcept override{
       return {};
     }
     bool commitBlk(const ExecBlk & b) noexcept override{
@@ -279,7 +280,8 @@ namespace mockedBlkExe{
     mutable vector<int> blk_numbers_executed;
     vector<int> blk_numbers_commited;
     // ^^^^ can be modified by const method
-    ExecBlk executeBlk(const Blk & b) const noexcept override{
+    // ExecBlk executeBlk(const Blk & b) const noexcept override{
+      ExecBlk executeBlk(Blk && b) const noexcept override{
       this->blk_numbers_executed.push_back(b.number);
       // make the ExecBlk
       vector<vector<StateChange>> j;

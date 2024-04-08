@@ -12,7 +12,7 @@ BOOST_AUTO_TEST_CASE(test_mockedBlkExe){
   IBlkExecutable* const p = dynamic_cast<IBlkExecutable*>(&me);
 
   Blk b0;
-  ExecBlk b = p->executeBlk(b0);
+  ExecBlk b = p->executeBlk(std::move(b0));
   BOOST_REQUIRE(p->commitBlk(b));
 }
 
@@ -83,7 +83,7 @@ void my_test_executeBlk(auto ex){
 
   // 2. --------------------------------------------------
   // Execute in with that aways-fail executor
-  ExecBlk b = e->executeBlk(b0);
+  ExecBlk b = e->executeBlk(std::move(b0));
   BOOST_CHECK_EQUAL(b.number,1);
 }
 

@@ -52,12 +52,14 @@ namespace weak{
     IForRpcNetworkable * const srv; // <! The underlying server
     IForRpc * const pool;         // <! The pool state
     IChainDBGettable * const wrld; // <! The world
+    ITxVerifiable * const verifier; // <! The verifier
 
     Rpc(IForRpcNetworkable * const n,
         IForRpcTxsAddable * const c,
         IChainDBGettable * const w=nullptr,
-        IForRpc * const p =nullptr
-        ): cnsss(c), srv(n), pool(p), wrld(w) {
+        IForRpc * const p =nullptr,
+        ITxVerifiable * const v = nullptr
+        ): cnsss(c), srv(n), pool(p), wrld(w), verifier(v){
 
       if (w == nullptr)
         BOOST_LOG_TRIVIAL(warning) << format( "⚠️ Warining: no " S_MAGENTA "IChainDBGettable" S_NOR " passed to rpc. Should be in unit-test");
@@ -397,7 +399,7 @@ namespace weak{
      *  It will return to client:
      */
     tuple<bool,string>  handle_add_txs(string_view data){
-      optional<tuple<string,vector<Tx>>> r = Tx::parse_txs_jsonString_for_rpc(data);
+      optional<tuple<string,vector<Tx>>> r = Tx::parse_txs_jsonString_for_rpc(data, this->verifier);
       if (not r)
         return make_tuple(false,"Invalid input JSON format.");
 
@@ -427,7 +429,7 @@ namespace weak{
     }
 
     tuple<bool,string> handle_add_txs_pb(string_view data){
-      optional<tuple<string,vector<Tx>>> r = Tx::parse_txs_pbString_for_rpc(data);
+      optional<tuple<string,vector<Tx>>> r = Tx::parse_txs_pbString_for_rpc(data, this->verifier);
       if (not r)
         return make_tuple(false,"Invalid input Pb format.");
       auto [s, txs] = r.value();

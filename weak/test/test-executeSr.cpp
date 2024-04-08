@@ -79,3 +79,35 @@ BOOST_AUTO_TEST_CASE(test_verify_ca_tx_mode){
   t.signature = bytes{};
   BOOST_REQUIRE(not e.verify(t));
 }
+
+/**
+ * @brief Prepare a tx in public tx-mode
+ */
+Tx get_prepared_tx(EVP_PKEY* sk){
+  Tx t = get_example_tx();
+
+  t.pk_pem = SslMsgMgr::dump_key_to_pem(sk, false /* is_secret*/);
+  t.from = t.getFromFromPkPem();                        // update the from to match pk
+  // 1.2 sign the tx
+  t.signature = bytesFromString(SslMsgMgr::do_sign(sk, t.getToSignPayload()));
+  return t;
+}
+
+BOOST_AUTO_TEST_CASE(test_filter_txs){
+  // 1. prepare the txs
+  pure::UniquePtr<EVP_PKEY> user_sk = ::pure::SslMsgMgr::new_key_pair();
+  vector<Tx> txs = {
+    get_prepared_tx(user_sk.get()),
+    get_prepared_tx(user_sk.get())
+  };
+
+  // 2. modify the second tx's nonce
+  txs[1].nonce = 234;
+
+  // 3. init the verifier
+  TxVerifier e;
+  e.filterTxs(txs);
+
+  // 4. check that the second tx is removed
+  BOOST_CHECK_EQUAL(txs.size(),1);
+}

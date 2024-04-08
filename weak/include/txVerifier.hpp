@@ -11,21 +11,6 @@
 
 
 namespace weak {
-  class ITxVerifiable {
-  public:
-    virtual bool verify(const Tx & t)const = 0;
-    void filterTxs(vector<Tx> & txs){
-      for (vector<Tx>::iterator it = txs.begin();it != txs.end();){
-        if (not verify(*it)){
-          // 🦜 : If the verifier is here and it blocked you....
-          BOOST_LOG_TRIVIAL(debug) << format("❌️ Failed to verify tx-%d") % it->nonce;
-          it = txs.erase(it);
-        }else{
-          it++;
-        }
-      }
-    }
-  };
   using ::pure::SslMsgMgr;
 
   /**
