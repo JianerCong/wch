@@ -516,11 +516,10 @@ namespace weak{
     LightExeAndPartners(IWorldChainStateSettable* w1,
                         IAcnGettable * w2,
                         ITxVerifiable * txf,
+                        IForLightExeTxWashable * p,
                         uint64_t next_blk_number=0,
                         hash256 previous_hash = {},
-                        int optimization_level = 2,
-                        IPoolSettable * p = nullptr,
-                        IForSealerTxHashesGettable * m = nullptr
+                        int optimization_level = 2
                         ){
       this->tx_exe = make_unique<Div2Executor>();
       this->blk_exe = make_unique<BlkExecutor>(w1, dynamic_cast<ITxExecutable*>(this->tx_exe.get()),w2, txf);
@@ -528,7 +527,7 @@ namespace weak{
       // 🦜 : ^^ above copied from ExeAndPartners
       this->exe = make_unique<LightExecutorForCnsss>(
                                                      dynamic_cast<IBlkExecutable*>(&(*this->blk_exe)),
-                                                     p,m,
+                                                     p,
                                                      optimization_level,
                                                      next_blk_number,
                                                      previous_hash);
@@ -691,7 +690,6 @@ namespace weak{
             unique_ptr<LightExeAndPartners> light;
             unique_ptr<::pure::mock::Executable> mock;
             ::pure::IForConsensusExecutable* iForConsensusExecutable;
-
           } exe;
 
           if (o.mock_exe == "yes"){
@@ -715,19 +713,21 @@ namespace weak{
                 BOOST_LOG_TRIVIAL(info) << format("\t⚙️ Starting [fresh-start] " S_CYAN "`light exe`" S_NOR " for cnsss");
                 exe.light = make_unique<LightExeAndPartners>(w.iWorldChainStateSettable,
                                                              w.iAcnGettable,
-                                                             txf.iTxVerifiable);
+                                                             txf.iTxVerifiable,
+                                                             dynamic_cast<IForLightExeTxWashable*>(&pool)
+                                                             );
               }else{
                 BOOST_LOG_TRIVIAL(info) << format("\t⚙️ Starting [persisted] " S_CYAN "`light exe`" S_NOR
                                                   " for cnsss, current chain size: " S_CYAN " %d " S_NOR) % (*latest_blk_hash);
                 exe.light = make_unique<LightExeAndPartners>(w.iWorldChainStateSettable,
                                                              w.iAcnGettable,
                                                              txf.iTxVerifiable,
+                                                             dynamic_cast<IForLightExeTxWashable*>(&pool),
                                                              boost::numeric_cast<uint64_t>(*latest_blk_num) + 1,
                                                              *latest_blk_hash
                                                              );
               }
               exe.iForConsensusExecutable = dynamic_cast<::pure::IForConsensusExecutable*>(&(*(exe.light->exe)));
-
             }else{
               BOOST_LOG_TRIVIAL(info) << format("\t⚙️ Starting " S_CYAN "`normal exe`" S_NOR " for cnsss");
               exe.normal = make_unique<ExeAndPartners>(w.iWorldChainStateSettable,

@@ -19,6 +19,17 @@
 
 namespace weak{
 
+  /**
+   * @brief The interface of mempool for LightExeForCnsss.
+   * 
+   * 🦜 : This is the interface for the LightExeForCnsss to wash the txs. It
+   * ensures that the hash is not used twice. This in fact will just touch `pool.txhs`.
+   */
+  class IForLightExeTxWashable{
+  public:
+    virtual void washTxs(& vector<Tx> txs) noexcept = 0;
+  };
+
   namespace multi_index = boost::multi_index;
   using multi_index::ordered_unique;
   using multi_index::identity;
@@ -46,7 +57,8 @@ namespace weak{
    */
   class Mempool: public virtual IForSealerTxHashesGettable,
                  public virtual IPoolSettable,
-                 public virtual IForRpc
+                 public virtual IForRpc,
+                  public virtual IForLightExeTxWashable
   {
   public:
     ~Mempool(){
@@ -115,6 +127,20 @@ namespace weak{
                                          ", now " S_CYAN "%d" S_NOR " left")
         % h % txhs.size();
       return t;
+    }
+
+    /**
+     * @brief Wash the txs.
+     *
+     * This will filter out the txs that have been executed. For each tx, if its
+     * hash is in the `hs`, it will be removed, otherwise we keep it and remember
+     * its hash.
+     */
+    void washTxs(vector<Tx> txs) noexcept override{
+      std::unique_lock g1(this->lock_for_hs); // movable lock
+      auto removed = std::erase_if(txs,[this](const Tx & t){
+        return not this->hs->insert(t.hash()).second; // 🦜 : we can't put it in the pool.
+      });
     }
 
     vector<hash256> getTxHashesForSeal() noexcept override{

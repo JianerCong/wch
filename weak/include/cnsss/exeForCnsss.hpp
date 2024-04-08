@@ -217,7 +217,7 @@ namespace weak {
    */
   class LightExecutorForCnsss: public virtual ExecutorForCnsss{
   public:
-    IForSealerTxHashesGettable * const mempool;
+    IForLightExeTxWashable * const mempool; // <2024-04-08 Mon> 🦜 : This washer makes sure that the hashes are correct.
     uint64_t next_blk_number;
     hash256 previous_hash;
     const int optimization_level;
@@ -233,12 +233,11 @@ namespace weak {
      * @param h The previous Blk hash
      */
     LightExecutorForCnsss(IBlkExecutable * const e,
-                          IPoolSettable * const p,
-                          IForSealerTxHashesGettable * const m,
+                          IForLightExeTxWashable * const m,
                           int o = 2,
                           uint64_t n = 0,
                           hash256 h = {}
-                          ): ExecutorForCnsss(e,p),
+                          ): ExecutorForCnsss(e,nullptr), // 🦜 <2024-04-08 Mon> base class's methods are overriden, so we don't need the pool.
                              next_blk_number(n), mempool(m), previous_hash(h),optimization_level(o)
     {}
 
@@ -249,6 +248,9 @@ namespace weak {
       Blk b;
       if (not b.fromString(arg))
         return clear_cmd_and_complain(cmd, "Error parsing Blk");
+      if (this->optimization_level < 2){
+        this->mempool->washTxs(b.txs); // filtered out tx with same hash.
+      }
 
       if (not execute_Blk(std::move(b)))
         return clear_cmd_and_complain(cmd,"Error committing Blk");
@@ -256,16 +258,11 @@ namespace weak {
       return "OK";
     };
 
-    /**
-     * @brief Let the txs to go through the pool.
-     *
-     * This should modifies the txs so that it only contains valid Tx.
-     */
-    void verify_txs_and_filter_maybe(vector<Tx> & txs){
-      BOOST_LOG_TRIVIAL(warning) << format("⚠️ verify_txs_and_filter_maybe called but not implemented yet");
-    }
-
     string  seal_Blk_and_update_cmd(vector<Tx> && txs, string & cmd){
+      if (this->optimization_level < 2){
+        this->mempool->washTxs(txs); // filtered out tx with same hash.
+      }
+
       Blk b{this->next_blk_number,
             this->previous_hash,
             txs};
@@ -294,9 +291,6 @@ namespace weak {
         BOOST_LOG_TRIVIAL(debug) << format("⚙️ Handling " S_CYAN "ADD_TXS" S_NOR ", data to parse:\n\t"
                                            S_CYAN "%s" S_NOR) % pure::get_data_for_log(arg);
         vector<Tx> txs = Tx::parse_to_array(arg);
-        if (this->optimization_level < 2){
-          verify_txs_and_filter_maybe(txs);
-        }
         // <2024-03-26 Tue> 🦜 : It turns out that pb is very kind about parsing
         // error. It seems like it simply returns an empty array when it
         // fails..... So let's check the size of the txs.
