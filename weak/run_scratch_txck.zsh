@@ -1,12 +1,12 @@
-w=./build-weak/wch
 
+w=./build-weak/wch
 # 1. start in public mode (tx needs a signature)
 $w --port 7777 --light-exe --tx-mode-serious public
 
 # 2. new a keypair
+w=./build-weak/wch
 pk=$(pwd)/build-weak/acn-pk.pem
 sk=$(pwd)/build-weak/acn-sk.pem
-
 $w toolbox new-keypair $pk $sk
 
 # 3. write a tx 🦜 : from doesn't need to be filled
@@ -34,6 +34,4 @@ sed 's/hi/hihi/' $txf2 > $txf3
 cat $txf3 | jq .
 # 5.1 send
 out=$(curl --data @$txf3 http://localhost:7777/add_txs)
-# 5.2 view the result
-h=$(echo $out | jq -M -r '.[0] | .hash')
-curl "http://localhost:7777/get_receipt?hash=$h" | jq .
+# [] means rejected at the front door..

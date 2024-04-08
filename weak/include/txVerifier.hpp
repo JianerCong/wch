@@ -52,7 +52,7 @@ namespace weak {
         🐢 : `string_view` can only get `.data()`, but `const string &` can get `.c_str()`
        */
       if (not ca_crt_pem.empty()) {
-        BOOST_LOG_TRIVIAL(debug) <<  S_GREEN "\t📗️ SeriousDiv2Executor started in ca tx_mode."  S_NOR;
+        BOOST_LOG_TRIVIAL(debug) <<  S_GREEN "\t📗️ TxVerifier started in ca tx_mode."  S_NOR;
         optional<pure::UniquePtr<EVP_PKEY>> o = SslMsgMgr::load_key_from_pem(ca_crt_pem, false /* is_sk*/);
         if (not o){
           BOOST_THROW_EXCEPTION(std::runtime_error("Failed to load the ca public key from the pem:" +
@@ -60,7 +60,7 @@ namespace weak {
         }
         ca_public_key = std::move(o.value()); // move
       }else{
-        BOOST_LOG_TRIVIAL(debug) <<  S_GREEN "\t📗️ SeriousDiv2Executor started in public tx_mode."  S_NOR;
+        BOOST_LOG_TRIVIAL(debug) <<  S_GREEN "\t📗️ TxVerifier started in public tx_mode."  S_NOR;
       }
     }
 

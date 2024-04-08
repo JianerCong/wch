@@ -494,7 +494,7 @@ namespace weak{
    * @return the pair [serious, ca_pk_pem]
    */
   tuple<bool,string> figure_out_tx_mode(const string & s){
-    if (s == "debug"){
+    if (s.empty() or s == "debug"){
       return make_tuple(false,"");
     }else if (s == "public"){
       return make_tuple(true,"");

@@ -22,7 +22,7 @@ endmacro()
 # set_test(test-pure-thrd-party core-deps)
 # set_test(test-executeEvmTx deps)
 # set_test(test-executeDiv2Tx deps)
-set_test(test-executeSr deps)
+# set_test(test-executeSr deps)
 # set_test(test-mempool core-deps)
 # set_test(test-sealer core-deps)
 

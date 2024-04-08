@@ -18,9 +18,8 @@ struct F{
   F(){
     b = dynamic_cast<IBlkExecutable*>(&bh);
     eh= make_unique<LightExecutorForCnsss>(b,
-                                           nullptr,
-                                           nullptr,
-                                           2 /*optimization level*/
+                                           nullptr, // pool
+                                           2 /*optimization level, when > 2, skip hash duplication check*/
                                            );
     e = dynamic_cast<IForConsensusExecutable*>(&(*eh));
     BOOST_TEST_MESSAGE( "setup fixture" );
@@ -162,7 +161,7 @@ BOOST_AUTO_TEST_CASE(test_start_different_init_blk_num){
   string s = "abc";
   hash256 h = ethash::keccak256(reinterpret_cast<uint8_t*>(s.data()), s.size());
 
-  LightExecutorForCnsss e{b, nullptr, nullptr, 2 /*optimization level*/,
+  LightExecutorForCnsss e{b, nullptr, 2 /*optimization level*/,
     123 /* next_blk_number*/ ,h /* previous hash*/};
 
   // Add txs

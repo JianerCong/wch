@@ -179,7 +179,19 @@ class ITxExecutable {
     virtual bool addTxs(vector<Tx> && txs) noexcept=0;
   };
 
-}
+
+  /**
+   * @brief The interface of mempool for LightExeForCnsss.
+   * 
+   * 🦜 : This is the interface for the LightExeForCnsss to wash the txs. It
+   * ensures that the hash is not used twice. This in fact will just touch `pool.txhs`.
+   */
+  class IForLightExeTxWashable{
+  public:
+    virtual void washTxs(vector<Tx> & txs) noexcept = 0;
+  };
+
+} // namespace weak
 
 /**
  * @brief Some helper functions for stl

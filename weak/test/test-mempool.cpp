@@ -179,7 +179,7 @@ BOOST_AUTO_TEST_CASE(test_getTxByHash_from_mempool){
 
 /*
   🦜: Here we initialize the mempool with a set of hashes
- */
+*/
 BOOST_AUTO_TEST_CASE(test_given_previous_hashes_basic_verify){
   auto [a1,a2,data] = get_example_address_and_data();
   vector<Tx> txs = {
@@ -278,6 +278,27 @@ BOOST_AUTO_TEST_CASE(test_mempool_info){
   json::value jv = json::parse(s, ec );
   BOOST_TEST_MESSAGE((format("Formed info %s") % s).str());
   BOOST_REQUIRE(not ec);
-  }
+}
+
+BOOST_AUTO_TEST_CASE(test_wash){
+  // 1.
+    Mempool p;
+
+  // 2. make some txs
+  auto [a1,a2,data] = get_example_address_and_data();
+  vector<Tx> txs = {
+    Tx(a1,a2,data,1/*nonce*/),
+    Tx(a1,a2,data,1/*nonce*/),
+    Tx(a1,a2,data,2)
+  };
+
+  // 3. wash it, because [0] and [1] has the same hash, [1] will be removed.
+  p.washTxs(txs);
+  BOOST_CHECK_EQUAL(txs.size(),2);
+  BOOST_CHECK_EQUAL(txs[0].nonce,1);
+  BOOST_CHECK_EQUAL(txs[1].nonce,2);
+
+}
 
 BOOST_AUTO_TEST_SUITE_END();
+
