@@ -2,7 +2,7 @@ from helpers import *
 from pathlib import Path
 def test_single_primary_set_get_123():
     port = 7777
-    p = Popen([wc, '--port', str(port),'--light-exe'],stdin=PIPE,stdout=PIPE,stderr=PIPE)
+    p = Popen([wc, '--port', str(port),'--light-exe'],stdin=PIPE,stdout=PIPE,stderr=PIPE, text=True)
     time.sleep(2)                   #  wait until is up
 
     url = f'http://localhost:{port}/'

@@ -135,3 +135,4 @@ clear &&  pytest -s build-weak/test_psstn.py
 
 
 clear &&  pytest -s build-weak/test_pyvm.py
+clear &&  pytest -s build-weak/test_tx_mode.py
