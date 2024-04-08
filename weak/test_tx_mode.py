@@ -71,3 +71,4 @@ def test_real_run_public_mode():
         print(f'🚮️ cleaning up')
         # clean the files
         stop_and_test(p)
+        

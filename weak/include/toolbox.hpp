@@ -58,6 +58,7 @@ Usage :
    wch toolbox -h
    wch toolbox new-keypair <out-pk.pem> <out-sk.pem>
    wch toolbox do-sign <sk.pem> <msg.txt> <out-sig.bin>
+   wch toolbox sign-pk <ca-sk.pem> <pk.pem> <out-crt.bin>
    wch toolbox do-verify <pk.pem> <msg.txt> <sig.bin>
    wch toolbox tx-sign <tx.json> <sk.pem> <crt.sig> <out-tx.json>
    wch toolbox tx-sign-no-crt <tx.json> <sk.pem> <out-tx.json>
@@ -213,7 +214,7 @@ starting with `out-` are generated files, otherwise the file must exist.
           BOOST_ASSERT_MSG(argc == 3, "new-keypair requires 2 arguments: <out-pk.pem> <out-sk.pem>");
           // cout << "Generating a new key pair" << endl;
           new_key_pair(argv[1], argv[2]);
-        }else if (!strcmp("do-sign", argv[0])){
+        }else if (!strcmp("do-sign", argv[0]) or !strcmp("sign-pk", argv[0])){
           BOOST_ASSERT_MSG(argc == 4, "do-sign requires 3 arguments: <sk.pem> <msg.txt> <out-sig.bin>");
           do_sign(argv[1], argv[2], argv[3]);
         }else if (!strcmp("do-verify", argv[0])){
