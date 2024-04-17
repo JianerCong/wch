@@ -19,15 +19,18 @@ struct RaftAndColleague {
   shared_ptr<RaftConsensusBase> raft;
   string my_endpoint;
   RaftAndColleague(int my_id, vector<string> endpoints /*pass by value*/){
-    e = new mock::Executable();
+    e = new mock::Executable(endpoints[my_id]);
     n = new mock::AsyncEndpointNetworkNode(endpoints[my_id]);
 
     endpoints.erase(endpoints.begin() + my_id); // the others
-    raft = RaftConsensusBase::create(n, e, endpoints);
+    raft = RaftConsensusBase::create(
+                                     dynamic_cast<IAsyncEndpointBasedNetworkable *>(this->n),
+                                     dynamic_cast<IForConsensusExecutable*>(this->e),
+                                     endpoints);
   }
   ~RaftAndColleague(){
     BOOST_LOG_TRIVIAL(debug) <<  "👋 Closing RaftAndColleague: " S_MAGENTA << my_endpoint;
-    this->raft.stop()
+    this->raft->stop();
     delete this->e;
     delete this->n;
   }

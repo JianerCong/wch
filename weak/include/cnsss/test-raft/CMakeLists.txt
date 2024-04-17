@@ -11,8 +11,9 @@ find_package(Boost 1.75...1.82
   CONFIG REQUIRED COMPONENTS json log
 )
 
-add_executable(main pure-testRbft.cpp)
+add_executable(main pure-testRaft.cpp)
 target_link_libraries(main PUBLIC Boost::log Boost::json)
+target_compile_definitions(main PUBLIC WEAK_CNSSS_NO_CONFIG) #🦜 : No config.hpp
 
 target_include_directories(main PUBLIC ${CMAKE_CURRENT_LIST_DIR}/..)    #include/cnsss
 target_include_directories(main PUBLIC ${CMAKE_CURRENT_LIST_DIR}/../..) #include/

@@ -1,6 +1,9 @@
 #pragma once
 
+// WEAK_CNSSS_NO_CONFIG
+#if !defined(WEAK_CNSSS_NO_CONFIG)
 #include "config.hpp"
+#endif
 #include <boost/json.hpp>
 #include <string>
 #include <string_view>

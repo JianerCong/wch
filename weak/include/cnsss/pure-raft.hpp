@@ -38,7 +38,7 @@ namespace pure {
   using json::value_to;
 
   class RaftConsensusBase :
-    public virtual ICnsssPrimaryBased,
+    // public virtual ICnsssPrimaryBased, // 🦜 : Nope, to be implemented by the subclass
     public std::enable_shared_from_this<RaftConsensusBase> {
   private:
 
@@ -112,10 +112,10 @@ namespace pure {
       // 1. start a new term and vote for myself
       this->term++;
       this->my_votes = 1;
-      this->voted_term = this->term;
+      this->voted_term = this->term.load();
 
       // 2. boardcast '/pleaseVoteMe'
-      for (auto other : this->others.cbegin(), this->others.cend()){
+      for (auto other = this->others.cbegin(); other != this->others.cend(); other++){
         this->net->send(*other, "/pleaseVoteMe", std::to_string(this->term));
       }
     }
@@ -141,7 +141,7 @@ namespace pure {
         if (this->my_votes.load() > this->others.size() / 2){
           this->say((format("🎉 I am the primary now, term = %d") % this->term.load()).str());
           // boardcast '/iAmThePrimary'
-          for (auto other : this->others.cbegin(), this->others.cend()){
+          for (auto other = this->others.cbegin(); other != this->others.cend(); other++){
             this->net->send(*other, "/iAmThePrimary", std::to_string(this->term.load()));
           }
           this->primary = this->net->listened_endpoint();
@@ -156,7 +156,7 @@ namespace pure {
       while (not this->done.test() and (this->primary == this->net->listened_endpoint())){
         std::this_thread::sleep_for(std::chrono::milliseconds(2000));
         // heartbeat
-        for (auto other : this->others.cbegin(), this->others.cend()){
+        for (auto other = this->others.cbegin(); other != this->others.cend(); other++){
           this->net->send(*other, "/heartbeat", "");
         }
       }

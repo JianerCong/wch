@@ -10,6 +10,7 @@
 #include <functional>
 #include <unordered_map>
 
+#include <thread>
 #include <boost/algorithm/string.hpp> // for join()
 #include <mutex>
 #include <memory>
