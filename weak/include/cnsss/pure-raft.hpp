@@ -90,9 +90,9 @@ namespace pure {
       this->net->clear();
       this->done.test_and_set();
       // wait for the timer to finish
-      BOOST_LOG_TRIVIAL(debug) <<  "Before joining the timer";
+      // BOOST_LOG_TRIVIAL(debug) <<  "Before joining the timer";
       this->timer.join();
-      BOOST_LOG_TRIVIAL(debug) <<  "👋 " + this->net->listened_endpoint() + "stopped";
+      // BOOST_LOG_TRIVIAL(debug) <<  "👋 " + this->net->listened_endpoint() + "stopped";
     }
 
     void start_internal_timer() {
@@ -115,7 +115,7 @@ namespace pure {
     }
 
     void complain(){
-      this->say("📗️ patience is 0");
+      // this->say("📗️ patience is 0");
       // 1. start a new term and vote for myself
       this->term++;
       this->my_votes = 1;
@@ -129,7 +129,9 @@ namespace pure {
 
     void handle_pleaseVoteMe(string from, string msg){
       this->say((format("🗳️ Got vote request from %s, my term: %d, voted term: %d")
-                 % from % this->term.load() % this->voted_term.load()).str());
+                 %
+                 ICnsssPrimaryBased::make_endpoint_human_readable(from)
+                  % this->term.load() % this->voted_term.load()).str());
       int term = std::stoi(msg);
       if (term > this->term.load()
           and term > this->voted_term.load()){
@@ -143,7 +145,8 @@ namespace pure {
     void handle_voteForYou(string from, string msg){
       int term = std::stoi(msg);
       this->say((format("🗳️ Got vote from %s, my term: %d, now I have %d votes")
-                 % from % this->term.load() % this->my_votes.load()).str());
+                 % ICnsssPrimaryBased::make_endpoint_human_readable(from)
+                 % this->term.load() % this->my_votes.load()).str());
 
       if (term == this->term.load()){
         this->my_votes++;
@@ -186,7 +189,9 @@ namespace pure {
         this->term.store(term);
         this->primary = from;
         this->say((format("🎉 Welcome the new primary: %s, term = %d")
-                   % from % term).str());
+                   %
+                   ICnsssPrimaryBased::make_endpoint_human_readable(from)
+                   % term).str());
         this->comfort();
       }
       // else do nothing
@@ -195,14 +200,16 @@ namespace pure {
     void comfort(string by = "myself"){
       // set to randome 5:1:10
       this->patience = 5 + (std::rand() % 6);
-      this->say((format("patience set to %d by %s") % this->patience.load() % by).str());
+      // this->say((format("patience set to %d by %s") % this->patience.load() % by).str());
     }
 
     virtual string prompt(){
       return (
               format(S_CYAN "[%s]" S_NOR "[Pm=%s]" S_GREEN "[t=%d]: " S_NOR)
-              % this->net->listened_endpoint()
-              % this->primary
+              %
+              ICnsssPrimaryBased::make_endpoint_human_readable(this->net->listened_endpoint())
+              %
+              ICnsssPrimaryBased::make_endpoint_human_readable(this->primary)
               % this->term.load()
               ).str();
     }
