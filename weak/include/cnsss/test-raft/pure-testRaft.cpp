@@ -51,7 +51,10 @@ struct RaftAndColleague {
 };
 
 struct Stage {
-  unordered_map<string, shared_ptr<RaftAndColleague>> nodes;
+  // using T = RaftAndColleague<RaftConsensusBase>;
+  using T = RaftAndColleague<RaftConsensus>;
+
+  unordered_map<string, shared_ptr<T>> nodes;
   vector<string> endpoints;
   /**
    * @brief Initialize a stage with N nodes.
@@ -68,7 +71,7 @@ struct Stage {
     // 2. create the RaftAndColleague objects
     for (int i = 0; i < n; i++){
       string my_endpoint = endpoints[i];
-      nodes[my_endpoint] = make_shared<RaftAndColleague>(i, endpoints);// Called when BOOST_ASSERT failed
+      nodes[my_endpoint] = make_shared<T>(i, endpoints);// Called when BOOST_ASSERT failed
 
     }
   }
@@ -105,7 +108,9 @@ void start_cluster(int n){
       }
       stage.kick(i);
       BOOST_LOG_TRIVIAL(debug) <<  "👟 Kicked N" S_MAGENTA << i << S_NOR;
+      continue;
     }
+    // read command
   }
 
   // remove all
