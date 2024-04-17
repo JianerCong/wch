@@ -11,7 +11,7 @@
 #include <memory>
 
 #include <boost/json.hpp>
-#include <array>
+#include <vector>
 #include <boost/format.hpp>
 #include <boost/log/trivial.hpp>
 #include "pure-forCnsss.hpp"
@@ -44,7 +44,7 @@ namespace pure {
 
     IAsyncEndpointBasedNetworkable * const net;
     IForConsensusExecutable * const exe;
-    array<string> const others;
+    vector<string> const others;
     std::atomic_flag done = ATOMIC_FLAG_INIT;
 
     std::atomic_int patience = 0;
@@ -55,7 +55,7 @@ namespace pure {
 
     RaftConsensusBase(IAsyncEndpointBasedNetworkable * const n,
                       IForConsensusExecutable * const e,
-                      array<string> o):
+                      vector<string> o):
       net(n), exe(e), others(o) {
       BOOST_LOG_TRIVIAL(debug) <<  "🌱" + this->net->listened_endpoint() + "started";
       this->start();
@@ -70,6 +70,13 @@ namespace pure {
       this->net->listen("/voteForYou", bind(&RaftConsensusBase::handle_voteForYou, this, _1,_2));
       this->net->listen("/heartbeat", bind(&RaftConsensusBase::handle_heartbeat, this, _1,_2));
       this->net->listen("/iAmThePrimary", bind(&RaftConsensusBase::handle_iAmThePrimary, this, _1,_2));
+    }
+  public:
+    [[nodiscard]] static shared_ptr<RaftConsensusBase> create(
+      IAsyncEndpointBasedNetworkable * const n,
+      IForConsensusExecutable * const e,
+      vector<string> o){
+      return make_shared<RaftConsensusBase>(n, e, o);
     }
 
     void start() {
@@ -195,5 +202,5 @@ namespace pure {
       BOOST_LOG_TRIVIAL(debug) << this->prompt() << msg;
     }
 
-  } // class RaftConsensusBase
+  }; // class RaftConsensusBase
 }   // namespace pure

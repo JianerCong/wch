@@ -189,6 +189,80 @@ namespace pure {
     virtual ~Executable(){};
   };
 
+
+  unordered_map<string,
+                function<void(string,string)>
+                > network_hub;
+  std::mutex lock_for_network_hub;
+
+  class AsyncEndpointNetworkNode: public virtual IAsyncEndpointBasedNetworkable{
+  public:
+    string endpoint;
+    AsyncEndpointNetworkNode(string e): endpoint(e){};
+
+    string listened_endpoint() noexcept override{
+      return this->endpoint;
+    };
+
+    void listen(string target,
+                function<void(string,string)> handler
+                ) noexcept override{
+      string k = make_k(this->endpoint,target);
+
+      BOOST_LOG_TRIVIAL(debug) << format("Adding handler: " S_GREEN " %s" S_NOR) % k;
+      std::unique_lock l(lock_for_network_hub);
+      network_hub[k] = handler;
+      BOOST_LOG_TRIVIAL(debug) << "Added handler";
+    };                          // unlocks here
+
+    void clear() noexcept override{
+      std::unique_lock l(lock_for_network_hub);
+      for (auto it = network_hub.begin(); it != network_hub.end();){
+        if (it->first.starts_with(ICnsssPrimaryBased::make_endpoint_human_readable(this->endpoint)
+                                  + "-")){
+          BOOST_LOG_TRIVIAL(debug) << format("\t🚮️ Removing handler: " S_MAGENTA " %s" S_NOR) % it->first;
+          it = network_hub.erase(it);
+        }else{
+          ++it;
+        }
+      }
+    }; // unlock here
+
+    static string make_k(string endpoint, string target){
+      return (format("%s-%s") %
+                  ICnsssPrimaryBased::make_endpoint_human_readable(endpoint)
+                  % target).str();
+    }
+
+    void send(string endpoint, string target, string data) noexcept override{
+      string k = make_k(endpoint,target);
+      BOOST_LOG_TRIVIAL(debug) << format(" Calling handler:  " S_GREEN "%s" S_NOR
+                                         "with data\n"
+                                         S_CYAN "%s" S_NOR
+                                         ) % k % pure::get_data_for_log(data);
+
+      // write send()
+      optional<string> r;
+      std::unique_lock l(lock_for_network_hub);
+      if (network_hub.contains(k)){
+        BOOST_LOG_TRIVIAL(debug) << format("Handler found");
+        std::thread(std::bind(network_hub.at(k),this->endpoint,data)).detach();
+      }else{
+        BOOST_LOG_TRIVIAL(debug) << format("Handler %s not found" ) % k;
+      }
+    };
+
+    virtual ~AsyncEndpointNetworkNode(){};
+  };                            // class AsyncEndpointNetworkNode
+
+    /*
+
+      🐢 : The above two classes are copied from ListenToOneConsensus. But in
+      addition to that, we need a signer which will do digital signtature.
+
+     */
+
+
 } // namespace mock
 } // namespace pure
 
