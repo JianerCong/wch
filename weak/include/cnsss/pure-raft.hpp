@@ -58,8 +58,7 @@ namespace pure {
                       IForConsensusExecutable * const e,
                       vector<string> o):
       net(n), exe(e), others(o) {
-      BOOST_LOG_TRIVIAL(debug) <<  "🌱 " + this->net->listened_endpoint() + "started";
-      this->start();
+      BOOST_LOG_TRIVIAL(debug) <<  "🌱 " + this->net->listened_endpoint() + " started";
       /*
         self.net.listen('/pleaseVoteMe',self.handle_pleaseVoteMe)
         self.net.listen('/voteForYou',self.handle_voteForYou)
@@ -70,6 +69,7 @@ namespace pure {
       this->net->listen("/voteForYou", bind(&RaftConsensusBase::handle_voteForYou, this, _1,_2));
       this->net->listen("/heartbeat", bind(&RaftConsensusBase::handle_heartbeat, this, _1,_2));
       this->net->listen("/iAmThePrimary", bind(&RaftConsensusBase::handle_iAmThePrimary, this, _1,_2));
+      this->start();
     }
   public:
     [[nodiscard]] static shared_ptr<RaftConsensusBase> create(
@@ -81,7 +81,7 @@ namespace pure {
       return shared_ptr<RaftConsensusBase>(new RaftConsensusBase(n,e,o));
     }
 
-    virtual void start() {
+    void start() {
       // this->start_internal_timer();
       this->timer = std::thread([this](){this->start_internal_timer();});
     }
@@ -220,7 +220,10 @@ private:
   RaftConsensus(IAsyncEndpointBasedNetworkable * const n,
                 IForConsensusExecutable * const e,
                 vector<string> o):
-    RaftConsensusBase(n,e,o) {}
+    RaftConsensusBase(n,e,o) {
+    this->net->listen("/pleaseExecute", bind(&RaftConsensus::handle_pleaseExecute, this, _1,_2));
+    // ⚠️ Caveat, in RaftConsensusBase(...), the overriden methods won't be called...
+  }
 public:
   vector<string> cmds;
   [[nodiscard]] static shared_ptr<RaftConsensus> create(IAsyncEndpointBasedNetworkable * const n,
@@ -258,11 +261,6 @@ public:
       this->cmds.push_back(data);
       return "Done";
     }
-  }
-
-  void start() override {
-    this->net->listen("/pleaseExecute", bind(&RaftConsensus::handle_pleaseExecute, this, _1,_2));
-    RaftConsensusBase::start();
   }
 
   void handle_pleaseExecute(string from, string msg){

@@ -19,7 +19,7 @@ void boost::assertion_failed(char const * expr, char const * function, char cons
   BOOST_THROW_EXCEPTION(my_assertion_error(s));
 } // 🦜 : It seems like boost uniform_int_distribution requires us to define ^ 
 
-template<typename T=RaftConsensusBase>
+template<typename T>
 struct RaftAndColleague {
   mock::Executable * e;
   mock::AsyncEndpointNetworkNode * n;
@@ -93,7 +93,8 @@ struct Stage {
 
 void start_cluster(int n){
   Stage stage(n);
-
+  unique_ptr<mock::AsyncEndpointNetworkNode> nClient =
+    make_unique<mock::AsyncEndpointNetworkNode>("ClientAAA");
   while (true){
     string reply;
     cin >> reply;
@@ -111,6 +112,10 @@ void start_cluster(int n){
       continue;
     }
     // read command
+    string cmd;
+    cin >> cmd;
+    BOOST_LOG_TRIVIAL(debug) << "🦜 : Sending command " + cmd + " to " + reply;
+    nClient->send(reply, "/pleaseExecute", cmd);
   }
 
   // remove all
