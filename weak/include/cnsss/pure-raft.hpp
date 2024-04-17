@@ -15,8 +15,8 @@
 #include <boost/format.hpp>
 #include <boost/log/trivial.hpp>
 #include "pure-forCnsss.hpp"
-#include <boost/random/mersenne_twister.hpp>
-#include <boost/random/uniform_int_distribution.hpp>
+// #include <boost/random/mersenne_twister.hpp>
+// #include <boost/random/uniform_int_distribution.hpp>
 
 namespace pure {
   using boost::format;
@@ -40,7 +40,7 @@ namespace pure {
   class RaftConsensusBase :
     // public virtual ICnsssPrimaryBased, // 🦜 : Nope, to be implemented by the subclass
     public std::enable_shared_from_this<RaftConsensusBase> {
-  private:
+  protected:
 
     IAsyncEndpointBasedNetworkable * const net;
     IForConsensusExecutable * const exe;
@@ -52,14 +52,14 @@ namespace pure {
     std::atomic_int voted_term = 0;
     std::atomic_int my_votes = 0;
     string primary = "";
+    std::thread timer;
 
     RaftConsensusBase(IAsyncEndpointBasedNetworkable * const n,
                       IForConsensusExecutable * const e,
                       vector<string> o):
       net(n), exe(e), others(o) {
-      BOOST_LOG_TRIVIAL(debug) <<  "🌱" + this->net->listened_endpoint() + "started";
+      BOOST_LOG_TRIVIAL(debug) <<  "🌱 " + this->net->listened_endpoint() + "started";
       this->start();
-
       /*
         self.net.listen('/pleaseVoteMe',self.handle_pleaseVoteMe)
         self.net.listen('/voteForYou',self.handle_voteForYou)
@@ -76,16 +76,23 @@ namespace pure {
       IAsyncEndpointBasedNetworkable * const n,
       IForConsensusExecutable * const e,
       vector<string> o){
-      return make_shared<RaftConsensusBase>(n, e, o);
+      // return make_shared<RaftConsensusBase>(new RaftConsensusBase(n,e,o));
+      // Not using std::make_shared<B> because the c'tor is private.
+      return shared_ptr<RaftConsensusBase>(new RaftConsensusBase(n,e,o));
     }
 
-    void start() {
-      this->start_internal_timer();
+    virtual void start() {
+      // this->start_internal_timer();
+      this->timer = std::thread([this](){this->start_internal_timer();});
     }
 
     void stop(){
-      this->done.test_and_set();
       this->net->clear();
+      this->done.test_and_set();
+      // wait for the timer to finish
+      BOOST_LOG_TRIVIAL(debug) <<  "Before joining the timer";
+      this->timer.join();
+      BOOST_LOG_TRIVIAL(debug) <<  "👋 " + this->net->listened_endpoint() + "stopped";
     }
 
     void start_internal_timer() {
@@ -121,6 +128,8 @@ namespace pure {
     }
 
     void handle_pleaseVoteMe(string from, string msg){
+      this->say((format("🗳️ Got vote request from %s, my term: %d, voted term: %d")
+                 % from % this->term.load() % this->voted_term.load()).str());
       int term = std::stoi(msg);
       if (term > this->term.load()
           and term > this->voted_term.load()){
@@ -154,11 +163,13 @@ namespace pure {
     void start_being_primary(){
       this->my_votes = 0;
       while (not this->done.test() and (this->primary == this->net->listened_endpoint())){
-        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
         // heartbeat
         for (auto other = this->others.cbegin(); other != this->others.cend(); other++){
           this->net->send(*other, "/heartbeat", "");
         }
+        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+        // 🦜 : It's important to put this line after the for-loop, cuz there's
+        // a chance that `this` is gone during the sleep.
       }
     }
 
@@ -181,15 +192,13 @@ namespace pure {
       // else do nothing
     }
 
-    boost::random::mt19937 gen;
     void comfort(string by = "myself"){
       // set to randome 5:1:10
-      boost::random::uniform_int_distribution<> dist(5,10);
-      this->patience = dist(gen);
+      this->patience = 5 + (std::rand() % 6);
       this->say((format("patience set to %d by %s") % this->patience.load() % by).str());
     }
 
-    string prompt(){
+    virtual string prompt(){
       return (
               format(S_CYAN "[%s]" S_NOR "[Pm=%s]" S_GREEN "[t=%d]: " S_NOR)
               % this->net->listened_endpoint()
@@ -201,6 +210,77 @@ namespace pure {
     void say(string msg){
       BOOST_LOG_TRIVIAL(debug) << this->prompt() << msg;
     }
-
   }; // class RaftConsensusBase
+
+class RaftConsensus :
+  public RaftConsensusBase,
+  public virtual ICnsssPrimaryBased,
+  public std::enable_shared_from_this<RaftConsensus> {
+private:
+  RaftConsensus(IAsyncEndpointBasedNetworkable * const n,
+                IForConsensusExecutable * const e,
+                vector<string> o):
+    RaftConsensusBase(n,e,o) {}
+public:
+  vector<string> cmds;
+  [[nodiscard]] static shared_ptr<RaftConsensus> create(IAsyncEndpointBasedNetworkable * const n,
+                                                            IForConsensusExecutable * const e,
+                                                            vector<string> o){
+    // Not using std::make_shared<B> because the c'tor is private.
+    return shared_ptr<RaftConsensus>(new RaftConsensus(n,e,o));
+  }
+
+  bool is_primary() const noexcept override {
+    return this->primary == this->net->listened_endpoint();
+  }
+
+  optional<string> handle_execute_for_primary(string endpoint,
+                                              string data) override {
+    // 1. execute the command
+    this->exe->execute(data);
+    this->cmds.push_back(data);
+
+      // 2. boardcast the command
+    for (auto other = this->others.cbegin(); other != this->others.cend(); other++){
+      this->net->send(*other, "/pleaseExecute", data);
+    }
+    return "Done";
+  }
+  optional<string> handle_execute_for_sub(string endpoint,
+                                          string data){
+    // 1. if endpoint is not the primary, forward the command to the primary
+    if (endpoint != this->primary){
+      this->net->send(this->primary, "/pleaseExecute", data);
+      return "forwarded to primary";
+    }else{
+      // 2. execute the command
+      this->exe->execute(data);
+      this->cmds.push_back(data);
+      return "Done";
+    }
+  }
+
+  void start() override {
+    this->net->listen("/pleaseExecute", bind(&RaftConsensus::handle_pleaseExecute, this, _1,_2));
+    RaftConsensusBase::start();
+  }
+
+  void handle_pleaseExecute(string from, string msg){
+    if (this->is_primary()){
+      this->handle_execute_for_primary(from, msg);
+    }else{
+      this->handle_execute_for_sub(from, msg);
+    }
+  }
+  string prompt() override {
+    return (
+            format(S_CYAN "[%s]" S_NOR "[Pm=%s]" S_GREEN "[t=%d][%s]: " S_NOR)
+            % ICnsssPrimaryBased::make_endpoint_human_readable(this->net->listened_endpoint())
+            % ICnsssPrimaryBased::make_endpoint_human_readable(this->primary)
+            % this->term.load()
+            % boost::algorithm::join(this->cmds,":")
+            ).str();
+  }
+
+};                              // class RaftConsensus
 }   // namespace pure

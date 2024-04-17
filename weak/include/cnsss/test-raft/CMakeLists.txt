@@ -27,7 +27,7 @@ cd ../../..
 
 cmake -S weak/include/cnsss/test-raft -B build-testRaft
 cmake --build build-testRaft
-./build-testRbft/main 2
-./build-testRbft/main 3
+./build-testRaft/main 2
+./build-testRaft/main 3
 
 #]=]
