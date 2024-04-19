@@ -85,7 +85,8 @@ cmake --install build-pb --prefix installed-pb
 # --------------------------------------------------
 # Finally we build the chain
 cd ..
-cmake -S weak -B build-weak
+cmake -S weak -B build-weak -DUSE_DYNAMIC_LIBS=1 # for development
+cmake -S weak -B build-weak -DUSE_DYNAMIC_LIBS=0 # for distribution
 cmake --build build-weak/
 
 # try
