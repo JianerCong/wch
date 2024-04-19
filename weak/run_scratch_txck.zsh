@@ -12,7 +12,8 @@ $w toolbox new-keypair $pk $sk
 # 3. write a tx 🦜 : from doesn't need to be filled
 txf=$(pwd)/build-weak/tx-pre.json
 txf2=$(pwd)/build-weak/tx-post.json
-echo '[{"type" : "data", "to" : "", "data" : "hi", "nonce" : 123}]' > $txf
+txs='[{"type" : "data", "from" : "01", "to" : "", "data" : "hi", "nonce" : 123}]'
+
 # 3.1 sign the tx
 $w toolbox tx-sign-no-crt $txf $sk $txf2
 

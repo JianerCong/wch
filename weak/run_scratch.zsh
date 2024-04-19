@@ -95,7 +95,6 @@ curl "$e:7777/get_receipt?hash=c63fce1da4f0a30c0ae6c8ce332286f188d71dc13638beca7
 
 
 # send to node 2 --------------------------------------------------
-# --------------------------------------------------
 # pkill wch
 sudo lsof -i -P -n | grep LISTEN
 

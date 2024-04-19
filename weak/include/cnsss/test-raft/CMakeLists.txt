@@ -30,4 +30,9 @@ cmake --build build-testRaft
 ./build-testRaft/main 2
 ./build-testRaft/main 3
 
+N0 a
+# kick N0
+k 0
+N1 b
+
 #]=]

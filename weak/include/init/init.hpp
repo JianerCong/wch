@@ -604,7 +604,6 @@ namespace weak{
                                     boost::algorithm::join(o.Bft_node_list,",")
                                     ).c_str()
                                    );
-
                   // 1. parse the peers json file
                   peers = PeerCryptoInfo::parse_peer_json(o.crypto.peer_json_file_or_string,
                                                           o.Bft_node_list /* required peer addr_port*/
@@ -630,7 +629,6 @@ namespace weak{
                                                            exe.iForConsensusExecutable,
                                                            others_endpoints);
                 cnsss.iCnsssPrimaryBased = dynamic_cast<ICnsssPrimaryBased*>(cnsss.raft.get());
-
               }else{
                 BOOST_LOG_TRIVIAL(error) << format("❌️ Unknown consensus method: " S_RED "%s" S_NOR) % o.consensus_name;
                 std::exit(EXIT_FAILURE);

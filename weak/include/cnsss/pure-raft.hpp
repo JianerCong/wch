@@ -50,9 +50,13 @@ namespace pure {
     std::atomic_int patience = 0;
     std::atomic_int term = 0;
     std::atomic_int voted_term = 0;
+
     std::atomic_int my_votes = 0;
+    mutable std::mutex lock_for_my_votes;
+
     string primary = "";
     std::thread timer;
+    std::jthread primary_thread;
 
     RaftConsensusBase(IAsyncEndpointBasedNetworkable * const n,
                       IForConsensusExecutable * const e,
@@ -93,6 +97,11 @@ namespace pure {
       // BOOST_LOG_TRIVIAL(debug) <<  "Before joining the timer";
       this->timer.join();
       // BOOST_LOG_TRIVIAL(debug) <<  "👋 " + this->net->listened_endpoint() + "stopped";
+    }
+
+    ~RaftConsensusBase(){
+      if (not this->done.test())
+        this->stop();
     }
 
     void start_internal_timer() {
@@ -144,20 +153,25 @@ namespace pure {
 
     void handle_voteForYou(string from, string msg){
       int term = std::stoi(msg);
-      this->say((format("🗳️ Got vote from %s, my term: %d, now I have %d votes")
-                 % ICnsssPrimaryBased::make_endpoint_human_readable(from)
-                 % this->term.load() % this->my_votes.load()).str());
-
-      if (term == this->term.load()){
-        this->my_votes++;
-        if (this->my_votes.load() > this->others.size() / 2){
-          this->say((format("🎉 I am the primary now, term = %d") % this->term.load()).str());
-          // boardcast '/iAmThePrimary'
-          for (auto other = this->others.cbegin(); other != this->others.cend(); other++){
-            this->net->send(*other, "/iAmThePrimary", std::to_string(this->term.load()));
+      {
+        std::unique_lock lock(this->lock_for_my_votes);
+        this->say((format("🗳️ Got vote from %s, my term: %d, now I have %d votes")
+                   % ICnsssPrimaryBased::make_endpoint_human_readable(from)
+                   % this->term.load() % this->my_votes.load()).str());
+        // 🦜 : I think this have to be transactional, we shouldn't do things
+        // like becomming primary twice....
+        if (term == this->term.load()){
+          this->my_votes++;
+          if (this->my_votes.load() > this->others.size() / 2){
+            this->say((format("🎉 I am the primary now, term = %d") % this->term.load()).str());
+            // boardcast '/iAmThePrimary'
+            for (auto other = this->others.cbegin(); other != this->others.cend(); other++){
+              this->net->send(*other, "/iAmThePrimary", std::to_string(this->term.load()));
+            }
+            this->primary = this->net->listened_endpoint();
+            // wait for the primary thread to finish
+            this->primary_thread = std::jthread([this](){this->start_being_primary();});
           }
-          this->primary = this->net->listened_endpoint();
-          this->start_being_primary();
         }
       }
       // else do nothing
@@ -275,6 +289,11 @@ public:
   }
 
   void handle_pleaseExecute(string from, string msg){
+    if (this->primary == ""){
+      this->say("⚠️ : Sorry , we don't have a primary yet, please send the request later.");
+      return;
+    }
+
     if (this->is_primary()){
       this->handle_execute_for_primary(from, msg);
     }else{

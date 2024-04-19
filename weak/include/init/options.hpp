@@ -149,7 +149,7 @@ For example for a cluster of 3 nodes:
     --Raft.node-list 10.0.0.2:7777 10.0.0.3:7777
 
 This list represents the others, so do not specify the current node in this list.
-         )---"
+         )---")
         ("Bft.node-list", program_options::value<vector<string>>(&(this->Bft_node_list))->multitoken(),
          "The list of all nodes in the cluster. This option is ignored if consensus is not Rbft.\n"
          "For example:\n"

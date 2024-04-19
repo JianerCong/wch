@@ -95,6 +95,7 @@ void start_cluster(int n){
   Stage stage(n);
   unique_ptr<mock::AsyncEndpointNetworkNode> nClient =
     make_unique<mock::AsyncEndpointNetworkNode>("ClientAAA");
+
   while (true){
     string reply;
     cin >> reply;
