@@ -248,7 +248,9 @@ public:
                                               string data) override {
     // 1. execute the command
     this->exe->execute(data);
+#if defined(WEAK_CNSSS_NO_CONFIG)
     this->cmds.push_back(data);
+#endif
 
       // 2. boardcast the command
     for (auto other = this->others.cbegin(); other != this->others.cend(); other++){
@@ -265,7 +267,9 @@ public:
     }else{
       // 2. execute the command
       this->exe->execute(data);
+#if defined(WEAK_CNSSS_NO_CONFIG)
       this->cmds.push_back(data);
+#endif
       return "Done";
     }
   }

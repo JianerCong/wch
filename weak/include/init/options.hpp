@@ -67,6 +67,7 @@ namespace weak{
     } crypto;
 
     vector<string> Bft_node_list;
+    vector<string> Raft_node_list;
 
     string tx_mode_serious;
 
@@ -113,7 +114,7 @@ the `@` char. So one can do
 
 )---"
          )
-#if defined(__unix__)
+#if !defined(_WIN32)
         ("unix-socket", program_options::value<string>(&(this->unix_socket))->implicit_value("/tmp/weak.sock"),
          "the unix-domain socket to listen on, default to /tmp/weak.sock")
 #endif
@@ -129,7 +130,7 @@ the `@` char. So one can do
          )
         ("consensus,s",program_options::value<string>(&(this->consensus_name))->default_value("Solo"),
          "The name of consensus to use. Available options are:\n"
-         "  Solo, Solo-static, Rbft\n"
+         "  Solo, Solo-static, Rbft, Raft\n"
          )
         ("port,p",program_options::value<int>(&(this->port))->default_value(7777),
          "The port to listen")
@@ -142,6 +143,13 @@ the `@` char. So one can do
          "node wants to connect to. If not present"
          "    The format should be <host>:<port> e.g. 10.0.0.1:12345."
          )
+        ("Raft.node-list", program_options::value<vector<string>>(&(this->Raft_node_list))->multitoken(),
+         R"---(The list of peers in the cluster. This option is ignored if consensus is not Raft.
+For example for a cluster of 3 nodes:
+    --Raft.node-list 10.0.0.2:7777 10.0.0.3:7777
+
+This list represents the others, so do not specify the current node in this list.
+         )---"
         ("Bft.node-list", program_options::value<vector<string>>(&(this->Bft_node_list))->multitoken(),
          "The list of all nodes in the cluster. This option is ignored if consensus is not Rbft.\n"
          "For example:\n"
@@ -149,7 +157,7 @@ the `@` char. So one can do
          "In particular, if `localhost:<port>` is in this list, then the node is"
          "considered to be one of the `initial node` in the cluster. Otherwise,"
          "the node is considered to be a `newcomer` and it will send request to the existing "
-         "to nodes to try to get in."
+         "nodes to try to get in."
          )
         ("without-crypto", program_options::value<string>(&(this->without_crypto))->implicit_value("yes"),
          "When set to 'no', Enable all those crypto stuff about CA, key pair, "
