@@ -105,11 +105,12 @@ rules are
   allowed.
 \item Only some imports are allowed.
 \item Some identifiers are not allowed.
+\item Optional arguments are not supported.
 \end{enumerate}
 
 \paragraph{Allowed imports}
-Some the following imports are allowed:
-\begin{longtblr}[caption = {Allowed imports},
+The following imports are allowed:
+\begin{longtblr}[caption = {Allowed imports of python contract},
   label = {tab:allowed-py-imports}
   ]%
   {colspec={XXX[3]},
@@ -126,6 +127,141 @@ Some the following imports are allowed:
   \texttt{hmac} & * & hash-based message authentication code module \\
   \bottomrule
 \end{longtblr}
+So you write things like
+\begin{simplepy}
+import math
+from math import sin
+from typing import *
+\end{simplepy}
+
+But not
+\begin{simplepy}
+import os
+\end{simplepy}
+
+% ['__import__', 'breakpoint', 'compile', 'eval', 'execfile', \
+% 'exec', 'get_ipython', 'globals', 'memoryview', 'help', \
+% 'id', 'input', 'open', 'quit', 'exit', 'runfile', 'vars']
+
+\paragraph{Identifiers}
+The following identifiers are not allowed:
+\begin{center}
+  \ttfamily
+  \begin{tblr}{colspec={ccccc},colsep=2em}
+    \_\_import\_\_ & breakpoint & compile & eval & execfile \\
+    exec & get\_ipython & globals & memoryview & help \\
+    id & input & open & quit & exit \\
+    runfile & vars & & & \\
+  \end{tblr}
+\end{center}
+These cannot appear as identifier, which is pretty much everywhere except within
+string literal and comments.
+
+So you can't write things like
+\begin{simplepy}
+open('file.txt')
+x.open('file.txt')
+def open(x):
+    pass
+
+def f(open=2):
+    pass
+\end{simplepy}
+
+However, there can be identifiers that contains the above strings. For example,
+\begin{simplepy}
+id0 = 123
+\end{simplepy}
+
+\paragraph{Contract Methods}
+
+The top level \texttt{def} statement defines the invokable contract methods. A
+minimal contract might look like
+\begin{simplepy}
+def hi() -> str:
+    return "hi"
+\end{simplepy}
+
+About these methods, two things worth mentioning:
+\begin{enumerate}
+\item Special Arguments
+\item The \texttt{init} method
+\end{enumerate}
+
+\paragraph{Special arguments}
+
+Method arguments starting with an underscore are special arguments. They are
+passed by the runtime, not the invoker. For example,
+\begin{simplepy}
+def set(key: str, value: Any, _storage: dict[str,Any]) -> None:
+    _storage[key] = value
+
+def get(key: str, _storage: dict[str,Any]) -> Any:
+    return _storage[key]
+\end{simplepy}
+
+The above two methods have the special argument \texttt{\_storage}. This
+represents the contract's storage. The runtime will prepare and pass the current
+storage to the method. So to invoke the \texttt{set()} method, user only need to
+give
+\begin{simplejs}
+{
+    "method" : "set",
+    "args" : {
+        "k" : "k1",
+        "v" : "v1"
+    }
+}
+\end{simplejs}
+as the invoke json.
+
+These arguments have special meanings, but they are usally \texttt{dict()}
+generated from a json string. In particular we have the following special
+arguments:
+
+\begin{itemize}
+\item \texttt{\_storage} : the contract's storage. This is just a
+  \texttt{dict()} object. And everything written to this object is dumped to
+  json and persisted to the blockchain. If the the jsonization of it fails, the
+  whole transaction will fail.(So nothing will be written to the blockchain)
+\item \texttt{\_tx\_context} : the transaction context. This contains
+  information about the current transaction. It is a \texttt{dict()} object with
+  the following keys:
+  \begin{center}
+    \begin{tblr}{XXX[3]}
+      \textbf{Key} & \textbf{Type} & \textbf{Description} \\
+      \hline
+      \texttt{from} & \texttt{str} & the sender's address in hex \\
+      \texttt{to} & \texttt{str} & the receiver's address in hex. It can be
+      empty if it's the deploying transaction.
+      \colz{
+        (\emoji{turtle} : This should
+        only happens in the \texttt{init()} method. More on this later.)
+      }\\
+      \texttt{hash} & \texttt{str} & the transaction hash in hex \\
+      \texttt{timestamp} & \texttt{int} & the timestamp of the transaction \\
+      \hline
+    \end{tblr}
+  \end{center}
+  % \begin{itemize}
+  % \item \texttt{from} : the sender's address in hex : \texttt{str}
+  % \item \texttt{to} : the receiver's address in hex : \texttt{str}
+  % \item \texttt{hash} : the transaction hash in hex : \texttt{str}
+  % \item \texttt{timestamp} : the timestamp of the transaction : \texttt{int}
+  % \end{itemize}
+\end{itemize}
+
+Therefore, a method do things like:
+\begin{simplepy}
+def hi(_storage: dict[str,Any], _tx_context : dict[str,Any]) -> None:
+    _storage["tx_from"] = _tx_context["from"]  # address hex string
+    _storage["tx_to"] = _tx_context["to"]  # address hex string
+    _storage["tx_hash"] = _tx_context["hash"]  # hex string
+    _storage["tx_timestamp"] = _tx_context["timestamp"]  # int
+\end{simplepy}
+
+\paragraph{The \texttt{init()} method}
+
 
 
 \subsubsection{How to invoke}
