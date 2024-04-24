@@ -1,0 +1,223 @@
+\section{Tutorials}
+\label{sec:tut}
+
+\subsection{Start from the minimal}
+\label{sec:minimal}
+\emoji{parrot} : What's the minimal example of \Wch{} ?
+
+\emoji{turtle} : You can start a node in \cola{Solo} mode. This is useful if you
+want to familiarize yourself with the API, such as how to send transactions.
+It's also good for testing smart contracts.
+
+\begin{simplesh}
+wch --port 7777 # start a node on port 7777 in Solo mode
+\end{simplesh}
+
+Now we have no blocks yet
+\begin{simplesh}
+curl http://localhost:7777/get_latest_Blk # []
+\end{simplesh}
+
+\subsubsection{Deploy an Evm contract}
+To deploy an Evm contract, try:
+\begin{simplesh}
+txs='[
+  {"from" : "01",
+   "to" : "",
+   "data" : "608060405234801561001057600080fd5b50610150806100206000396000f3fe608060405234801561001057600080fd5b50600436106100365760003560e01c806360fe47b11461003b5780636d4ce63c14610057575b600080fd5b610055600480360381019061005091906100c3565b610075565b005b61005f61007f565b60405161006c91906100ff565b60405180910390f35b8060008190555050565b60008054905090565b600080fd5b6000819050919050565b6100a08161008d565b81146100ab57600080fd5b50565b6000813590506100bd81610097565b92915050565b6000602082840312156100d9576100d8610088565b5b60006100e7848285016100ae565b91505092915050565b6100f98161008d565b82525050565b600060208201905061011460008301846100f0565b9291505056fea2646970667358221220271e30d641d99bedebb5450b18efe8b67269cf688a15386162d4c2ff7072a8af64736f6c63430008130033",
+   "nonce" : 123
+  }
+]'
+e=http://localhost
+curl --data $txs $e:7777/add_txs
+\end{simplesh}
+The contract is compiled using
+\begin{simplesh}
+solc hi.sol --bin
+\end{simplesh}
+from a \texttt{hi.sol} file:
+\begin{simplesol}
+  // SPDX-License-Identifier: GPL-3.0
+  pragma solidity >=0.4.16 <0.9.0;
+
+  contract SimpleStorage {
+    uint storedData;
+
+    function set(uint x) public {
+      storedData = x;
+    }
+
+    function get() public view returns (uint) {
+      return storedData;
+    }
+  }
+\end{simplesol}
+
+This should return the transaction hash and the deployed address which is
+something like
+\begin{simplejs}
+[
+    {
+        "hash": "b06b89b665df6f7ff1be967faf9a0601f71c0a3cdb8250c48fe7fcc663b18d1b",
+        "deployed_address": "0000000000000000000000000000000064d05d1b"
+    }
+]
+\end{simplejs}
+
+\subsubsection{Invoke an Evm Contract}
+Let's \texttt{set(123)} (invoke the method \texttt{set} with the argument 123).
+The data is the Ethereum ABI encoding of the method signature and the argument.
+\begin{simplesh}
+$deployed_addr=0000000000000000000000000000000064d05d1b
+txs="[{
+  \"from\" : \"01\",
+  \"to\" : \"$deployed_addr\",
+   \"data\" : \"60fe47b1000000000000000000000000000000000000000000000000000000000000007b\",
+   \"nonce\" : 125
+  }]"
+curl --data $txs $e:7778/add_txs
+\end{simplesh}
+
+Then \texttt{get()} (invoke the method \texttt{get}).
+\begin{simplesh}
+txs="[{
+  \"from\" : \"01\",
+  \"to\" : \"$deployed_addr\",
+  \"data\" : \"6d4ce63c\",
+  \"nonce\" : 126
+}]"
+
+curl --data $txs $e:7777/add_txs
+# [{"hash":"f192381aa197b851870e98fc515414c51d2311fea7e5bc01c16dceb6a7fed3d9"}]
+\end{simplesh}
+
+The result of method invocation is stored in the \cola{transaction receipt}, we
+can get it by
+\begin{simplesh}
+curl $e:7777/get_receipt?hash=f192381aa197b851870e98fc515414c51d2311fea7e5bc01c16dceb6a7fed3d9
+
+# The result of get() is 0x7b = 123 as expected
+# {"ok":true,"result":"000000000000000000000000000000000000000000000000000000000000007b"}
+\end{simplesh}
+
+You can retrieve the transaction by looking at the latest block
+\begin{simplesh}
+curl http://localhost:7777/get_latest_Blk # [{
+...
+"txs": [{...your transaction should be here...}]
+}]
+\end{simplesh}
+
+\begin{weakBox}[title=Note]
+  \emoji{turtle} : Currently \Wch{} does not provide a \texttt{getTxByHash()}
+  API. This is because \Wch{} would have no better way than to scan the whole
+  blockchain and may cause performance issues. So usually the user (or probably
+  some agents) should try to record what transactions are in which block by keep
+  tracking the latest block.
+
+  All of these can by achieved by calling \texttt{curl
+    http://localhost:7777/get\_latest\_Blk} to get the latest block or
+  \texttt{curl http://localhost:7777/get\_latest\_Blk?n=3} to get the latest 3
+  blocks.
+\end{weakBox}
+
+\subsection{The simplest transaction: Pure Data transaction}
+\emoji{parrot} : What if I just want to store some data on the blockchain? For
+example just a pdf. Is there a simple way to do that?
+
+\emoji{turtle} : In that case, \Wch{} has \cola{pure data transaction}.
+
+Suppose we have an \Wch{} endpoint at \texttt{http://localhost:7777} (as can be
+done in \cref{sec:minimal}), we can send a pure data transaction by
+\begin{simplesh}
+txs="[{
+  \"from\" : \"01\",
+  \"to\" : \"\",
+  \"type\" : \"data\",
+  \"data\" : \"aaa\",
+  \"nonce\" : 123
+}]"
+
+curl --data $txs $e:7777/add_txs
+\end{simplesh}
+
+When \Wch{} encounters a transaction of this type when executing a block, it
+simply write \texttt{ok} in its transaction receipt, no VM is initialized.
+
+\begin{weakBox}
+  \emoji{turtle} : In other blockchain, the simplest transaction is usually a
+  ``transfer'' transaction. But there's no ``currency'' in \Wch{}. So no
+  built-in transfer transaction. However, you can always implement one using
+  smart contract.
+\end{weakBox}
+
+\subsection{Python Contract}
+\label{sec:pyvm}
+
+\Wch{} allows you to write smart contracts in Python.
+
+Deploy a Python contract:
+
+Suppose we have \texttt{/tmp/tmp.py}:
+\begin{simplepy}
+from typing import Any
+def hi(_storage: dict[str, Any], y : int) -> int:
+    _storage["x"] = _storage.get("x", 1) + y
+    return _storage["x"]
+\end{simplepy}
+Then to deploy the contract, we can use:
+\begin{simplesh}
+
+txs='[{"from" : "01","to" : "",
+ "data" : "@/tmp/tmp.py",
+ "nonce" : 123,
+ "type" : "python"
+}]'
+# jq converts the text file into valid jsonstring
+
+e=http://localhost
+curl --data $txs $e:7777/add_txs
+# => "deployed_address": "0000000000000000000000000000000064d05d1b"
+\end{simplesh}
+
+Invoke a Python contract:
+
+Suppose we have \texttt{/tmp/tmp.json}:
+\begin{simplejs}
+{
+        "method" : "hi",
+        "args" : {"y" : 122}
+}
+\end{simplejs}
+Then to invoke the contract, we can use:
+\begin{simplesh}
+
+txs='[{
+    "from" : "01",
+    "to" : "'"$da"'",
+    "data" : "@/tmp/tmp.json",
+    "nonce" : 124,
+    "type" : "python"
+}]'
+e=http://localhost
+curl --data $txs $e:7777/add_txs
+# => "hash": "c63fce1da4f0a30c0ae6c8ce332286f188d71dc13638beca74fb5939c5a79ec8",
+
+# get the result
+curl "$e:7777/get_receipt?hash=c63fce1da4f0a30c0ae6c8ce332286f188d71dc13638beca74fb5939c5a79ec8"
+# {"ok":true,"result": 123}
+\end{simplesh}
+
+\emoji{parrot} : Hey, the python contract is much friendlier!
+
+\emoji{turtle} : Yeah, it's designed to be so. To learn more,
+see \cref{sec:how-to-py}.
+
+\subsection{Start a Raft Cluster}
+\label{sec:tut-raft}
+
+\subsection{Start a Pbft Cluster}
+\label{sec:tut-pbft}
+
+\subsection{Production Cryptography}
+\label{sec:tut-serious-crypto}
