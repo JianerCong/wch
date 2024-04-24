@@ -10,7 +10,7 @@
 \newcommand{\cola}[1]{\textcolor{\mycola}{#1}}
 \newcommand{\colb}[1]{\textcolor{\mycolb}{#1}}
 \newcommand{\colc}[1]{\textcolor{\mycolc}{#1}}
-\newcommand{\colce}[1]{\textcolor{gray}{#1}}
+\newcommand{\colz}[1]{\textcolor{gray}{#1}}
 \newcommand{\Cola}[1]{\textcolor{\mycola}{\textbf{#1}}}
 
 \usepackage{tikz}
@@ -26,6 +26,7 @@
 \usepackage{tcolorbox}
 \tcbuselibrary{skins}
 \tcbuselibrary{minted}
+\tcbuselibrary{breakable}
 
 \usepackage{fontspec}
 \setmonofont{Cascadia}[
@@ -65,7 +66,8 @@ BoldItalicFont=*CodePLItalic
     minted language=#2,
     minted style=vs,
     minted options={fontsize=\small,autogobble,
-      breaklines=true
+      breaklines=true,
+      breakanywhere=true
       % framesep=1cm
     },
     tile,
@@ -89,6 +91,7 @@ BoldItalicFont=*CodePLItalic
 \makeSimpleListing{simplexml}{xml}
 \makeSimpleListing{simplejv}{java}
 \makeSimpleListing{simplejs}{js}
+\makeSimpleListing{simplesol}{solidity}
 
 
 \tcbset{enhanced, fontupper=\small,
