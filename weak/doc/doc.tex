@@ -1,0 +1,144 @@
+\documentclass[dvipsnames]{article}
+% \documentclass[dvipsnames]{ctexrep}
+
+\usepackage{geometry}\geometry{
+  a4paper,
+  total={170mm,257mm},
+  left=20mm,
+  top=20mm,
+}
+
+\usepackage{adjustbox}          %to narrower the caption
+\newlength\mylength
+\usepackage{hyperref}
+\usepackage{svg}
+\usepackage[skip=5pt plus1pt, indent=0pt]{parskip}
+\usepackage{emoji}
+% \setemojifont{NotoColorEmoji.ttf}[Path=C:/Users/congj/repo/myFonts/]
+% \setemojifont{TwitterColorEmoji-SVGinOT.ttf}[Path=C:/Users/congj/repo/myFonts/]
+
+
+\usepackage{booktabs}
+\input{h-lua}
+
+\title{Weak Chain User Manual}
+\date{\today}
+\author{cccccje}
+% \usepackage{fontspec}
+
+\usepackage{fancyhdr}
+\fancyhf{}                      % clear all header and footer fields
+\lhead{\textnormal{\rightmark}}
+% \rhead{--\ \thepage\ --}
+\rfoot{--\ \thepage\ --}
+\pagestyle{fancy}
+
+\fancyfoot[C]{
+  \begin{tikzpicture}[remember picture, overlay]
+    % draw a corner at the top right
+    \draw[fill=gray,draw=none,opacity=0.2] (current page.north east) -- +(-2,0) -- +(0,-6) -- cycle;
+    \draw[fill=gray,draw=none,opacity=0.7] (current page.north east) -- +(-3,0) -- +(0,-4) -- cycle;
+    \draw[fill=\mycola,draw=none,opacity=0.7] (current page.north east) -- +(-7,0) -- +(0,-3) -- cycle;
+
+
+    % draw at the bottom left
+    \draw[fill=gray,draw=none,opacity=0.6] (current page.south west) --
+    +(7,0) -- +(0,2) -- cycle;
+    \draw[fill=\mycola,draw=none,opacity=0.6] (current page.south west) --
+    +(2,0) -- +(0,6) -- cycle;
+    \draw[fill=gray,draw=none,opacity=0.3] (current page.south west) --
+    +(3,0) -- +(0,4) -- cycle;
+    
+  \end{tikzpicture}
+}
+
+\newcommand{\Wch}{\strong{\cola{Weak Chain}}}
+
+\begin{document}
+\maketitle
+\tableofcontents{}
+\newpage{}
+\section{Welcome}
+This is the user manual for \Wch{}. \Wch{} is a private
+blockchain. The name come from the idea that
+  \cola{
+  ``you only need a weak understanding of blockchain
+  in order to use it''
+}. This manual includes some concepts and some tutorials.
+It's hoped that following this manual, you will be able to get the most from its
+features.
+
+In the hope of improving readability, this manual is written as dialogues
+between our two characters, Coco the Parrot \emoji{parrot} and Tim the Turtle
+\emoji{turtle}. Coco is a student. He is curious but not very patient. He just
+wants to get things done, but he's not a big fan of becoming a blockchain
+expert. Tim is the teacher. He is more knowledgeable, and willing to share
+everything he knows, but meanwhile keeping things as simple as possible. Tim
+often get pissed off by Coco's impatience, but he knows that's just what he
+should deal with in order to be a good teacher.
+
+If you are ready, join the journey with Coco and Tim. Let's get started.
+
+\section{Concepts}
+
+\colz{
+  \emoji{parrot} : I don't know much about blockchain, but I did hear of
+  cryptocurrency like Bitcoin. Is \Wch{} something like that?
+}
+
+\emoji{turtle} : Not quite. Blockchain is like a family. It has many members.
+Cryptocurrency, like Bitcoin, is one of them. The members share some common
+concepts and ideas including:
+
+\begin{enumerate}
+\item Consensus mechanisms
+\item Ledger as database
+\item etc...
+\end{enumerate}
+
+\Wch{} belongs one of the members called \cola{private chain}. It's called
+``private'', because in contrast to public chain like Cryptocurrency, the nodes
+are often run in private networks, and the data is not open to the public. It
+can do things such as making sure that the data is not tampered with unless a
+majority of the nodes are controlled by the same person. As a result, it can be used to
+store things like contracts.
+
+Private chain has its own core concepts. Some are shared with other members, and
+some are not. These differences however, make some members quite different from
+each other, even though they are all called ``blockchain''. It's like penguin
+and hummingbird are both ``birds'', but they are quite different.
+
+In this section we will go through some of the important concepts of
+private chain. 
+
+\emoji{parrot} : Okay... But I don't wanna know too much details. I just wanna
+get the chain running and use it.
+
+\emoji{turtle} : If you just want to use \Wch{}, skip to \cref{sec:tut} to see
+the tutorial. You can always come back here later if you find some scary terms.
+
+\emoji{parrot} : Okay.
+
+\begin{weakBox}[title=Some terms]
+  \emoji{turtle} : From now on, when we say ``blockchain'', we mean all the
+  whole blockchain family, and when we say ``private blockchain'' or simply
+  ``private chain'', we mean the member that \Wch{} belongs to.
+\end{weakBox}
+
+\subsection{Storage and Execution of Transactions}
+Blockchain is a shared database.
+
+
+\section{Tutorial}
+\label{sec:tut}
+
+
+\end{document}
+
+% Local Variables:
+% TeX-engine: luatex
+% TeX-command-extra-options: "-shell-escape"
+% TeX-master: "m.tex"
+% TeX-parse-self: t
+% TeX-auto-save: t
+% End:

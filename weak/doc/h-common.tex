@@ -1,4 +1,18 @@
 
+% Color
+\newcommand{\mycola}{Purple}
+\newcommand{\mycolb}{Mahogany}
+\newcommand{\mycolc}{OliveGreen}
+
+% \newcommand{\cola}[1][]{\textcolor{\mycola}{#1}}
+% 🦜 : ⚠️ : For this we need to use \cola[hi] instead of \cola{hi}...
+
+\newcommand{\cola}[1]{\textcolor{\mycola}{#1}}
+\newcommand{\colb}[1]{\textcolor{\mycolb}{#1}}
+\newcommand{\colc}[1]{\textcolor{\mycolc}{#1}}
+\newcommand{\colce}[1]{\textcolor{gray}{#1}}
+\newcommand{\Cola}[1]{\textcolor{\mycola}{\textbf{#1}}}
+
 \usepackage{tikz}
 \usetikzlibrary{shapes} % ellipse node shape
 \usetikzlibrary{shapes.multipart} % for line breaks in node text
@@ -81,15 +95,6 @@ BoldItalicFont=*CodePLItalic
   % show bounding box
 }
 
-% Color
-\newcommand{\mycola}{MidnightBlue}
-\newcommand{\mycolb}{Mahogany}
-\newcommand{\mycolc}{OliveGreen}
-
-\newcommand{\cola}[1][]{\textcolor{\mycola}{#1}}
-\newcommand{\colb}[1][]{\textcolor{\mycolb}{#1}}
-\newcommand{\colc}[1][]{\textcolor{\mycolc}{#1}}
-\newcommand{\Cola}[1][]{\textcolor{\mycola}{\emph{#1}}}
 
 
 \newcommand{\myTwo}[2]{\texttt{#1}为\texttt{#2}}

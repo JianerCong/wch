@@ -1,21 +1,6 @@
-
-
 \section{摘要}
 
-这篇文档介绍存储和执行模块。我们将从抽象到形象，底层到上层，依次介绍接口和类。
-
-\section{区块链世界存储}
-\label{sec:general-world-storage}
-广义上来讲，区块链的存储就是两个部分：
-\begin{enumerate}
-\item 一个 \cola{账本} 和
-\item 一个 \colb{状态}
-\end{enumerate}
-\cola{账本}里面（最主要地）记录了\textbf{已经执行了
-  的\colc{交易}}，而\colb{状态}里面记录了\textbf{当前状态}，这些状态因\colc{交易}的
-执行而改变,如\cref{fig:worldStorage} 。
-
-
+这篇文档介绍存储和执行模块。我们将从抽象到形象，底层到上层，依次介绍接口和类
 \begin{figure}[h]
   \begin{center}
     \begin{tikzpicture}

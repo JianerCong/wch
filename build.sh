@@ -88,6 +88,8 @@ cd ..
 cmake -S weak -B build-weak -DUSE_DYNAMIC_LIBS=1 # for development
 cmake -S weak -B build-weak -DUSE_DYNAMIC_LIBS=0 # for distribution
 cmake --build build-weak/
+v=1.0
+cp build-weak/wch ~/wch-$v-linux-x86_64 -v
 
 # try
 ./build-weak/wch toolbox -h

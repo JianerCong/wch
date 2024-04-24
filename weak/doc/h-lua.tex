@@ -16,14 +16,6 @@
 % }
 
 % % Color
-% \newcommand{\mycola}{MidnightBlue}
-% \newcommand{\mycolb}{Mahogany}
-% \newcommand{\mycolc}{OliveGreen}
-
-% \newcommand{\cola}[1]{\textcolor{\mycola}{#1}}
-% \newcommand{\colb}[1]{\textcolor{\mycolb}{#1}}
-% \newcommand{\colc}[1]{\textcolor{\mycolc}{#1}}
-% \newcommand{\Cola}[1]{\textcolor{\mycola}{\emph{#1}}}
 
 % % 🦜 : \textcolor doesn't allow multiple paragraphs in it, so we used {\color{...}}
 % \newcommand{\colZ}[1]{
@@ -113,18 +105,18 @@
 
 % \usepackage{simpsons}
 
-% \usepackage{hyperref}
-% \hypersetup{
-%   colorlinks=true,
-%   linkcolor=\mycola,
-%   filecolor=\mycola,      
-%   urlcolor=\mycola,
-%   pdftitle={Weak-chain memp},
-%   % pdfpagemode=FullScreen,
-% }
-% \urlstyle{same}
+\usepackage{hyperref}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=\mycola,
+  filecolor=\mycola,      
+  urlcolor=\mycola,
+  pdftitle={Weak-chain memp},
+  % pdfpagemode=FullScreen,
+}
+\urlstyle{same}
 % % 🦜 : cleveref must be loaded after hyperref
-% \usepackage{cleveref}
+\usepackage{cleveref}
 % \crefname{figure}{图}{图}
 % %                    ^^^ plural
 % \Crefname{figure}{图}{图}
