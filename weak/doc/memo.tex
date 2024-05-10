@@ -113,6 +113,26 @@ two things to be done:
 % our py-vm ? Commenting out the log lines seems to fix the issue... Mysterious
 % windows... Now we got some issues for the storageManager on windows..
 
+\section*{2024-05-10}
+\emoji{parrot} : I just feel like people need a \texttt{get\_tx?hash=xxxxxxx}.
+Currently we kinda have to remember which Blk it's in and then find the tx by
+getting the blk. It's not very convenient.
+
+\emoji{turtle} : But I remember the \texttt{<tx-hash> : TxOnBlkInfo} is directly
+persisted right? Is that available to the user in rpc?
+
+\emoji{parrot} : Let me check.....Oh... When we do \texttt{get\_receipt}, in
+fact, we first retrieved the \texttt{TxOnBlkInfo info}, and then we get the
+corresponding \texttt{ExecBlk b}, and then we get the
+\texttt{b.txReceipts[info.onBlkId]}...
+
+\emoji{turtle} : Okay... Let's add two more apis:
+
+\begin{enumerate}
+\item \texttt{get\_tx?hash=xxxxxxx}
+\item \texttt{get\_Blk?n=123}
+\end{enumerate}
+
 \end{document}
 
 % Local Variables:

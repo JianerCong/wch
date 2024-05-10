@@ -89,6 +89,37 @@ namespace weak{
                         json::serialize(json::value_from(jv)));
     }
 
+
+    /**
+     * @brief get the nth Blk
+     *
+     * This handler will get the nth Blk in the chain. For example, you can ask
+     *
+     * curl http://localhost:7777/get_blk?n=3
+     *
+     * to get the 3rd Blk in the chain (0 is the first Blk). The query parameter
+     * "n" is missing, it will return the latest Blk.
+     */
+    tuple<bool,string>  handle_get_Blk(optional<unordered_map<string,string>> query_param){
+      if (not query_param or (not query_param.value().contains("n")))
+        return get_latest_Blk(this->wrld);
+
+      // 1. parse n
+      string ns = query_param.value().at("n");
+      BOOST_LOG_TRIVIAL(debug) << format("Parsing user-supplied n=" S_MAGENTA "%s" S_NOR) % ns;
+      auto [rN,err_msg] = parse_positive_int(ns);
+      if (not rN){
+        BOOST_LOG_TRIVIAL(debug) << format("Failed to parse user supplied query param n=%s to positive int") % ns;
+        return make_tuple(false, err_msg);
+      }
+
+      // 2. get the nth Blk
+      auto [rb, err_msg1] =  get_Blk_from_chain(this->wrld,rN.value());
+      if (not rb)
+        return make_tuple(false,err_msg1);
+      return make_tuple(true,rb.value().toJsonString());
+    }
+
     /**
      * @brief get the latest Blk
      *
@@ -219,17 +250,11 @@ namespace weak{
       return make_tuple(b,"OK");
     }
 
-    /**
-     * @brief Helper of handle_get_receipt()
-     *
-     * @param h The hex of hash
-     */
-    static tuple<bool,string> get_receipt(IChainDBGettable * const w, const string & h){
-
+    tuple<optional<TxOnBlkInfo>, string> get_txOnBlkInfo(IChainDBGettable * const w, const string & h){
       // 1. --------------------------------------------------
       auto r = evmc::from_hex<hash256>(h);
       if (not r)
-        return make_tuple(false, "Error: `hash` " + h + " is ill-formed");
+        return make_tuple(optional<TxOnBlkInfo>(), "Error: `hash` " + h + " is ill-formed");
 
       // 2. --------------------------------------------------
       /*
@@ -238,29 +263,59 @@ namespace weak{
       */
       optional<string> o = w->getFromChainDB("/tx/" + h);
       if (not o){
-        return make_tuple(false, "Error: `hash` " + h + " does not (yet) exist on the chain.\n"
+        return make_tuple(optional<TxOnBlkInfo>(), "Error: `hash` " + h + " does not (yet) exist on the chain.\n"
                           " Maybe you should try again later, or check your hash.");
       }
 
       TxOnBlkInfo info;
       if (not info.fromString(o.value()))
-        return make_tuple(false, "Data corruption Error:: `TxOnBlkInfo` data corrupted on storage.");
+        return make_tuple(optional<TxOnBlkInfo>(), "Data corruption Error:: `TxOnBlkInfo` data corrupted on storage.");
+
+      return make_tuple(info,"OK");
+    }
+
+    /**
+     * @brief Helper of handle_get_receipt()
+     *
+     * @param h The hex of hash
+     */
+    static tuple<bool,string> get_receipt(IChainDBGettable * const w, const string & h){
+      // 1-2. get the TxOnBlkInfo
+      auto [info0, err_msg] = get_txOnBlkInfo(w,h);
+      if (not info0)
+        return make_tuple(false,err_msg);
+      TxOnBlkInfo info = info0.value();
 
       // 3. --------------------------------------------------
-      o = w->getFromChainDB("/blk/" + lexical_cast<string>(info.blkNumber));
-      if (not o){
-        return make_tuple(false, "Data corruption Error: Inconsistant data on chain. ExecutedBlk doesn't yet exists on the chain.");
-      }
-
-      // 4. --------------------------------------------------
-      ExecBlk b;
-      if (not b.fromString(o.value()))
-        return make_tuple(false, "Data corruption Error:: `ExecutedBlk` data corrupted on storage.");
+      // get the Blk
+      auto [b0, err_msg1] = get_Blk_from_chain(w,info.blkNumber);
+      if (not b0)
+        return make_tuple(false,err_msg1);
+      ExecBlk b = b0.value();
 
       // 5. --------------------------------------------------
       TxReceipt tr = b.txReceipts[info.onBlkId];
       return make_tuple(true, tr.toJsonString());
     }
+
+    static tuple<bool,string> get_tx(IChainDBGettable * const w, const string & h){
+      // 1. get the TxOnBlkInfo
+      auto [info0, err_msg] = get_txOnBlkInfo(w,h);
+      if (not info0)
+        return make_tuple(false,err_msg);
+      TxOnBlkInfo info = info0.value();
+
+      // 2. get the Blk
+      auto [b0, err_msg1] = get_Blk_from_chain(w,info.blkNumber);
+      if (not b0)
+        return make_tuple(false,err_msg1);
+      ExecBlk b = b0.value();
+
+      // 3. get the Tx
+      Tx tx = b.txs[info.onBlkId];
+      return make_tuple(true, tx.toJsonString());
+    }
+
 
     /**
      * @brief get the receipt ofa particular hash

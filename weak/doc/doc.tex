@@ -208,8 +208,8 @@ give
 {
     "method" : "set",
     "args" : {
-        "k" : "k1",
-        "v" : "v1"
+        "key" : "k1",
+        "value" : "v1"
     }
 }
 \end{simplejs}
@@ -260,12 +260,76 @@ def hi(_storage: dict[str,Any], _tx_context : dict[str,Any]) -> None:
     _storage["tx_timestamp"] = _tx_context["timestamp"]  # int
 \end{simplepy}
 
+
+
 \paragraph{The \texttt{init()} method}
+If a top-level method named \texttt{init()} is defined, it will be called when
+when the contract is deployed. So it can be something like:
+\begin{simplepy}
+def init(_storage: dict[str,Any], _tx_context : dict[str,Any]) -> None:
+    _storage["creater"] = _tx_context["from"]  # address hex string
+\end{simplepy}
 
+\emoji{turtle} : Below is a more involved contract that showcases some features.
+\begin{simplepy}
+from typing import Any
+from math import sqrt
 
+def hi() -> str:
+    return "hi"
+
+def plus_one(x : int) -> int:
+    return x + 1
+
+def set(key: str, value: Any, _storage: dict[str,Any]) -> None:
+    _storage[key] = value
+
+def get(key: str, _storage: dict[str,Any]) -> Any:
+    return _storage[key]
+
+def init(_storage: dict[str,Any], _tx_context : dict[str,Any]) -> None:
+    _storage["tx_from"] = _tx_context["from"]  # address hex string
+    _storage["tx_to"] = _tx_context["to"]  # address hex string
+    _storage["tx_hash"] = _tx_context["hash"]  # hex string
+    _storage["tx_timestamp"] = _tx_context["timestamp"]  # int
+    # 🦜 : storage is a dictionary that should be serializable into JSON
+\end{simplepy}
 
 \subsubsection{How to invoke}
+\emoji{turtle} : Conceptually, PyVM accepts an ``invoke json'' and returns a
+result, when a contract method is invoked. The invoke json is something
+like:
 
+\begin{simplejs}
+{
+    'method' : 'plus_one',
+    'args' : {'x' : 1}
+}
+\end{simplejs}
+
+To pass that to PyVM, the recommended way is to first store it in a file, say
+\texttt{/tmp/invoke.json}, and then use the \texttt{@} helper provided by
+\Wch{}, which is something like:
+\begin{simplesh}
+txs='[{
+    "from" : "01",
+    "to" : "0000000000000000000000000000000064d05d1b",
+    "data" : "@/tmp/tmp.json",
+    "nonce" : 124,
+    "type" : "python"
+}]'
+curl --data $txs http://localhost:7777/add_txs
+# => "hash": "c63fce1da4f0a30c0ae6c8ce332286f188d71dc13638beca74fb5939c5a79ec8",
+\end{simplesh}
+
+The result can be any json serializable object. It can be a number, a string, an
+array, or an object. And as shown in the tutorial in \cref{sec:pyvm}, the result
+can be retrieved by something like:
+\begin{simplesh}
+curl "http://localhost:7777/get_receipt?hash=c63fce1da4f0a30c0ae6c8ce332286f188d71dc13638beca74fb5939c5a79ec8"
+# {"ok":true,"result": 123}
+\end{simplesh}
+Here the result is 123.
 
 \end{document}
 
