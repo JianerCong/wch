@@ -73,6 +73,8 @@ namespace weak{
       n->listenToGet("/get_pool_status",bind(&Rpc::handle_get_pool_status,this,_1));
       n->listenToGet("/get_receipt",bind(&Rpc::handle_get_receipt,this,_1));
       n->listenToGet("/get_node_status",bind(&Rpc::handle_get_node_status,this,_1));
+      n->listenToGet("/get_tx",bind(&Rpc::handle_get_tx,this,_1));
+      n->listenToGet("/get_blk",bind(&Rpc::handle_get_Blk,this,_1));
     }
 
 
@@ -250,7 +252,7 @@ namespace weak{
       return make_tuple(b,"OK");
     }
 
-    tuple<optional<TxOnBlkInfo>, string> get_txOnBlkInfo(IChainDBGettable * const w, const string & h){
+    static tuple<optional<TxOnBlkInfo>, string> get_txOnBlkInfo(IChainDBGettable * const w, const string & h){
       // 1. --------------------------------------------------
       auto r = evmc::from_hex<hash256>(h);
       if (not r)
@@ -317,8 +319,9 @@ namespace weak{
     }
 
 
+
     /**
-     * @brief get the receipt ofa particular hash
+     * @brief get the receipt of a particular hash
      *
      * @param query_param The query parameter which should contains the key `hash` and the corresponding value should be the Tx hash in hex (so it should have 64 char).
      * @return (ok,Json-encoded txReceipt)
@@ -352,6 +355,20 @@ namespace weak{
 
       string h = query_param.value()["hash"];
       return get_receipt(this->wrld,h);
+    }
+
+    /**
+     * @brief get the tx of a particular hash
+     */
+    tuple<bool,string>  handle_get_tx(optional<unordered_map<string,string>> query_param){
+      if ((not query_param) or (not query_param.value().contains("hash")))
+        return make_tuple(false,
+                          "Error: `/get_tx` should be used with query parameter `hash=<Tx hash>`\n"
+                          "For example: http://localhost:7777/get_tx?hash=3d9a5bdd62ff8f12aab28cdb1c091918c5ede28c91c09e8f16a68a7c33add70e"
+                          );
+      string h = query_param.value()["hash"];
+      return get_tx(this->wrld,h);
+
     }
 
     /**
