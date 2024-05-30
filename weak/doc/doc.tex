@@ -48,7 +48,6 @@
     +(2,0) -- +(0,6) -- cycle;
     \draw[fill=gray,draw=none,opacity=0.3] (current page.south west) --
     +(3,0) -- +(0,4) -- cycle;
-    
   \end{tikzpicture}
 }
 
@@ -59,19 +58,20 @@
 \tableofcontents{}
 \newpage{}
 
-% \section{Welcome}
-% This is the user manual for \Wch{}. \Wch{} is a private
-% blockchain. The name come from the idea that
-%   \cola{
-%   ``you only need a weak understanding of blockchain
-%   in order to use it''
-% }. This manual includes some concepts and some tutorials.
-% It's hoped that following this manual, you will be able to get the most from its
-% features.
+\section{Welcome}
+This is the user manual for \Wch{}. \Wch{} is a private
+blockchain. The name come from the idea that
+  \cola{
+  ``you only need a weak understanding of blockchain
+  in order to use it''
+}. This manual includes some concepts and some tutorials.
+It's hoped that following this manual, you will be able to get the most from its
+features.
 
-% In the hope of improving readability, this manual is written as dialogues
-% between our two characters, Coco the Parrot \emoji{parrot} and Tim the Turtle
-% \emoji{turtle}. Coco is a student. He is curious but not very patient. He just
+% In the hope of improving readability, this manual is written as Q\&A between our
+% two characters, Coco the Parrot \emoji{parrot} and Tim the Turtle
+% \emoji{turtle}.
+% Coco is a student. He is curious but not very patient. He just
 % wants to get things done, but he's not a big fan of becoming a blockchain
 % expert. Tim is the teacher. He is more knowledgeable, and willing to share
 % everything he knows, but meanwhile keeping things as simple as possible. Tim
@@ -80,8 +80,9 @@
 
 % If you are ready, join the journey with Coco and Tim. Let's get started.
 
-% \input{doc-concepts}
-% \input{doc-tutorials}
+% \input{doc-concepts} % 🐢 : Let's postpone this for now.
+
+\input{doc-tutorials}
 
 
 \section{Features}
@@ -332,7 +333,6 @@ curl "http://localhost:7777/get_receipt?hash=c63fce1da4f0a30c0ae6c8ce332286f188d
 Here the result is 123.
 
 \end{document}
-
 % Local Variables:
 % TeX-engine: luatex
 % TeX-command-extra-options: "-shell-escape"

@@ -1,7 +1,7 @@
 \section{Tutorials}
 \label{sec:tut}
 
-\subsection{Start from the minimal}
+\subsection{Start from the minimal: a Solo node}
 \label{sec:minimal}
 \emoji{parrot} : What's the minimal example of \Wch{} ?
 
@@ -209,15 +209,228 @@ curl "$e:7777/get_receipt?hash=c63fce1da4f0a30c0ae6c8ce332286f188d71dc13638beca7
 \end{simplesh}
 
 \emoji{parrot} : Hey, the python contract is much friendlier!
-
 \emoji{turtle} : Yeah, it's designed to be so. To learn more,
 see \cref{sec:how-to-py}.
 
 \subsection{Start a Raft Cluster}
 \label{sec:tut-raft}
 
+To start a minimal three-node Raft cluster, open three terminals and run the following
+\begin{simplesh}
+# terminal of node 1
+wch --port 7777 --consensus Raft --Raft.node-list localhost:7778 localhost:7779
+
+# terminal of node 2
+wch --port 7778 --consensus Raft --Raft.node-list localhost:7777 localhost:7779
+
+# terminal of node 3
+wch --port 7779 --consensus Raft --Raft.node-list localhost:7777 localhost:7778
+\end{simplesh}
+
+Wait until a primary node is elected. Now, we can send a transaction to the any
+node:
+
+\begin{simplesh}
+txs="[{
+  \"from\" : \"01\",
+  \"to\" : \"\",
+  \"type\" : \"data\",
+  \"data\" : \"aaa\",
+  \"nonce\" : 123
+}]"
+
+curl --data $txs $e:7777/add_txs
+\end{simplesh}
+
 \subsection{Start a Pbft Cluster}
 \label{sec:tut-pbft}
 
+To start a minimal four-node Pbft cluster, open three terminals and run the
+following:
+\begin{simplesh}
+# terminal of node 1
+wch --port 7777 --consensus Rbft --Bft.node-list localhost:7777 localhost:7778 localhost:7779 localhost:7780
+
+# terminal of node 2
+wch --port 7778 --consensus Rbft --Bft.node-list localhost:7777 localhost:7778 localhost:7779 localhost:7780
+
+# terminal of node 3
+wch --port 7779 --consensus Rbft --Bft.node-list localhost:7777 localhost:7778 localhost:7779 localhost:7780
+
+# terminal of node 4
+wch --port 7780 --consensus Rbft --Bft.node-list localhost:7777 localhost:7778 localhost:7779 localhost:7780
+\end{simplesh}
+
+If you are using the above method, make sure all the commands are run within the
+same epoch, which is usually 8 seconds. In this case, all nodes are considered
+as ``existing nodes''. Alternatively, \Wch{} provides a way to dynamically add
+new nodes to existing PBFT cluster. To do that, we can do:
+\begin{simplesh}
+# terminal of node 1
+wch --port 7777 --consensus Rbft --Bft.node-list localhost:7777  # start a one-node cluster
+
+# terminal of node 2
+wch --port 7778 --consensus Rbft --Bft.node-list localhost:7777  
+# try join the cluster, existing nodes = {n1}
+
+# the node2 will join the cluster after the next view-change, after that we can 
+# add a new node
+
+# terminal of node 3
+wch --port 7779 --consensus Rbft --Bft.node-list localhost:7777 localhost:7778
+# try join the cluster, existing nodes = {n1, n2}
+
+\end{simplesh}
+
+This is in fact the recommended way to start a PBFT cluster. Because the
+maintainers won't need to worry about the timming of the commands.
+
 \subsection{Production Cryptography}
 \label{sec:tut-serious-crypto}
+
+So far we have been using \Wch{} without any serious cryptography. For example,
+no key was needed to sign the transactions, and no certificates were involved
+when the nodes communicate. This is fine (and good) for testing and development,
+but in production, we need to use real cryptography. In particular, we need to
+\begin{enumerate}
+\item Verify a node's identity with a certificate before allowing it to join the
+  cluster.
+\item Sign the transactions with a private key. The key pair identifies the
+  sender of the transaction.
+\end{enumerate}
+
+These two requirements are actually decoupled in \Wch{}. We show how to do both now.
+
+\subsubsection{Secure the cluster}
+To start a ``secure cluster'', we need to do the following
+\begin{enumerate}
+\item Generate a key pair for CA.
+\item Generate a key pair for each node.
+\item Sign the node's public key with the CA's private key to get a certificate.
+\end{enumerate}
+
+\Wch{} provides tools to do these:
+\begin{simplesh}
+# 1. generate a key pair for CA, save them to ca-pk.pem and ca-sk.pem
+wch toolbox new-keypair ca-pk.pem ca-sk.pem
+
+# 2. generate a key pair for node 1,2,3
+wch toolbox new-keypair n1-pk.pem n1-sk.pem
+wch toolbox new-keypair n2-pk.pem n2-sk.pem
+wch toolbox new-keypair n3-pk.pem n3-sk.pem
+
+# 3. sign the public key of node 1,2,3 with the CA's private key to create a certificate 
+wch toolbox do-sign ca-sk.pem n1-pk.pem n1.cert
+wch toolbox do-sign ca-sk.pem n2-pk.pem n2.cert
+wch toolbox do-sign ca-sk.pem n3-pk.pem n3.cert
+\end{simplesh}
+
+Now to tell \Wch{} this rather complicated setup, we need to provide a so-called
+``peer-json'', which looks like
+\begin{simplejs}
+{
+    "localhost:7777" : {"pk_pem_file": "/path/to/n1-pk.pem", "cert_file": "/path/to/n1.cert"},
+    "localhost:7778" : {"pk_pem_file": "/path/to/n2-pk.pem", "cert_file": "/path/to/n2.cert"},
+    "localhost:7779" : {"pk_pem_file": "/path/to/n3-pk.pem", "cert_file": "/path/to/n3.cert"}
+}
+\end{simplejs}
+
+Save it to \texttt{peer.json} and let's try start a PBFT cluster:
+\begin{simplesh}
+# terminal of node 1
+wch --port 7777 --consensus Rbft --Bft.node-list localhost:7778 localhost:7779 \
+    --without-crypto no \
+    --crypto.ca_public_key_pem_file /path/to/ca-pk.pem \
+    --crypto.peer_json_file_or_string @/path/to/peer.json \
+    --crypto.node_secret_key_pem_file /path/to/n1-sk.pem
+    --crypto.node_cert_file /path/to/n1.cert
+
+# terminal of node 2
+wch --port 7778 --consensus Rbft --Bft.node-list localhost:7777 localhost:7779 \
+    --without-crypto no \
+    --crypto.ca_public_key_pem_file /path/to/ca-pk.pem \
+    --crypto.peer_json_file_or_string @/path/to/peer.json \
+    --crypto.node_secret_key_pem_file /path/to/n2-sk.pem
+    --crypto.node_cert_file /path/to/n2.cert
+
+# terminal of node 3
+wch --port 7779 --consensus Rbft --Bft.node-list localhost:7777 localhost:7778 \
+    --without-crypto no \
+    --crypto.ca_public_key_pem_file /path/to/ca-pk.pem \
+    --crypto.peer_json_file_or_string @/path/to/peer.json \
+    --crypto.node_secret_key_pem_file /path/to/n3-sk.pem
+    --crypto.node_cert_file /path/to/n3.cert
+\end{simplesh}
+
+Note that the \texttt{--without-crypto no} is necessary to enable the
+certificate verification of cluster. Now we can just send transactions as usual.
+
+\subsubsection{Secure the Transaction}
+
+So far, we can just send transactions without any signature. This means we can
+just claim to be any account and send transactions. This is good for testing,
+but no good for production. In production, we need to first generate a key pair
+for our account, and sign the transaction with the private key. To enable such
+transaction verification, we need to start the node differently. \Wch{} offers
+three types of transaction verification mode:
+\begin{enumerate}
+\item \texttt{test tx-mode}: no verification is done. This is the default mode.
+\item \texttt{public tx-mode}: any public keys are allowed to send transactions.
+\item \texttt{ca tx-mode}: only the public keys signed by a CA are allowed to send
+  transactions.
+\end{enumerate}
+
+We are gonna demonstrate this using a Solo node, but the same can be applied to
+Raft and PBFT nodes.
+
+To start a Solo node with \texttt{public tx-mode}, we can do
+\begin{simplesh}
+wch --port 7777 --light-exe --tx-mode-serious public
+\end{simplesh}
+
+Now to send a transaction, we first need to generate a key pair, that represents
+our account. We can do this by
+\begin{simplesh}
+wch toolbox new-keypair my-pk.pem my-sk.pem
+\end{simplesh}
+
+Next we need to sign the transaction with the private key. To do that, we first
+our transaction in a file, say \texttt{tx-unsigned.json}:
+\begin{simplejs}
+[{"type" : "data", "from" : "01", "to" : "", "data" : "hi", "nonce" : 123}]
+\end{simplejs}
+Then we can sign the transaction by
+\begin{simplesh}
+wch toolbox tx-sign-no-crt tx-unsigned.json my-sk.pem tx-signed.json
+\end{simplesh}
+
+The signed transaction is now in \texttt{tx-signed.json}:
+\begin{simplejs}
+[
+  {
+    "type": "data",
+    "from": "01",
+    "to": "",
+    "data": "hi",
+    "nonce": 123,
+    "signature": "ed70765d68dd2cadd5f728cf6c2eed40803248e650bd81728ea9cd4f31e340dff8139b54be520dd6f2b9568e17e68ac3820e46dfc4e1ad5cdf915b115e503402",
+    "pk_pem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAT47M3UrUIEwqtPzKox/9Ar5ouCxL1l8SjYbGHjBzEfk=\n-----END PUBLIC KEY-----\n"
+  }
+]
+\end{simplejs}
+
+Note that when the \texttt{pk\_pem} field is present, the \texttt{from} field is ignored.
+
+Next we can send the transaction as usual:
+\begin{simplesh}
+curl --data @tx-signed.json http://localhost:7777/add_txs
+\end{simplesh}
+
+
+% Local Variables:
+% TeX-engine: luatex
+% TeX-command-extra-options: "-shell-escape"
+% TeX-master: "m.tex"
+% TeX-parse-self: t
+% TeX-auto-save: t
+% End:

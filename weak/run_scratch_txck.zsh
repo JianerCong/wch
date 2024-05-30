@@ -13,7 +13,7 @@ $w toolbox new-keypair $pk $sk
 txf=$(pwd)/build-weak/tx-pre.json
 txf2=$(pwd)/build-weak/tx-post.json
 txs='[{"type" : "data", "from" : "01", "to" : "", "data" : "hi", "nonce" : 123}]'
-
+echo $txs > $txf
 # 3.1 sign the tx
 $w toolbox tx-sign-no-crt $txf $sk $txf2
 
