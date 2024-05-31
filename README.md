@@ -75,3 +75,5 @@ curl "$e:7777/get_receipt?hash=$h"
 
 # Wanna Know More? 
 Read the Doc! : https://gitee.com/cong-jianer/wch/releases/download/v1.0/wch-doc-20240531.pdf
+
+If you have any issues, please feel free to contact me at `congjianer@outlook.com` or raise an issue.
