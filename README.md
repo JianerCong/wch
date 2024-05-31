@@ -2,7 +2,7 @@
 # Welcome to Weak chain
 *Weak chain* is a blockchain written in C++20. It's designed to be a working
 private chain that's as simple as possible in the hope that it could help you
-get started with blockchain.(and probably demythify it....)
+get started with blockchain.
 
 # Get started
 
@@ -12,7 +12,7 @@ wch --port 7777
 # [enter] to quit
 ```
 
-## simple usage: Put some data on the chain:
+## Simple usage: Put some data on the chain:
 ```bash
 # 1.put some data on the chain
 txs='[{"type" : "data", "from" : "01", "to" : "", "data" : "hi", "nonce" : 123}]'
@@ -73,5 +73,5 @@ curl "$e:7777/get_receipt?hash=$h"
 # {"ok":true,"result":123,"type":"python","log":""}
 ```
 
-### Want more ? ###
-
+# Wanna Know More? 
+Read the Doc! : https://gitee.com/cong-jianer/wch/releases/download/v1.0/wch-doc-20240531.pdf

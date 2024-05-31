@@ -18,3 +18,5 @@ curl http://localhost:7777/get_tx?hash=b06b89b665df6f7ff1be967faf9a0601f71c0a3cd
 # --------------------------------------------------
 
 
+# rename the doc
+cp -v m.pdf wch-doc-`date +%Y%m%d`.pdf
