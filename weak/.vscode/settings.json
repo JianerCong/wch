@@ -3,7 +3,8 @@
         "optional": "cpp",
         "chrono": "cpp",
         "bit": "cpp",
-        "tuple": "cpp"
+        "tuple": "cpp",
+        "*.ipp": "cpp"
     },
     "cmake.configureOnOpen": false,
     "C_Cpp.default.compilerPath": "/usr/bin/g++"

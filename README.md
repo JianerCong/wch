@@ -20,7 +20,7 @@ curl --data $txs http://localhost:7777/add_txs
 
 # [{"hash":"b06b89b665df6f7ff1be967faf9a0601f71c0a3cdb8250c48fe7fcc663b18d1b"}]
 
-# 2. get the data
+# 2. get the uploaded data
 curl http://localhost:7777/get_tx?hash=b06b89b665df6f7ff1be967faf9a0601f71c0a3cdb8250c48fe7fcc663b18d1b
 
 # {"from":"0000000000000000000000000000000000000001","to":"0000000000000000000000000000000000000000",

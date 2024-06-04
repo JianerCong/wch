@@ -108,18 +108,11 @@ curl http://localhost:7777/get_latest_Blk # [{
 }]
 \end{simplesh}
 
-\begin{weakBox}[title=Note]
-  \emoji{turtle} : Currently \Wch{} does not provide a \texttt{getTxByHash()}
-  API. This is because \Wch{} would have no better way than to scan the whole
-  blockchain and may cause performance issues. So usually the user (or probably
-  some agents) should try to record what transactions are in which block by keep
-  tracking the latest block.
+Or using the \texttt{get\_tx} method:
+\begin{simplesh}
+curl http://localhost:7777/get_tx?hash=f192381aa197b851870e98fc515414c51d2311fea7e5bc01c16dceb6a7fed3d9
+\end{simplesh}
 
-  All of these can by achieved by calling \texttt{curl
-    http://localhost:7777/get\_latest\_Blk} to get the latest block or
-  \texttt{curl http://localhost:7777/get\_latest\_Blk?n=3} to get the latest 3
-  blocks.
-\end{weakBox}
 
 \subsection{The simplest transaction: Pure Data transaction}
 \emoji{parrot} : What if I just want to store some data on the blockchain? For
@@ -366,6 +359,7 @@ Note that the \texttt{--without-crypto no} is necessary to enable the
 certificate verification of cluster. Now we can just send transactions as usual.
 
 \subsubsection{Secure the Transaction}
+\label{sec:secure-tx}
 
 So far, we can just send transactions without any signature. This means we can
 just claim to be any account and send transactions. This is good for testing,
@@ -383,7 +377,7 @@ three types of transaction verification mode:
 We are gonna demonstrate this using a Solo node, but the same can be applied to
 Raft and PBFT nodes.
 
-To start a Solo node with \texttt{public tx-mode}, we can do
+\cola{To start a Solo node with \texttt{public tx-mode}}, we can do
 \begin{simplesh}
 wch --port 7777 --light-exe --tx-mode-serious public
 \end{simplesh}
@@ -425,6 +419,57 @@ Next we can send the transaction as usual:
 \begin{simplesh}
 curl --data @tx-signed.json http://localhost:7777/add_txs
 \end{simplesh}
+
+\cola{To start a Solo node with \texttt{ca tx-mode}}, we first need to generate
+a CA, which is simply a key pair. We can do this by using:
+\begin{simplesh}
+capk=./ca-pk.pem
+cask=./ca-sk.pem
+wch toolbox new-keypair $capk $cask
+\end{simplesh}
+
+Next, we can start the chain in \texttt{ca tx-mode} using the \texttt{ca@<key>}
+syntax:
+\begin{simplesh}
+wch --port 7777 --light-exe --tx-mode-serious ca@$capk
+\end{simplesh}
+
+Next, we can generate a key pair for our account:
+\begin{simplesh}
+# create an account
+pk=./acn-pk.pem
+sk=./acn-sk.pem
+wch toolbox new-keypair $pk $sk
+\end{simplesh}
+
+Next we issue a certificate for the account using the \texttt{wch toolbox
+  sign-pk} command:
+\begin{simplesh}
+# sign the account with the ca's secret key
+cask=./ca-sk.pem
+crt=./acn-crt.bin
+wch toolbox sign-pk $cask $pk $crt
+\end{simplesh}
+
+Now we are ready to send a Transaction. Here we need a two-step process:
+\begin{enumerate}
+\item Prepare the transation to be signed
+\item Sign the transaction with our secret key
+\end{enumerate}
+\begin{simplesh}
+txf=./tx-pre.json
+txf2=./tx-post.json
+# 1. prepare the transaction to be signed
+echo '[{"type" : "data", "to" : "", "data" : "hi", "nonce" : 123}]' > $txf
+# 2. sign the tx
+wch toolbox tx-sign $txf $sk $crt $txf2
+\end{simplesh}
+
+Finally we can send the transaction as usual:
+\begin{simplesh}
+curl --data @$txf2 http://localhost:7777/add_txs
+\end{simplesh}
+
 
 
 % Local Variables:

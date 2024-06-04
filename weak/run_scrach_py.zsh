@@ -5,10 +5,10 @@ w=./build-weak/wch
 $w --port 7777 --light-exe
 
 echo '
-from typing import Any
-def hi(_storage: dict[str, Any], y : int) -> int:
-    _storage["x"] = _storage.get("x", 1) + y
-    return _storage["x"]
+    from typing import Any
+    def hi(_storage: dict[str, Any], y : int) -> int:
+        _storage["x"] = _storage.get("x", 1) + y
+        return _storage["x"]
 ' > /tmp/tmp.py
 
 txs='[{"from" : "01","to" : "",

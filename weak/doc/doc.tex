@@ -332,6 +332,128 @@ curl "http://localhost:7777/get_receipt?hash=c63fce1da4f0a30c0ae6c8ce332286f188d
 \end{simplesh}
 Here the result is 123.
 
+\section{HTTP API}
+
+User of \Wch{} can interact with the blockchain through HTTP API. They are
+documented here.
+
+\subsection{\texttt{POST /add\_txs}}
+Add (send) an array of transactions to the blockchain. A transaction is a json
+object, and it's a bit different according to different transaction modes. See 
+see \cref{sec:secure-tx}. A transaction json can have the following forms:
+
+\begin{enumerate}
+\item \texttt{test tx-mode} Transaction
+
+  If the chain is started in \texttt{test tx-mode}, 
+  Then the transaction is a json object like:
+  \begin{simplejs}
+{
+    "from" : "0000000000000000000000000000000000000001",
+    "to" : "",
+    "data": "ffff",
+    "type" : "evm",
+    "nonce" : 123
+}
+  \end{simplejs}
+  Where \texttt{from} is the sender's address, \texttt{to} is the receiver's
+  address. Address should be a 40-character hex string (leading zeros might be
+  ommited, but must be a valid hex string), so 20 bytes long.
+
+  \texttt{data} is the data of the transaction. It can be any string depending
+  on the transaction type.
+
+  \texttt{nonce} is the nonce of the transaction. It should unique for
+  each sender. If \texttt{to} is empty, it's a deploying transaction. Otherwise,
+  it's invoking a contract method of the contract at address \texttt{to}. One
+  exception is the \cola{pure-data transaction}, where \texttt{to} doesn't
+  matter, and the \texttt{data} is the data to be stored on the blockchain.
+
+  If the \texttt{data} field starts with an \texttt{@}, it's assumed to be a
+  file, and the content of the file is used as the data. This is usually used
+  for python transaction, because it's a little awkward to put a python contract
+  in a json string... Also, it can be used for pure data transaction, in which
+  case user specify the file path in the \texttt{data} field, and the content of
+  file can be any string.(But not binary data). The file path is relative to the
+  working directory of the chain, if you are unsure, use an absolute path.
+  
+  \texttt{type} can be \texttt{evm} , \texttt{python} or \texttt{data}, which
+  corresponds to EVM transaction, python transaction and pure data transaction
+  respectively. When no \texttt{type} field is provided, it's assumed to be an
+  EVM transaction.
+
+  Note that in this form, user can specify who he/she is without signing the
+  transaction.
+
+
+  Example 1: Deploy a get/set 123 contract:
+\begin{simplesh}
+
+txs='[
+  {"from" : "01",
+   "to" : "",
+   "data" : "608060405234801561001057600080fd5b50610150806100206000396000f3fe608060405234801561001057600080fd5b50600436106100365760003560e01c806360fe47b11461003b5780636d4ce63c14610057575b600080fd5b610055600480360381019061005091906100c3565b610075565b005b61005f61007f565b60405161006c91906100ff565b60405180910390f35b8060008190555050565b60008054905090565b600080fd5b6000819050919050565b6100a08161008d565b81146100ab57600080fd5b50565b6000813590506100bd81610097565b92915050565b6000602082840312156100d9576100d8610088565b5b60006100e7848285016100ae565b91505092915050565b6100f98161008d565b82525050565b600060208201905061011460008301846100f0565b9291505056fea2646970667358221220271e30d641d99bedebb5450b18efe8b67269cf688a15386162d4c2ff7072a8af64736f6c63430008130033",
+   "nonce" : 123
+  }
+]'
+e=http://localhost
+curl --data $txs $e:7777/add_txs
+# [
+#     {
+#         "hash": "b06b89b665df6f7ff1be967faf9a0601f71c0a3cdb8250c48fe7fcc663b18d1b",
+#         "deployed_address": "0000000000000000000000000000000064d05d1b"
+#     }
+# ]
+\end{simplesh}
+
+  Example 2: Invoke the \texttt{set} method of the contract at address
+\begin{simplesh}
+deployed_addr=0000000000000000000000000000000064d05d1b
+txs="[
+  {
+  \"from\" : \"01\",
+  \"to\" : \"$deployed_addr\",
+   \"data\" : \"60fe47b1000000000000000000000000000000000000000000000000000000000000007b\",
+   \"nonce\" : 125
+  }
+]"
+e=http://localhost
+curl --data $txs $e:7777/add_txs
+# The result can be retrieved from the transaction receipt._
+\end{simplesh}
+\item \texttt{public tx mode} Transaction and \texttt{ca tx mode}
+
+  If the chain is started in \texttt{public tx mode} or \texttt{ca tx mode}, then the transaction is a
+  json object like:
+\begin{simplejs}
+{
+  "type": "data",
+  "to": "",
+  "data": "hi",
+  "nonce": 123,
+  "signature": "ed70765d68dd2cadd5f728cf6c2eed40803248e650bd81728ea9cd4f31e340dff8139b54be520dd6f2b9568e17e68ac3820e46dfc4e1ad5cdf915b115e503402",
+  "pk_pem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAT47M3UrUIEwqtPzKox/9Ar5ouCxL1l8SjYbGHjBzEfk=\n-----END PUBLIC KEY-----\n"
+}
+\end{simplejs}
+This is similar to the \texttt{test tx mode} transaction, but instead of
+manually specifying the sender's address, the sender's address is derived from
+the supplied public key.
+
+\emoji{parrot} : How do I sign the transaction using my private key?
+
+\emoji{turtle} : \Wch{} provides a tool for you, see \cref{sec:secure-tx} for
+how did we use \texttt{wch toolbox} to sign a transaction (and do almost all the
+cryptographic magic we need for using \Wch{})
+  
+\end{enumerate}
+
+
+
+\subsection{\texttt{GET /get\_latest\_Blk}}
+
+Get the latest block
+
+
 \end{document}
 % Local Variables:
 % TeX-engine: luatex
