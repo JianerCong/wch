@@ -45,5 +45,8 @@ I just realize that we didn't doc how to use ca-tx mode....
 
 7. update doc [x]
 8. zh readme [x]
-9. more readme
+9. more readme []
 10. how to build
+11. draw zh logo
+12. unix socket doc
+13. pb doc
