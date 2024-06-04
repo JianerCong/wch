@@ -1,8 +1,26 @@
 ![Logo](./weak/doc/logo.svg)
+
+[**English**](./README.md) | [**中文**](./README_CN.md)
+
 # Welcome to Weak chain
 *Weak chain* is a blockchain written in C++20. It's designed to be a working
 private chain that's as simple as possible in the hope that it could help you
 get started with blockchain.
+
+## Features
+
++ Compiled binary < 50MB
++ Three types of Consensus: Raft, PBFT, Solo; PBFT supports dynamic membership.
++ EVM and Python smart contract.
++ Pure data transaction. Easier way to "put data on the chain".
++ Efficient P2P network with UDP and Protobuf.
++ No built-in crypto currency.
++ Built-in command-line cryptography toolbox to help you create and use digital
+  signature. No need for third-party tools like `openssl`.
+
+**📗️GPLv3: This project is for learning and research purposes only. Please do not
+use it for any commercial purposes. In particular, this project is not designed to
+be a competitor to any similar project.**
 
 # Get started
 
@@ -73,7 +91,14 @@ curl "$e:7777/get_receipt?hash=$h"
 # {"ok":true,"result":123,"type":"python","log":""}
 ```
 
+## More advanced usage: build from source
+
+If you prefer build from source. Check out `build.sh` on *nix and `build.ps1` on
+Windows. Make sure you have `cmake` and internet available, because the script
+will download the dependencies in `./.pre` folder.
+
 # Wanna Know More? 
-Read the Doc! : https://gitee.com/cong-jianer/wch/releases/download/v1.0/wch-doc-20240531.pdf
+Read the Doc! : https://gitee.com/cong-jianer/wch/releases/download/v1.0/wch-latest-doc.pdf
 
 If you have any issues, feel free to contact me at `congjianer@outlook.com` or open an issue.
+

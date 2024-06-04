@@ -86,12 +86,14 @@ cmake --install build-pb --prefix installed-pb
 # Finally we build the chain
 cd ..
 cmake -S weak -B build-weak -DUSE_DYNAMIC_LIBS=1 # for development
-cmake -S weak -B build-weak -DUSE_DYNAMIC_LIBS=0 # for distribution
+# cmake -S weak -B build-weak -DUSE_DYNAMIC_LIBS=0 # for distribution
 cmake --build build-weak/
+'
 v=1.0
 cp build-weak/wch ~/wch-$v-linux-x86_64 -v
 
 # try
 ./build-weak/wch toolbox -h
 ./build-weak/wch toolbox new-keypair out-pk.pem out-sk.pem
+'
 

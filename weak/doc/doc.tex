@@ -449,10 +449,95 @@ cryptographic magic we need for using \Wch{})
 
 
 
+
 \subsection{\texttt{GET /get\_latest\_Blk}}
 
-Get the latest block
+Get the $n$ latest block:
+\begin{table}[h]
+  \caption{Query Parameter of \texttt{GET /get\_latest\_Blk}}
+  \centering
+  \begin{tblr}{|X[1]|X[1]|X[3]|X[1]|}
+    \hline
+    \Cola{Query Param} & \Cola{Type} & \Cola{Description} & \Cola{Optional} \\
+    \hline
+    \texttt{n} & positive integer & get the latest \texttt{n} blocks on the chain.
+    \texttt{n} defaults to 1& yes \\
+    \hline
+  \end{tblr}
+\end{table}
+% \FloatBarrier
+\FloatBarrier                   % \usepackage{placeins}
 
+Example:
+\begin{simplesh}
+# get the latest 2 blocks
+curl http://localhost:7777/get_latest_blk?n=2
+\end{simplesh}
+
+\subsection{\texttt{GET /get\_receipt}}
+
+Get the receipt of a transaction:
+
+\begin{table}[h]
+  \caption{Query Parameter of \texttt{GET /get\_receipt}}
+  \centering
+  \begin{tblr}{|X[1]|X[1]|X[3]|X[1]|}
+    \hline
+    \Cola{Query Param} & \Cola{Type} & \Cola{Description} & \Cola{Optional} \\
+    \hline
+    \texttt{hash} & hex string & the hash of the transaction in hex (so it
+    should be 64-char long) & no \\
+    \hline
+  \end{tblr}
+\end{table}
+
+Example:
+\begin{simplesh}
+curl http://localhost:7777/get_receipt?hash=a46e1806155b08cf95763b2e2dabeebff40859727d07d457d75a23069a66ca15
+\end{simplesh}
+
+\subsection{\texttt{GET /get\_tx}}
+
+Get the transaction by hash:
+
+\begin{table}[h]
+  \caption{Query Parameter of \texttt{GET /get\_tx}}
+  \centering
+  \begin{tblr}{|X[1]|X[1]|X[3]|X[1]|}
+    \hline
+    \Cola{Query Param} & \Cola{Type} & \Cola{Description} & \Cola{Optional} \\
+    \hline
+    \texttt{hash} & hex string & the hash of the transaction in hex (so it
+    should be 64-char long) & no \\
+    \hline
+  \end{tblr}
+\end{table}
+
+Example:
+\begin{simplesh}
+curl http://localhost:7777/get_tx?hash=a46e1806155b08cf95763b2e2dabeebff40859727d07d457d75a23069a66ca15
+\end{simplesh}
+
+\subsection{\texttt{GET /get\_blk}}
+
+Get the \texttt{n}th block:
+
+\begin{table}[h]
+  \caption{Query Parameter of \texttt{GET /get\_blk}}
+  \centering
+  \begin{tblr}{|X[1]|X[1]|X[3]|X[1]|}
+    \hline
+    \Cola{Query Param} & \Cola{Type} & \Cola{Description} & \Cola{Optional} \\
+    \hline
+    \texttt{n} & positive integer & the index of the block. & no \\
+    \hline
+  \end{tblr}
+\end{table}
+
+Example:
+\begin{simplesh}
+curl http://localhost:7777/get_blk?n=1
+\end{simplesh}
 
 \end{document}
 % Local Variables:

@@ -38,7 +38,12 @@ I just realize that we didn't doc how to use ca-tx mode....
 
 1. doc ca tx mode [x]
 2. doc ca tx mode tx [x]
-3. n->listenToGet("/get_latest_Blk",bind(&Rpc::handle_get_latest_Blk,this,_1));
-4. n->listenToGet("/get_receipt",bind(&Rpc::handle_get_receipt,this,_1));
-5. n->listenToGet("/get_tx",bind(&Rpc::handle_get_tx,this,_1));
-6. n->listenToGet("/get_blk",bind(&Rpc::handle_get_Blk,this,_1));
+3. n->listenToGet("/get_latest_Blk",bind(&Rpc::handle_get_latest_Blk,this,_1)); [x]
+4. n->listenToGet("/get_receipt",bind(&Rpc::handle_get_receipt,this,_1));[x]
+5. n->listenToGet("/get_tx",bind(&Rpc::handle_get_tx,this,_1)); [x]
+6. n->listenToGet("/get_blk",bind(&Rpc::handle_get_Blk,this,_1));[x]
+
+7. update doc [x]
+8. zh readme [x]
+9. more readme
+10. how to build

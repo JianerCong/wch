@@ -22,7 +22,7 @@ cd .\.pre\boost_1_84_0
 # calling `b2`, they are in almost equivalent, but the later does the current
 # renaming (by adding the `-s` to the lib)
 
-# build 
+# build
 # -a : rebuild all
 
 # The Boost C++ Libraries were successfully built!
@@ -41,9 +41,9 @@ cd vcpkg
 git checkout 2023.12.12
 cd ..
 .\vcpkg\bootstrap-vcpkg.bat
-# list 
-.\vcpkg\vcpkg.exe --help
-.\vcpkg\vcpkg.exe list
+# list
+# .\vcpkg\vcpkg.exe --help
+# .\vcpkg\vcpkg.exe list
 # .\vcpkg\vcpkg.exe remove boost-test:x64-windows-static
 # .\vcpkg\vcpkg.exe remove boost-json:x64-windows-static
 # .\vcpkg\vcpkg.exe remove boost-program-options:x64-windows-static
@@ -60,9 +60,11 @@ Remove-Item -Recurse build-weak
 cmake -S weak -B build-weak
 cmake --build build-weak --config Release --verbose
 cmake --build build-weak --config Release
+'
 .\build-weak\Release\wch.exe toolbox -h
 .\build-weak\Release\wch.exe toolbox new-keypair
 # --------------------------------------------------
 cmake -S hi -B build
 cmake --build build --config Release
+'
 
