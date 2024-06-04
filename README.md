@@ -20,7 +20,7 @@ get started with blockchain.
 
 **📗️GPLv3: This project is for learning and research purposes only. Please do not
 use it for any commercial purposes. In particular, this project is not designed to
-be a competitor to any similar project.**
+be a competitor to any similar project or project.**
 
 # Get started
 
