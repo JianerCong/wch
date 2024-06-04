@@ -9,7 +9,7 @@ get started with blockchain.
 
 ## Features
 
-+ Compiled binary < 50MB
++ Ready to run binary on Windows x64 and Linux x86/x64 (< 50MB)
 + Three types of Consensus: Raft, PBFT, Solo; PBFT supports dynamic membership.
 + EVM and Python smart contract.
 + Pure data transaction. Easier way to "put data on the chain".
