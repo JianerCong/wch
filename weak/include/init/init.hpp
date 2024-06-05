@@ -30,6 +30,7 @@
 #include <boost/log/expressions.hpp>
 
 #include "toolbox.hpp"
+#include "hold_on.hpp"
 namespace weak{
 
   struct PeerCryptoInfo {
@@ -684,7 +685,8 @@ namespace weak{
                     🦜 : Now we just need to wait
                   */
                   BOOST_LOG_TRIVIAL(info) << format( S_CYAN "🌐️ chain started[any key to quit]" S_NOR);
-                  std::cin.get();
+                  // std::cin.get();
+                  hold_on();    // <2024-06-05 Wed>: 🦜 : Let's wait for the user to press any key to quit. (meanwhile listen to SIGINT|SIGTERM on unix)
 
                   // 🦜 : unset the verbosity to see things turned down.
                   if (o.verbose == "no"){

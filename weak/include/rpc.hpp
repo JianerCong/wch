@@ -281,7 +281,7 @@ namespace weak{
      *
      * @param h The hex of hash
      */
-    static tuple<bool,string> get_receipt(IChainDBGettable * const w, const string & h){
+    static tuple<bool,string> get_re  ceipt(IChainDBGettable * const w, const string & h){
       // 1-2. get the TxOnBlkInfo
       auto [info0, err_msg] = get_txOnBlkInfo(w,h);
       if (not info0)

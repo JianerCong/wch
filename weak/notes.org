@@ -45,8 +45,12 @@ I just realize that we didn't doc how to use ca-tx mode....
 
 7. update doc [x]
 8. zh readme [x]
-9. more readme []
-10. how to build
+9. more readme [x]
+10. how to build [x]
+16. ctrl-c to quit [x]
+12. docker 
 11. draw zh logo
-12. unix socket doc
-13. pb doc
+13. unix socket doc
+14. pb doc
+15. data persist doc
+

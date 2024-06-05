@@ -3,7 +3,7 @@
 [**English**](./README.md) | [**中文**](./README_CN.md)
 
 <!-- # Welcome to Weak chain -->
-# 欢迎使用早链
+# 欢迎来到早链
 <!-- *Weak chain* is a blockchain written in C++20. It's designed to be a working -->
 <!-- private chain that's as simple as possible in the hope that it could help you -->
 <!-- get started with blockchain. -->
@@ -49,8 +49,8 @@ curl http://localhost:7777/get_tx?hash=b06b89b665df6f7ff1be967faf9a0601f71c0a3cd
 # "type":"data","data":"hi"}
 ```
 
-<!-- ## More advanced usage: Python Smart Contract -->
 ## 更高级的用法：Python智能合约
+📗️ :确保您的环境中有`python3`。
 
 ```bash
 # 1. prepare the contract
@@ -100,11 +100,10 @@ curl "$e:7777/get_receipt?hash=$h"
 
 ## 更高级的用法：从源代码构建
 
-<!-- If you prefer build from source. Check out `build.sh` on *nix and `build.ps1` on -->
-<!-- Windows. Make sure you have `cmake` available. -->
-
-如果您更喜欢从源代码构建，在unix平台请查看`build.sh`， 在Windows平台上请查看
-`build.ps1`。开始之前请确保您有互联网以及`cmake`，因为脚本将会下载依赖并放入`./.pre` 文件夹中。
+<!-- If you prefer build from source. Check out `build.sh` on linux or Mac, and `build.ps1` on -->
+<!-- Windows. Make sure you have `cmake` and internet available, because the script -->
+<!-- will create a `./.pre` folder and download some dependencies there. -->
+如果您更喜欢从源代码构建，请查看`build.sh`（Linux或Mac）和`build.ps1`（Windows）。请确保您的计算机上安装了`cmake`和联网，因为脚本会在创建一个`.pre`文件夹，并在里面下载一些依赖项。
 
 <!-- # Wanna Know More?  -->
 <!-- Read the Doc! : https://gitee.com/cong-jianer/wch/releases/download/v1.0/wch-latest-doc.pdf -->

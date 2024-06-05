@@ -47,6 +47,8 @@ curl http://localhost:7777/get_tx?hash=b06b89b665df6f7ff1be967faf9a0601f71c0a3cd
 ```
 
 ## More advanced usage: Python Smart Contract
+📗️ :Make sure you have `python3` in your path.
+
 ```bash
 # 1. prepare the contract
 echo '
@@ -93,9 +95,9 @@ curl "$e:7777/get_receipt?hash=$h"
 
 ## More advanced usage: build from source
 
-If you prefer build from source. Check out `build.sh` on *nix and `build.ps1` on
+If you prefer build from source. Check out `build.sh` on linux or Mac, and `build.ps1` on
 Windows. Make sure you have `cmake` and internet available, because the script
-will download the dependencies in `./.pre` folder.
+will create a `./.pre` folder and download some dependencies there.
 
 # Wanna Know More? 
 Read the Doc! : https://gitee.com/cong-jianer/wch/releases/download/v1.0/wch-latest-doc.pdf
