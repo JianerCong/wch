@@ -42,15 +42,15 @@ I just realize that we didn't doc how to use ca-tx mode....
 4. n->listenToGet("/get_receipt",bind(&Rpc::handle_get_receipt,this,_1));[x]
 5. n->listenToGet("/get_tx",bind(&Rpc::handle_get_tx,this,_1)); [x]
 6. n->listenToGet("/get_blk",bind(&Rpc::handle_get_Blk,this,_1));[x]
-
 7. update doc [x]
 8. zh readme [x]
 9. more readme [x]
 10. how to build [x]
 16. ctrl-c to quit [x]
-12. docker 
+12. docker [x]
+13. doc solo docker, update readme
 11. draw zh logo
 13. unix socket doc
 14. pb doc
 15. data persist doc
-
+16. compose cluster

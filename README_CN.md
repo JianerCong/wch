@@ -16,7 +16,7 @@
 + 三种共识算法：Raft、PBFT、Solo；PBFT支持动态增加节点
 + EVM和Python智能合约
 + 纯数据交易。更简单的“数据上链”
-+ 使用UDP和Protobuf的高效P2P网络
++ 基于UDP和Protobuf的效率型P2P网络
 + 无内置加密货币
 + 内置命令行加密工具箱，帮助您创建和使用数字签名。无需像`openssl`这样的第三方工具。
 

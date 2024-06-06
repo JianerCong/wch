@@ -50,16 +50,17 @@ curl http://localhost:7777/get_tx?hash=b06b89b665df6f7ff1be967faf9a0601f71c0a3cd
 📗️ :Make sure you have `python3` in your path.
 
 ```bash
-# 1. prepare the contract
+mkdir -p tmp
+# 1. prepare the contract (make sure we are in the folder where wch is started if not using docker)
 echo '
 from typing import Any
 def hi(_storage: dict[str, Any], y : int) -> int:
     _storage["x"] = _storage.get("x", 1) + y
     return _storage["x"]
-' > /tmp/tmp.py
+' > tmp/tmp.py
 
 txs='[{"from" : "01","to" : "",
- "data" : "@/tmp/tmp.py",
+ "data" : "@tmp/tmp.py",
  "nonce" : 123,
  "type" : "python"
 }]'
@@ -73,12 +74,12 @@ da=$(echo $out | jq -M -r '.[0] | .deployed_address')
 echo '{
         "method" : "hi",
         "args" : {"y" : 122}
-}' > /tmp/tmp.json
+}' > tmp/tmp.json
 
 txs='[{
     "from" : "01",
     "to" : "'"$da"'",
-    "data" : "@/tmp/tmp.json",
+    "data" : "@tmp/tmp.json",
     "nonce" : 124,
     "type" : "python"
 }]
