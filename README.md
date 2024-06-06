@@ -9,11 +9,11 @@ get started with blockchain.
 
 ## Features
 
-+ Ready to run binary on Windows x64 and Linux x86/x64 (< 50MB)
++ Compiled binary < 50MB (x64 Windows + x86/x64 Linux).
 + Three types of Consensus: Raft, PBFT, Solo; PBFT supports dynamic membership.
 + EVM and Python smart contract.
 + Pure data transaction. Easier way to "put data on the chain".
-+ Efficient P2P network with UDP and Protobuf.
++ Lightweight P2P network with UDP and Protobuf.
 + No built-in crypto currency.
 + Built-in command-line cryptography toolbox to help you create and use digital
   signature. No need for third-party tools like `openssl`.
@@ -30,9 +30,16 @@ wch --port 7777
 # [enter] to quit
 ```
 
+Or start a Solo node in docker
+```bash
+mkdir tmp # for transmitting files
+docker run --rm -it -p 7777:7777 -v $(pwd)/tmp:/tmp cccccje/wch:v1.0
+# [enter] to quit
+```
+
 ## Simple usage: Put some data on the chain:
 ```bash
-# 1.put some data on the chain
+# 1.put some data on the chain (in another terminal)
 txs='[{"type" : "data", "from" : "01", "to" : "", "data" : "hi", "nonce" : 123}]'
 curl --data $txs http://localhost:7777/add_txs
 
@@ -47,11 +54,12 @@ curl http://localhost:7777/get_tx?hash=b06b89b665df6f7ff1be967faf9a0601f71c0a3cd
 ```
 
 ## More advanced usage: Python Smart Contract
-📗️ :Make sure you have `python3` in your path.
+🦜 Note : If you are not using Docker, make sure you have `python3` in your path and
+run the following commands in the folder where `wch` is started.
 
 ```bash
-mkdir -p tmp
-# 1. prepare the contract (make sure we are in the folder where wch is started if not using docker)
+# 1. write the contract (in another terminal, but the same folder)
+mkdir -p tmp # for transmitting files
 echo '
 from typing import Any
 def hi(_storage: dict[str, Any], y : int) -> int:

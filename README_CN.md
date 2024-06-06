@@ -1,4 +1,4 @@
-![Logo](./weak/doc/logo.svg)
+![Logo](./weak/doc/logo_CN.svg)
 
 [**English**](./README.md) | [**中文**](./README_CN.md)
 
@@ -8,15 +8,17 @@
 <!-- private chain that's as simple as possible in the hope that it could help you -->
 <!-- get started with blockchain. -->
 
-早链是一款用C++20编写的区块链。它旨在成为尽可能简单的联盟链，希望它能帮助您扫盲区块链。
+早链是一款用C++20编写的区块链。它旨在成为尽可能简单的私有链，希望它能帮助您扫盲
+或更加了解区块链。
 
 ## 招牌
 
-+ 下载即用的二进制文件，支持Windows x64和Linux x86/x64（< 50MB）
+<!-- + Compiled binary < 50MB (x64 Windows + x86/x64 Linux). -->
++ 编译后的二进制文件<50MB（x64 Windows + x86/x64 Linux）。
 + 三种共识算法：Raft、PBFT、Solo；PBFT支持动态增加节点
 + EVM和Python智能合约
 + 纯数据交易。更简单的“数据上链”
-+ 基于UDP和Protobuf的效率型P2P网络
++ 基于UDP和Protobuf的轻量型P2P网络
 + 无内置加密货币
 + 内置命令行加密工具箱，帮助您创建和使用数字签名。无需像`openssl`这样的第三方工具。
 
@@ -30,6 +32,13 @@
 ```bash
 wch --port 7777
 # 回车退出
+```
+
+或用docker启动一个Solo节点
+```bash
+mkdir tmp # for transmitting files
+docker run --rm -it -p 7777:7777 -v $(pwd)/tmp:/tmp cccccje/wch:v1.0
+# [enter] to quit
 ```
 
 <!-- ## Simple usage: Put some data on the chain: -->
@@ -50,19 +59,23 @@ curl http://localhost:7777/get_tx?hash=b06b89b665df6f7ff1be967faf9a0601f71c0a3cd
 ```
 
 ## 更高级的用法：Python智能合约
-📗️ :确保您的环境中有`python3`。
+<!-- 🦜 Note : If you are not using Docker, make sure you have `python3` in your path and -->
+<!-- run the following commands in the folder where `wch` is started. -->
+
+🦜 注意：如果您没有使用Docker，请确保您的计算机上安装了`python3`，并在启动`wch`的文件夹中运行以下命令。
 
 ```bash
-# 1. prepare the contract
+# 1. write the contract (in another terminal, but the same folder)
+mkdir -p tmp # for transmitting files
 echo '
 from typing import Any
 def hi(_storage: dict[str, Any], y : int) -> int:
     _storage["x"] = _storage.get("x", 1) + y
     return _storage["x"]
-' > /tmp/tmp.py
+' > tmp/tmp.py
 
 txs='[{"from" : "01","to" : "",
- "data" : "@/tmp/tmp.py",
+ "data" : "@tmp/tmp.py",
  "nonce" : 123,
  "type" : "python"
 }]'
@@ -76,12 +89,12 @@ da=$(echo $out | jq -M -r '.[0] | .deployed_address')
 echo '{
         "method" : "hi",
         "args" : {"y" : 122}
-}' > /tmp/tmp.json
+}' > tmp/tmp.json
 
 txs='[{
     "from" : "01",
     "to" : "'"$da"'",
-    "data" : "@/tmp/tmp.json",
+    "data" : "@tmp/tmp.json",
     "nonce" : 124,
     "type" : "python"
 }]
