@@ -48,9 +48,31 @@ I just realize that we didn't doc how to use ca-tx mode....
 10. how to build [x]
 16. ctrl-c to quit [x]
 12. docker [x]
-13. doc solo docker, update readme
-11. draw zh logo
+13. doc solo docker, update readme [x]
+11. draw zh logo [x]
 13. unix socket doc
 14. pb doc
 15. data persist doc
 16. compose cluster
+
+** ads
+
+*Weak Chain* is an open-sourced (GPLv3) private blockchain written in C++20. It's
+designed to be a working private chain that's as simple as possible in the hope
+that it could help you get started with blockchain.
+
+Features
+
++ Compiled binary < 50MB (x64 Windows + x86/x64 Linux).
++ Three types of Consensus: Raft, PBFT, Solo; PBFT supports dynamic membership.
++ EVM and Python smart contract.
++ Pure data transaction. Easier way to "put data on the chain".
++ Lightweight P2P network with UDP and Protobuf.
++ No built-in crypto currency.
++ Built-in command-line cryptography toolbox to help you create and use digital
+  signature. No need for third-party tools like `openssl`.
+
+🦜: Try it out now at https://github.com/JianerCong/wch !
+
+
+*早链* 是一个开源的私有区块链
